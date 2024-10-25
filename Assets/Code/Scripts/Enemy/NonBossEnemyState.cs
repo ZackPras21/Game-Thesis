@@ -1,0 +1,1 @@
+public enum NonBossEnemyState {Attack, Defeated, Walking, Idle}

@@ -1,0 +1,1 @@
+public enum PlayerState { Idle, Run, Dash, Hurt, Attack1, Attack2, Attack3, Parry, ParrySuccess, Interact, SkillAttack, Defeated, DashAttack };
