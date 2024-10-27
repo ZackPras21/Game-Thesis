@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 2533707441511333959}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.084, y: 0.969, z: -0.089}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.43, y: 0.969, z: -0.09}
+  m_LocalScale: {x: 2, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 543896707441329936}
@@ -122,7 +122,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.00537}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -1203,6 +1203,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 42.244675
       objectReference: {fileID: 0}
+    - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 120
+      objectReference: {fileID: 0}
     - target: {fileID: -2830495135425623846, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_Layer
       value: 0
@@ -1595,14 +1599,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   navMeshAgent: {fileID: 8707273861137654613}
   speedWalk: 2
-  speedRun: 3
+  speedRun: 2
   rotationSpeed: 3
   waypoints:
   - {fileID: 0}
   - {fileID: 0}
   patrolRadius: 5
-  viewRadius: 10
-  viewAngle: 60
+  viewRadius: 30
+  viewAngle: 180
   playerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -1615,8 +1619,8 @@ MonoBehaviour:
   enemyHP: 0
   healthBar: {fileID: 8359980924510194894}
   boxCollider: {fileID: 7083142781546743490}
-  startWaitTime: 4
-  timeToRotate: 2
+  startWaitTime: 1
+  timeToRotate: 4
   nonBossEnemyState: 3
   animator: {fileID: 2030732665317957927}
   lootManager: {fileID: 4215898573996737307}
