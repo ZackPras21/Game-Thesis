@@ -23,8 +23,8 @@ public class CreepEnemyData : EnemyData
     public static CreepEnemyData creepEnemyData = new CreepEnemyData();
     public CreepEnemyData()
     {
-        enemyHealth = 120;
-        enemyAttack = 5;
+        enemyHealth = 180;
+        enemyAttack = 3;
         enemySpeed = 5.0f;
         EnemyType = EnemyType.Creep;
     }
@@ -46,8 +46,8 @@ public class Medium1EnemyData : EnemyData
     public static Medium1EnemyData medium1EnemyData = new Medium1EnemyData();
     public Medium1EnemyData()
     {
-        enemyHealth = 150;
-        enemyAttack = 8;
+        enemyHealth = 250;
+        enemyAttack = 6;
         enemySpeed = 8.0f;
         EnemyType = EnemyType.Medium1;
     }
@@ -58,8 +58,8 @@ public class Medium2EnemyData : EnemyData
     public static Medium2EnemyData medium2EnemyData = new Medium2EnemyData();
     public Medium2EnemyData()
     {
-        enemyHealth = 200;
-        enemyAttack = 12;
+        enemyHealth = 400;
+        enemyAttack = 10;
         enemySpeed = 6.0f;
         EnemyType = EnemyType.Medium2;
     }
@@ -69,8 +69,8 @@ public class BossEnemyData : EnemyData
     public static BossEnemyData boss2EnemyData = new BossEnemyData();
     public BossEnemyData()
     {
-        enemyHealth = 200;
-        enemyAttack = 25;
+        enemyHealth = 1000;
+        enemyAttack = 18;
         enemySpeed = 6.0f;
         EnemyType = EnemyType.Boss;
     }
