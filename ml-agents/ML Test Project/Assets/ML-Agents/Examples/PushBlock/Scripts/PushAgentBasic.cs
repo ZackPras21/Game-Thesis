@@ -51,6 +51,9 @@ public class PushAgentBasic : Agent
 
     EnvironmentParameters m_ResetParams;
 
+    Vector3 lastPosition;
+    int stuckCounter = 0;
+
     protected override void Awake()
     {
         base.Awake();
@@ -107,7 +110,7 @@ public class PushAgentBasic : Agent
     public void ScoredAGoal()
     {
         // We use a reward of 5.
-        AddReward(5f);
+        AddReward(8f);
 
         // By marking an agent as done AgentReset() will be called automatically.
         EndEpisode();
@@ -139,13 +142,13 @@ public class PushAgentBasic : Agent
         switch (action)
         {
             case 1:
-                dirToGo = transform.forward * 1f;
+                dirToGo = transform.forward * 2f;
                 break;
             case 2:
                 dirToGo = transform.forward * -1f;
                 break;
             case 3:
-                rotateDir = transform.up * 1f;
+                rotateDir = transform.up * 2f;
                 break;
             case 4:
                 rotateDir = transform.up * -1f;
@@ -154,7 +157,7 @@ public class PushAgentBasic : Agent
                 dirToGo = transform.right * -0.75f;
                 break;
             case 6:
-                dirToGo = transform.right * 0.75f;
+                dirToGo = transform.right * 1.75f;
                 break;
         }
         transform.Rotate(rotateDir, Time.fixedDeltaTime * 200f);
@@ -166,14 +169,32 @@ public class PushAgentBasic : Agent
     /// Called every step of the engine. Here the agent takes an action.
     /// </summary>
     public override void OnActionReceived(ActionBuffers actionBuffers)
-
     {
-        // Move the agent using the action.
         MoveAgent(actionBuffers.DiscreteActions);
 
-        // Penalty given each step to encourage agent to finish task quickly.
-        AddReward(-1f / MaxStep);
+        // Time penalty to encourage movement
+        AddReward(-0.01f);
+
+        // Check if agent is stuck
+        if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
+        {
+            stuckCounter++;
+        }
+        else
+        {
+            stuckCounter = 0;
+        }
+
+        lastPosition = transform.position;
+
+        // If stuck for too long, reset the episode
+        if (stuckCounter > 50)
+        {
+            AddReward(-0.3f); // Penalize for getting stuck
+            EndEpisode();    // Reset the environment
+        }
     }
+
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {

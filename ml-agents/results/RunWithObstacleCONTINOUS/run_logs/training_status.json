@@ -1,0 +1,65 @@
+{
+    "PushBlock": {
+        "checkpoints": [
+            {
+                "steps": 4614704,
+                "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-4614704.onnx",
+                "reward": 0.07285725218909127,
+                "creation_time": 1741110037.3793504,
+                "auxillary_file_paths": [
+                    "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-4614704.pt"
+                ]
+            },
+            {
+                "steps": 4999977,
+                "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-4999977.onnx",
+                "reward": -1.215555402967665,
+                "creation_time": 1741112619.0165865,
+                "auxillary_file_paths": [
+                    "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-4999977.pt"
+                ]
+            },
+            {
+                "steps": 5499976,
+                "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-5499976.onnx",
+                "reward": -0.007777651151021321,
+                "creation_time": 1741113727.955094,
+                "auxillary_file_paths": [
+                    "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-5499976.pt"
+                ]
+            },
+            {
+                "steps": 5999997,
+                "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-5999997.onnx",
+                "reward": -0.399999737739563,
+                "creation_time": 1741117556.1946082,
+                "auxillary_file_paths": [
+                    "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-5999997.pt"
+                ]
+            },
+            {
+                "steps": 6000007,
+                "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-6000007.onnx",
+                "reward": 1.2400001684824626,
+                "creation_time": 1741117556.412146,
+                "auxillary_file_paths": [
+                    "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-6000007.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 6000007,
+            "file_path": "results\\RunWithObstacleNOTCONTINOUS\\PushBlock.onnx",
+            "reward": 1.2400001684824626,
+            "creation_time": 1741117556.412146,
+            "auxillary_file_paths": [
+                "results\\RunWithObstacleNOTCONTINOUS\\PushBlock\\PushBlock-6000007.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}
