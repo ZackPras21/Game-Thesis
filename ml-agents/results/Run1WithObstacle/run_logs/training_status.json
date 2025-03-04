@@ -1,0 +1,56 @@
+{
+    "PushBlock": {
+        "checkpoints": [
+            {
+                "steps": 499942,
+                "file_path": "results\\Run1WithObstacle\\PushBlock\\PushBlock-499942.onnx",
+                "reward": -1.0,
+                "creation_time": 1741079679.6518376,
+                "auxillary_file_paths": [
+                    "results\\Run1WithObstacle\\PushBlock\\PushBlock-499942.pt"
+                ]
+            },
+            {
+                "steps": 999999,
+                "file_path": "results\\Run1WithObstacle\\PushBlock\\PushBlock-999999.onnx",
+                "reward": -0.9986333511769772,
+                "creation_time": 1741080758.448227,
+                "auxillary_file_paths": [
+                    "results\\Run1WithObstacle\\PushBlock\\PushBlock-999999.pt"
+                ]
+            },
+            {
+                "steps": 1499948,
+                "file_path": "results\\Run1WithObstacle\\PushBlock\\PushBlock-1499948.onnx",
+                "reward": null,
+                "creation_time": 1741081866.2421224,
+                "auxillary_file_paths": [
+                    "results\\Run1WithObstacle\\PushBlock\\PushBlock-1499948.pt"
+                ]
+            },
+            {
+                "steps": 1662713,
+                "file_path": "results\\Run1WithObstacle\\PushBlock\\PushBlock-1662713.onnx",
+                "reward": null,
+                "creation_time": 1741082235.6739533,
+                "auxillary_file_paths": [
+                    "results\\Run1WithObstacle\\PushBlock\\PushBlock-1662713.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1662713,
+            "file_path": "results\\Run1WithObstacle\\PushBlock.onnx",
+            "reward": null,
+            "creation_time": 1741082235.6739533,
+            "auxillary_file_paths": [
+                "results\\Run1WithObstacle\\PushBlock\\PushBlock-1662713.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cpu"
+    }
+}
