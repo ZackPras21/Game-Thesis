@@ -2,7 +2,7 @@ behaviors:
   PushBlock:
     trainer_type: sac
     hyperparameters:
-      learning_rate: 0.0003
+      learning_rate: 0.003
       learning_rate_schedule: constant
       batch_size: 128
       buffer_size: 50000
@@ -22,6 +22,6 @@ behaviors:
         gamma: 0.99
         strength: 1.0
     keep_checkpoints: 5
-    max_steps: 2000000
+    max_steps: 40000000
     time_horizon: 64
     summary_freq: 100000
