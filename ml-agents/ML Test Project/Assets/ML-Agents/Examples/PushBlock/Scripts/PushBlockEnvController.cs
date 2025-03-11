@@ -43,15 +43,18 @@ public class PushBlockEnvController : MonoBehaviour
     /// The ground. The bounds are used to spawn the elements.
     /// </summary>
     public GameObject ground;
+    public GameObject wall;
 
     public GameObject area;
 
     Material m_GroundMaterial; //cached on Awake()
+    Material m_WallMaterial;
 
     /// <summary>
     /// We will be changing the ground material based on success/failue
     /// </summary>
     Renderer m_GroundRenderer;
+    Renderer m_WallRenderer;
 
     //List of Agents On Platform
     public List<PlayerInfo> AgentsList = new List<PlayerInfo>();

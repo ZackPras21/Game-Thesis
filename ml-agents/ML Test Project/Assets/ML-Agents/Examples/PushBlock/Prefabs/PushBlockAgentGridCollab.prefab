@@ -161,9 +161,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 08b0868ecda3c8845a8309b84c688252, type: 3}
+  m_Model: {fileID: 5022602860645237092, guid: 75bce7bdc50ab40a09ede6f8d3a70a5b, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: PushBlockCollab
   TeamId: 0
   m_UseChildSensors: 1

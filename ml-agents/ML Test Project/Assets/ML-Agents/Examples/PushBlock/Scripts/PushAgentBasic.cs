@@ -11,7 +11,7 @@ public class PushAgentBasic : Agent
     /// The ground. The bounds are used to spawn the elements.
     /// </summary>
     public GameObject ground;
-
+    public GameObject wall;
     public GameObject area;
 
     /// <summary>
@@ -43,11 +43,13 @@ public class PushAgentBasic : Agent
     Rigidbody m_BlockRb;  //cached on initialization
     Rigidbody m_AgentRb;  //cached on initialization
     Material m_GroundMaterial; //cached on Awake()
+    Material m_WallMaterial;
 
     /// <summary>
     /// We will be changing the ground material based on success/failue
     /// </summary>
     Renderer m_GroundRenderer;
+    Renderer m_WallRenderer;
 
     EnvironmentParameters m_ResetParams;
 
@@ -73,8 +75,11 @@ public class PushAgentBasic : Agent
         areaBounds = ground.GetComponent<Collider>().bounds;
         // Get the ground renderer so we can change the material when a goal is scored
         m_GroundRenderer = ground.GetComponent<Renderer>();
+        // Get Wall Renderer
+        m_WallRenderer = wall.GetComponent<Renderer>();
         // Starting material
         m_GroundMaterial = m_GroundRenderer.material;
+        m_WallMaterial = m_WallRenderer.material;
 
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
@@ -135,7 +140,6 @@ public class PushAgentBasic : Agent
     public void MoveAgent(ActionSegment<int> act)
     {
         var dirToGo = Vector3.zero;
-        var rotateDir = Vector3.zero;
 
         var action = act[0];
 
@@ -148,19 +152,12 @@ public class PushAgentBasic : Agent
                 dirToGo = transform.forward * -1f;
                 break;
             case 3:
-                rotateDir = transform.up * 2f;
-                break;
-            case 4:
-                rotateDir = transform.up * -1f;
-                break;
-            case 5:
                 dirToGo = transform.right * -0.75f;
                 break;
-            case 6:
+            case 4:
                 dirToGo = transform.right * 1.75f;
                 break;
         }
-        transform.Rotate(rotateDir, Time.fixedDeltaTime * 200f);
         m_AgentRb.AddForce(dirToGo * m_PushBlockSettings.agentRunSpeed,
             ForceMode.VelocityChange);
     }
@@ -172,10 +169,10 @@ public class PushAgentBasic : Agent
     {
         MoveAgent(actionBuffers.DiscreteActions);
 
-        // Time penalty to encourage movement
+        // Existing time penalty
         AddReward(-0.01f);
 
-        // Check if agent is stuck
+        // Existing stuck-check logic
         if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
         {
             stuckCounter++;
@@ -184,17 +181,65 @@ public class PushAgentBasic : Agent
         {
             stuckCounter = 0;
         }
-
         lastPosition = transform.position;
 
-        // If stuck for too long, reset the episode
         if (stuckCounter > 50)
         {
-            AddReward(-0.3f); // Penalize for getting stuck
-            EndEpisode();    // Reset the environment
+            AddReward(-0.3f);
+            EndEpisode();
+        }
+
+        // New: Wall avoidance penalty system
+        AddWallAvoidancePenalty();
+    }
+
+    private void AddWallAvoidancePenalty()
+    {
+        // Agent-wall penalty
+        Vector3 agentPos = transform.position;
+        float agentSafetyMargin = 1.5f;
+        AddDirectionalPenalty(agentPos, m_AgentRb.linearVelocity, agentSafetyMargin, -0.1f);
+
+        // Block-wall penalty
+        Vector3 blockPos = block.transform.position;
+        float blockSafetyMargin = 2.0f;
+        AddDirectionalPenalty(blockPos, m_BlockRb.linearVelocity, blockSafetyMargin, -0.2f);
+    }
+
+    private void AddDirectionalPenalty(Vector3 position, Vector3 velocity, float margin, float penalty)
+    {
+        float distToMinX = position.x - areaBounds.min.x;
+        float distToMaxX = areaBounds.max.x - position.x;
+        float closestX = Mathf.Min(distToMinX, distToMaxX);
+
+        float distToMinZ = position.z - areaBounds.min.z;
+        float distToMaxZ = areaBounds.max.z - position.z;
+        float closestZ = Mathf.Min(distToMinZ, distToMaxZ);
+
+        float closestDist = Mathf.Min(closestX, closestZ);
+
+        if (closestDist < margin)
+        {
+            Vector3 wallDir = GetWallDirection(position, closestDist, closestX, distToMinX, distToMinZ);
+            float velocityAlignment = Vector3.Dot(velocity.normalized, wallDir);
+
+            if (velocityAlignment > 0.5f)
+            {
+                AddReward(penalty);
+            }
         }
     }
 
+    private Vector3 GetWallDirection(Vector3 position, float closestDist, float closestX, float distToMinX, float distToMinZ)
+    {
+        if (closestDist == closestX)
+        {
+            return (distToMinX < (areaBounds.max.x - position.x)) ?
+                Vector3.left : Vector3.right;
+        }
+        return (distToMinZ < (areaBounds.max.z - position.z)) ?
+            Vector3.back : Vector3.forward;
+    }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
@@ -238,10 +283,6 @@ public class PushAgentBasic : Agent
     /// </summary>
     public override void OnEpisodeBegin()
     {
-        var rotation = Random.Range(0, 4);
-        var rotationAngle = rotation * 90f;
-        area.transform.Rotate(new Vector3(0f, rotationAngle, 0f));
-
         ResetBlock();
         transform.position = GetRandomSpawnPos();
         m_AgentRb.linearVelocity = Vector3.zero;

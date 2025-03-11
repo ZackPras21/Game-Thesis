@@ -1,0 +1,47 @@
+{
+    "PushBlock": {
+        "checkpoints": [
+            {
+                "steps": 499987,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-499987.onnx",
+                "reward": -0.4064864951211053,
+                "creation_time": 1741582573.353962,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-499987.pt"
+                ]
+            },
+            {
+                "steps": 999991,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-999991.onnx",
+                "reward": 0.013703743616739908,
+                "creation_time": 1741583811.4072917,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-999991.pt"
+                ]
+            },
+            {
+                "steps": 1442590,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.onnx",
+                "reward": -0.4850000057901655,
+                "creation_time": 1741585044.123342,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1442590,
+            "file_path": "results\\RunWithWallNeg\\PushBlock.onnx",
+            "reward": -0.4850000057901655,
+            "creation_time": 1741585044.123342,
+            "auxillary_file_paths": [
+                "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cpu"
+    }
+}
