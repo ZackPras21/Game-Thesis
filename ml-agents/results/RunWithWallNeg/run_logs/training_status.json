@@ -2,40 +2,58 @@
     "PushBlock": {
         "checkpoints": [
             {
-                "steps": 499987,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-499987.onnx",
-                "reward": -0.4064864951211053,
-                "creation_time": 1741582573.353962,
+                "steps": 1999995,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-1999995.onnx",
+                "reward": 4.586363606380694,
+                "creation_time": 1741679987.3813536,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-499987.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-1999995.pt"
                 ]
             },
             {
-                "steps": 999991,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-999991.onnx",
-                "reward": 0.013703743616739908,
-                "creation_time": 1741583811.4072917,
+                "steps": 2499956,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-2499956.onnx",
+                "reward": 4.382222493489583,
+                "creation_time": 1741680888.5315585,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-999991.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-2499956.pt"
                 ]
             },
             {
-                "steps": 1442590,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.onnx",
-                "reward": -0.4850000057901655,
-                "creation_time": 1741585044.123342,
+                "steps": 2999995,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-2999995.onnx",
+                "reward": 2.0161540737518897,
+                "creation_time": 1741681792.509681,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-2999995.pt"
+                ]
+            },
+            {
+                "steps": 3499955,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-3499955.onnx",
+                "reward": 4.928181900219484,
+                "creation_time": 1741682812.4232867,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-3499955.pt"
+                ]
+            },
+            {
+                "steps": 3661845,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.onnx",
+                "reward": 3.168000139296055,
+                "creation_time": 1741683225.3227296,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 1442590,
+            "steps": 3661845,
             "file_path": "results\\RunWithWallNeg\\PushBlock.onnx",
-            "reward": -0.4850000057901655,
-            "creation_time": 1741585044.123342,
+            "reward": 3.168000139296055,
+            "creation_time": 1741683225.3227296,
             "auxillary_file_paths": [
-                "results\\RunWithWallNeg\\PushBlock\\PushBlock-1442590.pt"
+                "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.pt"
             ]
         }
     },
