@@ -2,64 +2,64 @@
     "PushBlock": {
         "checkpoints": [
             {
-                "steps": 1999995,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-1999995.onnx",
-                "reward": 4.586363606380694,
-                "creation_time": 1741679987.3813536,
+                "steps": 4951329,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-4951329.onnx",
+                "reward": 5.724509814206292,
+                "creation_time": 1741761630.7579362,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-1999995.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-4951329.pt"
                 ]
             },
             {
-                "steps": 2499956,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-2499956.onnx",
-                "reward": 4.382222493489583,
-                "creation_time": 1741680888.5315585,
+                "steps": 4999999,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-4999999.onnx",
+                "reward": 4.211052756560476,
+                "creation_time": 1741762378.8895092,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-2499956.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-4999999.pt"
                 ]
             },
             {
-                "steps": 2999995,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-2999995.onnx",
-                "reward": 2.0161540737518897,
-                "creation_time": 1741681792.509681,
+                "steps": 5499991,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-5499991.onnx",
+                "reward": 5.76933331489563,
+                "creation_time": 1741762981.225016,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-2999995.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-5499991.pt"
                 ]
             },
             {
-                "steps": 3499955,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-3499955.onnx",
-                "reward": 4.928181900219484,
-                "creation_time": 1741682812.4232867,
+                "steps": 5999953,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-5999953.onnx",
+                "reward": 5.770909135991877,
+                "creation_time": 1741763544.3691654,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-3499955.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-5999953.pt"
                 ]
             },
             {
-                "steps": 3661845,
-                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.onnx",
-                "reward": 3.168000139296055,
-                "creation_time": 1741683225.3227296,
+                "steps": 6000005,
+                "file_path": "results\\RunWithWallNeg\\PushBlock\\PushBlock-6000005.onnx",
+                "reward": 5.690833409627278,
+                "creation_time": 1741763544.4308925,
                 "auxillary_file_paths": [
-                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.pt"
+                    "results\\RunWithWallNeg\\PushBlock\\PushBlock-6000005.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 3661845,
+            "steps": 6000005,
             "file_path": "results\\RunWithWallNeg\\PushBlock.onnx",
-            "reward": 3.168000139296055,
-            "creation_time": 1741683225.3227296,
+            "reward": 5.690833409627278,
+            "creation_time": 1741763544.4308925,
             "auxillary_file_paths": [
-                "results\\RunWithWallNeg\\PushBlock\\PushBlock-3661845.pt"
+                "results\\RunWithWallNeg\\PushBlock\\PushBlock-6000005.pt"
             ]
         }
     },
     "metadata": {
         "stats_format_version": "0.3.0",
         "mlagents_version": "1.1.0",
-        "torch_version": "2.2.2+cpu"
+        "torch_version": "2.2.2+cu121"
     }
 }

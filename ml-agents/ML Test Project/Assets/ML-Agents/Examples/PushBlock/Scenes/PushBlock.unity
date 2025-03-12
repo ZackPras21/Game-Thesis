@@ -6789,12 +6789,12 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Model
       value: 
-      objectReference: {fileID: 5022602860645237092, guid: 75bce7bdc50ab40a09ede6f8d3a70a5b,
+      objectReference: {fileID: 5022602860645237092, guid: 1c25c6bdd4c8a464d83c8a8fe4d57577,
         type: 3}
     - target: {fileID: 114306175693660464, guid: 03bcc81e249714a22bb411dddcc5d15e,
         type: 3}
       propertyPath: m_BehaviorType
-      value: 0
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 114306175693660464, guid: 03bcc81e249714a22bb411dddcc5d15e,
         type: 3}
