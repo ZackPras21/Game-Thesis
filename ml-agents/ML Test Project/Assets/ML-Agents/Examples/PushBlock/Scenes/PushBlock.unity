@@ -7469,12 +7469,12 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Model
       value: 
-      objectReference: {fileID: 5022602860645237092, guid: 352c244d0097b5f40b37d2c558093f7f,
+      objectReference: {fileID: 5022602860645237092, guid: 1c25c6bdd4c8a464d83c8a8fe4d57577,
         type: 3}
     - target: {fileID: 114306175693660464, guid: 03bcc81e249714a22bb411dddcc5d15e,
         type: 3}
       propertyPath: m_BehaviorType
-      value: 2
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 114306175693660464, guid: 03bcc81e249714a22bb411dddcc5d15e,
         type: 3}
@@ -9178,7 +9178,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   agentRunSpeed: 3
-  spawnAreaMarginMultiplier: 0.5
   goalScoredMaterial: {fileID: 2100000, guid: df32cc593804f42df97464dc455057b8, type: 2}
   failMaterial: {fileID: 2100000, guid: a1daf31cdf41e484ca9ac33a5c6f524a, type: 2}
 --- !u!1 &1609996474
