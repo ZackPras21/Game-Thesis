@@ -1,0 +1,56 @@
+{
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    },
+    "PushBlock": {
+        "checkpoints": [
+            {
+                "steps": 499998,
+                "file_path": "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-499998.onnx",
+                "reward": 7.159999847412109,
+                "creation_time": 1741882251.5127926,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-499998.pt"
+                ]
+            },
+            {
+                "steps": 523299,
+                "file_path": "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-523299.onnx",
+                "reward": -3.1348780131921536,
+                "creation_time": 1741882407.2778068,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-523299.pt"
+                ]
+            },
+            {
+                "steps": 677533,
+                "file_path": "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-677533.onnx",
+                "reward": -1.426666571980431,
+                "creation_time": 1741883574.301017,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-677533.pt"
+                ]
+            },
+            {
+                "steps": 741458,
+                "file_path": "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-741458.onnx",
+                "reward": -0.4819997787475586,
+                "creation_time": 1741886430.425514,
+                "auxillary_file_paths": [
+                    "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-741458.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 741458,
+            "file_path": "results\\RunWithWallNegUpdt\\PushBlock.onnx",
+            "reward": -0.4819997787475586,
+            "creation_time": 1741886430.425514,
+            "auxillary_file_paths": [
+                "results\\RunWithWallNegUpdt\\PushBlock\\PushBlock-741458.pt"
+            ]
+        }
+    }
+}

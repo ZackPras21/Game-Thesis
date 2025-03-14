@@ -152,10 +152,10 @@ public class PushAgentBasic : Agent
                 dirToGo = transform.forward * -1f;
                 break;
             case 3:
-                dirToGo = transform.right * -0.75f;
+                dirToGo = transform.right * 2f;
                 break;
             case 4:
-                dirToGo = transform.right * 1.75f;
+                dirToGo = transform.right * -1f;
                 break;
         }
         m_AgentRb.AddForce(dirToGo * m_PushBlockSettings.agentRunSpeed,
@@ -170,7 +170,7 @@ public class PushAgentBasic : Agent
         MoveAgent(actionBuffers.DiscreteActions);
 
         // Existing time penalty
-        AddReward(-0.01f);
+        AddReward(-0.03f);
 
         // Existing stuck-check logic
         if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
@@ -195,35 +195,35 @@ public class PushAgentBasic : Agent
 
     private void AddWallAvoidancePenalty()
     {
-        // Agent-wall penalty
-        Vector3 agentPos = transform.position;
-        float agentSafetyMargin = 1.5f;
-        AddDirectionalPenalty(agentPos, m_AgentRb.linearVelocity, agentSafetyMargin, -0.1f);
+        // For the agent:
+        AddImprovedWallPenalty(transform.position, m_AgentRb.linearVelocity, 1.5f, -0.5f);
 
-        // Block-wall penalty
-        Vector3 blockPos = block.transform.position;
-        float blockSafetyMargin = 2.0f;
-        AddDirectionalPenalty(blockPos, m_BlockRb.linearVelocity, blockSafetyMargin, -0.2f);
+        // For the block:
+        AddImprovedWallPenalty(block.transform.position, m_BlockRb.linearVelocity, 2.0f, -1.0f);
     }
 
-    private void AddDirectionalPenalty(Vector3 position, Vector3 velocity, float margin, float penalty)
+    private void AddImprovedWallPenalty(Vector3 position, Vector3 velocity, float margin, float penalty)
     {
-        float distToMinX = position.x - areaBounds.min.x;
-        float distToMaxX = areaBounds.max.x - position.x;
-        float closestX = Mathf.Min(distToMinX, distToMaxX);
+        // Calculate the offset from the center of the area
+        Vector3 offset = position - areaBounds.center;
+        float halfWidth = areaBounds.extents.x;
+        float halfDepth = areaBounds.extents.z;
 
-        float distToMinZ = position.z - areaBounds.min.z;
-        float distToMaxZ = areaBounds.max.z - position.z;
-        float closestZ = Mathf.Min(distToMinZ, distToMaxZ);
-
-        float closestDist = Mathf.Min(closestX, closestZ);
-
-        if (closestDist < margin)
+        // Check for x-axis boundaries
+        if (Mathf.Abs(offset.x) > halfWidth - margin)
         {
-            Vector3 wallDir = GetWallDirection(position, closestDist, closestX, distToMinX, distToMinZ);
-            float velocityAlignment = Vector3.Dot(velocity.normalized, wallDir);
+            // If moving further outwards on the x-axis, penalize
+            if ((offset.x > 0 && velocity.x > 0) || (offset.x < 0 && velocity.x < 0))
+            {
+                AddReward(penalty);
+            }
+        }
 
-            if (velocityAlignment > 0.5f)
+        // Check for z-axis boundaries
+        if (Mathf.Abs(offset.z) > halfDepth - margin)
+        {
+            // If moving further outwards on the z-axis, penalize
+            if ((offset.z > 0 && velocity.z > 0) || (offset.z < 0 && velocity.z < 0))
             {
                 AddReward(penalty);
             }
