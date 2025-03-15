@@ -3547,8 +3547,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 128240.57, y: 200, z: 2600}
-  m_Center: {x: -8618.31, y: 50.000004, z: -1.3596302e-13}
+  m_Size: {x: 67768.97, y: 200, z: 2600}
+  m_Center: {x: 21617.54, y: 50.000004, z: 1.2269916e-15}
 --- !u!65 &659137729
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -5622,8 +5622,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 152330.89, y: 200, z: 2600}
-  m_Center: {x: -10354.194, y: 50.000004, z: 1.9641911e-13}
+  m_Size: {x: 78562.95, y: 200, z: 2600}
+  m_Center: {x: 26529.836, y: 50.000004, z: 2.4758732e-14}
 --- !u!65 &1114016518
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -7469,7 +7469,7 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Model
       value: 
-      objectReference: {fileID: 5022602860645237092, guid: 1c25c6bdd4c8a464d83c8a8fe4d57577,
+      objectReference: {fileID: 5022602860645237092, guid: 73728b5cbc5289343b0b2cc8e93130b0,
         type: 3}
     - target: {fileID: 114306175693660464, guid: 03bcc81e249714a22bb411dddcc5d15e,
         type: 3}
@@ -9144,7 +9144,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec51f47c5ed0478080c449c74fd9c154, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gravityMultiplier: 3
+  gravityMultiplier: 2.5
   fixedDeltaTime: 0.02
   maximumDeltaTime: 0.33333334
   solverIterations: 6
@@ -9177,7 +9177,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5ed63dbfa25542ecb8bc013adfba183, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  agentRunSpeed: 3
+  agentRunSpeed: 2
   goalScoredMaterial: {fileID: 2100000, guid: df32cc593804f42df97464dc455057b8, type: 2}
   failMaterial: {fileID: 2100000, guid: a1daf31cdf41e484ca9ac33a5c6f524a, type: 2}
 --- !u!1 &1609996474
