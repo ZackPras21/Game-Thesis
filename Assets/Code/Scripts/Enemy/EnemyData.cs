@@ -70,7 +70,7 @@ public class BossEnemyData : EnemyData
     public BossEnemyData()
     {
         enemyHealth = 1000;
-        enemyAttack = 18;
+        enemyAttack = 16;
         enemySpeed = 4.0f;
         EnemyType = EnemyType.Boss;
     }
