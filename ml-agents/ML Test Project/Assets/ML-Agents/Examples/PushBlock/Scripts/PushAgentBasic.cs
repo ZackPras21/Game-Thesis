@@ -215,7 +215,7 @@ public class PushAgentBasic : Agent
         MoveAgent(actionBuffers.DiscreteActions);
 
         // Existing time penalty
-        AddReward(-0.03f);
+        AddReward(-0.01f);
 
         // Existing stuck-check logic
         if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
@@ -241,10 +241,10 @@ public class PushAgentBasic : Agent
     private void AddWallAvoidancePenalty()
     {
         // For the agent:
-        AddImprovedWallPenalty(transform.position, m_AgentRb.linearVelocity, 1.5f, -0.5f);
+        AddImprovedWallPenalty(transform.position, m_AgentRb.linearVelocity, 1.5f, -0.1f);
 
         // For the block:
-        AddImprovedWallPenalty(block.transform.position, m_BlockRb.linearVelocity, 2.0f, -1.0f);
+        AddImprovedWallPenalty(block.transform.position, m_BlockRb.linearVelocity, 2.0f, -0.2f);
     }
 
     private void AddImprovedWallPenalty(Vector3 position, Vector3 velocity, float margin, float penalty)

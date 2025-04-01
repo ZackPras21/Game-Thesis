@@ -1,30 +1,19 @@
+using Unity.MLAgents;
 using UnityEngine;
 
 public class PushBlockSettings : MonoBehaviour
 {
-    /// <summary>
-    /// The "walking speed" of the agents in the scene.
-    /// </summary>
+    // Remove this line:
+    // public float spawnAreaMarginMultiplier; 
+
+    // Add this property to read from Academy parameters:
+    public float spawnAreaMarginMultiplier
+    {
+        get { return Academy.Instance.EnvironmentParameters.GetWithDefault("spawnAreaMarginMultiplier", 0.9f); }
+    }
+
+    // Keep other fields unchanged:
     public float agentRunSpeed;
- 
-
-    /// <summary>
-    /// The spawn area margin multiplier.
-    /// ex: .9 means 90% of spawn area will be used.
-    /// .1 margin will be left (so players don't spawn off of the edge).
-    /// The higher this value, the longer training time required.
-    /// </summary>
-    public float spawnAreaMarginMultiplier;
-
-    /// <summary>
-    /// When a goal is scored the ground will switch to this
-    /// material for a few seconds.
-    /// </summary>
     public Material goalScoredMaterial;
-
-    /// <summary>
-    /// When an agent fails, the ground will turn this material for a few seconds.
-    /// </summary>
     public Material failMaterial;
-
 }

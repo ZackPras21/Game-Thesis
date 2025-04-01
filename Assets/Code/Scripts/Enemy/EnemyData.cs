@@ -23,9 +23,9 @@ public class CreepEnemyData : EnemyData
     public static CreepEnemyData creepEnemyData = new CreepEnemyData();
     public CreepEnemyData()
     {
-        enemyHealth = 180;
-        enemyAttack = 3;
-        enemySpeed = 5.0f;
+        enemyHealth = 150;
+        enemyAttack = 4;
+        enemySpeed = 8.0f;
         EnemyType = EnemyType.Creep;
     }
     // Properti statis Instance untuk mendapatkan instance CreepEnemyData
@@ -48,7 +48,7 @@ public class Medium1EnemyData : EnemyData
     {
         enemyHealth = 250;
         enemyAttack = 6;
-        enemySpeed = 8.0f;
+        enemySpeed = 6.0f;
         EnemyType = EnemyType.Medium1;
     }
 }
@@ -60,7 +60,7 @@ public class Medium2EnemyData : EnemyData
     {
         enemyHealth = 400;
         enemyAttack = 10;
-        enemySpeed = 6.0f;
+        enemySpeed = 4.0f;
         EnemyType = EnemyType.Medium2;
     }
 }
@@ -71,7 +71,7 @@ public class BossEnemyData : EnemyData
     {
         enemyHealth = 1000;
         enemyAttack = 18;
-        enemySpeed = 6.0f;
+        enemySpeed = 4.0f;
         EnemyType = EnemyType.Boss;
     }
 
