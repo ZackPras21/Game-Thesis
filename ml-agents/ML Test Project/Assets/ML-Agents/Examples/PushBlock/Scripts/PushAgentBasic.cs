@@ -4,6 +4,7 @@ using System.Collections;
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Sensors;
 
 public class PushAgentBasic : Agent
 {
@@ -83,6 +84,14 @@ public class PushAgentBasic : Agent
 
         m_ResetParams = Academy.Instance.EnvironmentParameters;
 
+        // Ensure all critical references exist
+        if (ground == null || block == null || goal == null ||
+            m_AgentRb == null || m_BlockRb == null)
+        {
+            Debug.LogError("Missing references in CollectObservations!");
+            return;
+        }
+
         SetResetParameters();
     }
 
@@ -160,6 +169,42 @@ public class PushAgentBasic : Agent
         }
         m_AgentRb.AddForce(dirToGo * m_PushBlockSettings.agentRunSpeed,
             ForceMode.VelocityChange);
+    }
+
+    public override void CollectObservations(VectorSensor sensor)
+    {
+        if (!useVectorObs) return;
+
+        // Add null checks for critical references
+        if (ground == null || block == null || goal == null ||
+            m_AgentRb == null || m_BlockRb == null)
+        {
+            Debug.LogError("Missing references in CollectObservations!");
+            return;
+        }
+
+        // Agent and block positions (FIXED TYPOS)
+        sensor.AddObservation(transform.position - ground.transform.position);
+        sensor.AddObservation(block.transform.position - ground.transform.position);
+        sensor.AddObservation(goal.transform.position - ground.transform.position);
+
+        // Verify areaBounds initialization
+        if (ground.GetComponent<Collider>() == null)
+        {
+            Debug.LogError("Ground missing Collider component!");
+            return;
+        }
+        areaBounds = ground.GetComponent<Collider>().bounds;
+
+        // Distance to walls (normalized)
+        sensor.AddObservation((transform.position.x - areaBounds.min.x) / areaBounds.size.x);
+        sensor.AddObservation((areaBounds.max.x - transform.position.x) / areaBounds.size.x);
+        sensor.AddObservation((transform.position.z - areaBounds.min.z) / areaBounds.size.z);
+        sensor.AddObservation((areaBounds.max.z - transform.position.z) / areaBounds.size.z);
+
+        // Velocities (FIXED PROPERTY NAME)
+        sensor.AddObservation(m_AgentRb.linearVelocity); // Changed from LinearVelocity
+        sensor.AddObservation(m_BlockRb.linearVelocity);
     }
 
     /// <summary>
