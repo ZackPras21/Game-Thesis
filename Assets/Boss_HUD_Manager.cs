@@ -33,13 +33,13 @@ public class Boss_HUD_Manager : MonoBehaviour
             if(Boss3 != null)
             SetBossHealth();
 
-            if (bossStatus == 0 && Boss3.triggerBossSpawn)
+            if (bossStatus == 0 && Boss3 != null && Boss3.triggerBossSpawn)
             {
                 bossStatus = 1;
                 bossHealth.gameObject.SetActive(true);
             }
 
-            if (bossStatus == 1 && Boss3.getBossHP() <= 0)
+            if (bossStatus == 1 && Boss3 != null && Boss3.getBossHP() <= 0)
             {
                 bossStatus = 2;
                 bossHealth.gameObject.SetActive(false);
