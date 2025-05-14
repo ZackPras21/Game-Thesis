@@ -920,7 +920,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.18
+      value: 0.2268651
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_LocalPosition.x
@@ -932,7 +932,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -0.039476
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1574,7 +1574,7 @@ NavMeshAgent:
   m_ObstacleAvoidanceType: 4
 --- !u!95 &1525368558665590809
 Animator:
-  serializedVersion: 5
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1588,6 +1588,7 @@ Animator:
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1

@@ -27,6 +27,7 @@ EditorBuildSettings:
     path: Assets/Level/Scenes/Intro Komik.unity
     guid: da190ce9aeba5eb49838130d05603544
   - enabled: 1
-    path: Assets/Level/Scenes/BlockingMaps/NewLevelOne.unity
+    path: Assets/Level/Scenes/Game Stage/NewLevelOne.unity
     guid: 6bd4797f50ffd4244bc25bcf20056405
   m_configObjects: {}
+  m_UseUCBPForAssetBundles: 0
