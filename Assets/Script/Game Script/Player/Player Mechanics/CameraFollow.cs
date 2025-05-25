@@ -33,10 +33,10 @@ public class CameraFollow : MonoBehaviour
         }
         if (PlayerController.Instance.playerState == PlayerState.Hurt || PlayerController.Instance.playerState == PlayerState.DashAttack || PlayerController.Instance.playerState == PlayerState.SkillAttack || PlayerController.Instance.playerState == PlayerState.Attack1 || PlayerController.Instance.playerState == PlayerState.Attack2 || PlayerController.Instance.playerState == PlayerState.Attack3)
         {
-            if(PlayerController.Instance.playerState == PlayerState.Hurt)
-            transform.position = new Vector3(transform.position.x, transform.position.y + (Random.insideUnitSphere.y * 0.03f), transform.position.z);
+            if (PlayerController.Instance.playerState == PlayerState.Hurt)
+                transform.position = new Vector3(transform.position.x, transform.position.y + (Random.insideUnitSphere.y * 0.03f), transform.position.z);
             else
-            transform.position = new Vector3(transform.position.x, transform.position.y + (Random.insideUnitSphere.y * 0.01f), transform.position.z);
+                transform.position = new Vector3(transform.position.x, transform.position.y + (Random.insideUnitSphere.y * 0.01f), transform.position.z);
         }
     }
     private void Follow()

@@ -45,5 +45,5 @@ public class CameraRotator : MonoBehaviour
         rotatorCamera.enabled = false;
         playerController.HasTeleported = true;
         Destroy(gameObject, 1);
-    }
+    } 
 }
