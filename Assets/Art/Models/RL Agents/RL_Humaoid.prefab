@@ -1632,6 +1632,10 @@ MonoBehaviour:
   boxCollider: {fileID: 7083142781546743490}
   startWaitTime: 1
   timeToRotate: 4
+  m_PlayerInRange: 0
+  m_PlayerNear: 0
+  m_IsPatrol: 0
+  m_IsAttacking: 0
   nonBossEnemyState: 3
   animator: {fileID: 2030732665317957927}
   lootManager: {fileID: 4215898573996737307}

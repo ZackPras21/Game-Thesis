@@ -1168,7 +1168,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_Name
-      value: Creep_Enemy
+      value: RL_Creep
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       propertyPath: m_TagString
@@ -1476,6 +1476,10 @@ MonoBehaviour:
   boxCollider: {fileID: 2364513733960898035}
   startWaitTime: 4
   timeToRotate: 2
+  m_PlayerInRange: 0
+  m_PlayerNear: 0
+  m_IsPatrol: 0
+  m_IsAttacking: 0
   nonBossEnemyState: 3
   animator: {fileID: 1525368558665590809}
   lootManager: {fileID: 6967424327214272843}

@@ -51,6 +51,6 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "3D-Hack---Slash-Game.sln",
+    "dotnet.defaultSolution": "Game-Thesis.sln",
     "discord.enabled": true
 }

@@ -42,11 +42,13 @@ public class EnemyController : MonoBehaviour
     [Header("State")]
     public float startWaitTime = 4;
     public float timeToRotate = 2;
-    bool m_PlayerInRange;
-    bool m_PlayerNear;
-    bool m_IsPatrol;
+    [Header("ML-Agents Access")]
+    public bool m_PlayerInRange;
+    public bool m_PlayerNear;
+    public bool m_IsPatrol;
     bool m_CaughtPlayer;
-    bool m_IsAttacking = false;
+    public bool m_IsAttacking = false;
+    public Vector3 PlayerPosition => m_PlayerPosition;
     private bool isDead = false;
     public NonBossEnemyState nonBossEnemyState;
 
@@ -173,7 +175,7 @@ public class EnemyController : MonoBehaviour
         }
     }
 
-    private void SetupInitialValues()
+    public void SetupInitialValues()
     {
         m_PlayerPosition = Vector3.zero;
         m_IsPatrol = true;
@@ -423,6 +425,24 @@ public class EnemyController : MonoBehaviour
     }
 
     #endregion
+
+    #region Public Methods
+    public float GetHealthPercentage()
+    {
+        return (float)enemyHP / enemyData.enemyHealth;
+    }
+
+    public bool IsHealthLow()
+    {
+        return enemyHP <= enemyData.enemyHealth * 0.2f;
+    }
+
+    public bool IsDead()
+    {
+        return isDead;
+    }
+    #endregion
+
 
     #region Combat Methods
 
