@@ -21,6 +21,12 @@ public class EnemyController : MonoBehaviour
     float m_TimeToRotate;
     public float patrolRadius = 5f;
 
+    // Public accessors for RL state
+    public Vector3 PlayerLastPosition => playerLastPosition;
+    public float WaitTime => m_WaitTime;
+    public float TimeToRotate => m_TimeToRotate;
+    public bool IsCaughtPlayer => m_CaughtPlayer;
+
     // Detection
     [Header("Detection")]
     public float viewRadius = 15;

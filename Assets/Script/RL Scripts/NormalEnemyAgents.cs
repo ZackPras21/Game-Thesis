@@ -21,6 +21,9 @@ public class NormalEnemyAgents : Agent
     private float _positionCheckInterval = 0.5f;
     private float _positionCheckTimer = 0f;
 
+    private GameObject[] patrolPoints;
+    private int currentPatrolIndex = 0;
+
     public override void Initialize()
     {
         _currentEpisode = 0;
@@ -29,6 +32,10 @@ public class NormalEnemyAgents : Agent
         
         if (enemyController == null)
             enemyController = GetComponent<EnemyController>();
+
+        // Find and sort patrol points (A,B,C,D)
+        patrolPoints = GameObject.FindGameObjectsWithTag("Patrol Point");
+        System.Array.Sort(patrolPoints, (a, b) => a.name.CompareTo(b.name));
     }
 
     public override void OnEpisodeBegin()
@@ -72,37 +79,47 @@ public class NormalEnemyAgents : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        // Action 0: Movement state (0=idle, 1=patrol, 2=chase)
-        int moveState = actions.DiscreteActions[0];
+        // Continuous movement (x,z direction)
+        float moveX = actions.ContinuousActions[0];
+        float moveZ = actions.ContinuousActions[1];
         
-        // Action 1: Attack (0=no, 1=yes)
-        int attack = actions.DiscreteActions[1];
+        // Continuous attack intensity (0-1)
+        float attackIntensity = actions.ContinuousActions[2];
         
-        // Action 2: Special behavior based on HP (0=normal, 1=low HP behavior)
-        int specialBehavior = actions.DiscreteActions[2];
+        // Special behavior (still binary)
+        int specialBehavior = actions.DiscreteActions[0];
+        
+        // Calculate movement vector
+        Vector3 moveDirection = new Vector3(moveX, 0, moveZ).normalized;
         
         // Update enemy behavior based on actions
-        switch (moveState)
+        if (moveDirection.magnitude > 0.1f && patrolPoints.Length > 0)
         {
-            case 0: // Idle
-                enemyController.m_IsPatrol = false;
-                enemyController.navMeshAgent.isStopped = true;
-                AddReward(idlePenalty);
-                break;
-                
-            case 1: // Patrol
-                enemyController.m_IsPatrol = true;
-                enemyController.navMeshAgent.isStopped = false;
-                break;
-                
-            case 2: // Chase
-                enemyController.m_IsPatrol = false;
-                enemyController.navMeshAgent.isStopped = false;
-                break;
+            enemyController.m_IsPatrol = true;
+            enemyController.navMeshAgent.isStopped = false;
+            
+            // Set destination to current patrol point
+            Vector3 targetPos = patrolPoints[currentPatrolIndex].transform.position;
+            enemyController.navMeshAgent.SetDestination(targetPos);
+            
+            // Move to next patrol point if reached current one
+            if (Vector3.Distance(transform.position, targetPos) < 1f)
+            {
+                currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+            }
+            
+            // Small reward for moving
+            AddReward(0.005f * moveDirection.magnitude);
+        }
+        else
+        {
+            enemyController.m_IsPatrol = false;
+            enemyController.navMeshAgent.isStopped = true;
+            AddReward(idlePenalty);
         }
         
-        // Handle attack
-        enemyController.m_IsAttacking = attack == 1;
+        // Handle attack with intensity
+        enemyController.m_IsAttacking = attackIntensity > 0.5f;
         
         // Handle special behaviors when HP is low
         if (enemyController.IsHealthLow())
@@ -179,10 +196,18 @@ public class NormalEnemyAgents : Agent
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
+        var continuousActions = actionsOut.ContinuousActions;
         var discreteActions = actionsOut.DiscreteActions;
-        discreteActions[0] = Input.GetKey(KeyCode.Space) ? 1 : 0; // Chase
-        discreteActions[1] = Input.GetKey(KeyCode.A) ? 1 : 0; // Attack
-        discreteActions[2] = 0; // Default special behavior
+        
+        // Movement controls (WASD)
+        continuousActions[0] = Input.GetKey(KeyCode.D) ? 1 : Input.GetKey(KeyCode.A) ? -1 : 0; // X axis
+        continuousActions[1] = Input.GetKey(KeyCode.W) ? 1 : Input.GetKey(KeyCode.S) ? -1 : 0; // Z axis
+        
+        // Attack control (Space)
+        continuousActions[2] = Input.GetKey(KeyCode.Space) ? 1 : 0; // Attack intensity
+        
+        // Special behavior (Shift)
+        discreteActions[0] = Input.GetKey(KeyCode.LeftShift) ? 1 : 0;
     }
 
     // Called by EnemyController when events occur

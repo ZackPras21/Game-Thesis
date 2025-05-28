@@ -7322,7 +7322,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6932246062164573411, guid: 198bcbb1fae8a9d41b97d704388b7204, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -343.5
+      value: -343.49997
       objectReference: {fileID: 0}
     - target: {fileID: 7959960944103032646, guid: 198bcbb1fae8a9d41b97d704388b7204, type: 3}
       propertyPath: m_AnchorMax.x
@@ -7334,7 +7334,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7959960944103032646, guid: 198bcbb1fae8a9d41b97d704388b7204, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.050510406
+      value: -0.05050659
       objectReference: {fileID: 0}
     - target: {fileID: 8067784327363048722, guid: 198bcbb1fae8a9d41b97d704388b7204, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -13317,6 +13317,10 @@ PrefabInstance:
       propertyPath: enemyPrefab.Array.size
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 2112572585037626649, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: 'enemyPrefab.Array.data[0]'
+      value: 
+      objectReference: {fileID: 4443409237942974354, guid: fea521f89b9523a49bb83f6511b2e9a6, type: 3}
     - target: {fileID: 3209703387266825314, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_ScaleInLightmap
       value: 0.25
