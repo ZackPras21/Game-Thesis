@@ -1429,6 +1429,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6021745740339581283}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5726648631885605622}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2912090546807148861}
   m_SourcePrefab: {fileID: 100100000, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
 --- !u!4 &3954716295185296680 stripped
 Transform:
@@ -1635,6 +1641,63 @@ MonoBehaviour:
   healthText: {fileID: 8199289524398752867}
   attackText: {fileID: 570328545960859713}
   speedText: {fileID: 4712195394607487825}
+--- !u!114 &5726648631885605622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4443409237942974354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_BrainParameters:
+    VectorObservationSize: 1
+    NumStackedVectorObservations: 1
+    m_ActionSpec:
+      m_NumContinuousActions: 0
+      BranchSizes: 01000000
+    VectorActionSize: 01000000
+    VectorActionDescriptions: []
+    VectorActionSpaceType: 0
+    hasUpgradedBrainParametersWithActionSpec: 1
+  m_Model: {fileID: 0}
+  m_InferenceDevice: 0
+  m_BehaviorType: 0
+  m_BehaviorName: My Behavior
+  TeamId: 0
+  m_UseChildSensors: 1
+  m_UseChildActuators: 1
+  m_DeterministicInference: 0
+  m_ObservableAttributeHandling: 0
+--- !u!114 &2912090546807148861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4443409237942974354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cae045e885a84a94b8fae15ded2e157a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  agentParameters:
+    maxStep: 0
+  hasUpgradedFromAgentParameters: 1
+  MaxStep: 0
+  enemyController: {fileID: 1468944394863766001}
+  playerTransform: {fileID: 0}
+  patrolPoints:
+  - {fileID: 0}
+  - {fileID: 0}
+  detectionReward: 0.1
+  attackReward: 0.2
+  killReward: 1
+  damagePenalty: -0.5
+  idlePenalty: -0.01
 --- !u!4 &8906478605765353547 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3823155983827850616, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}

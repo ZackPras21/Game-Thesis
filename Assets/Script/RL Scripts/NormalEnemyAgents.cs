@@ -7,6 +7,9 @@ public class NormalEnemyAgents : Agent
 {
     [Header("References")]
     public EnemyController enemyController;
+    public Transform playerTransform;  // Reference to the player transform
+    public GameObject[] patrolPoints; // Patrol points for the enemy to move to
+    private int currentPatrolIndex = 0; // Current patrol point index
     
     [Header("RL Settings")]
     public float detectionReward = 0.1f;
@@ -14,84 +17,50 @@ public class NormalEnemyAgents : Agent
     public float killReward = 1f;
     public float damagePenalty = -0.5f;
     public float idlePenalty = -0.01f;
-    
-    private int _currentEpisode = 0;
-    private float _cumulativeReward = 0f;
-    private Vector3 _lastPosition;
-    private float _positionCheckInterval = 0.5f;
+
+    private NormalEnemyRewards normalEnemyRewards;
+    private NormalEnemyState currentState;
+
     private float _positionCheckTimer = 0f;
+    private float _positionCheckInterval = 1f;
+    private Vector3 _lastPosition;
 
-    private GameObject[] patrolPoints;
-    private int currentPatrolIndex = 0;
-
+    // Initialize references
     public override void Initialize()
     {
-        _currentEpisode = 0;
-        _cumulativeReward = 0f;
-        _lastPosition = transform.position;
-        
-        if (enemyController == null)
-            enemyController = GetComponent<EnemyController>();
-
-        // Find and sort patrol points (A,B,C,D)
-        patrolPoints = GameObject.FindGameObjectsWithTag("Patrol Point");
-        System.Array.Sort(patrolPoints, (a, b) => a.name.CompareTo(b.name));
+        normalEnemyRewards = new NormalEnemyRewards();
+        currentState = new NormalEnemyState();  // Initialize the state
     }
 
-    public override void OnEpisodeBegin()
-    {
-        _currentEpisode++;
-        _cumulativeReward = 0f;
-        _lastPosition = transform.position;
-        enemyController.SetupInitialValues();
-    }
-
+    // Collect observations from the environment
     public override void CollectObservations(VectorSensor sensor)
     {
-        // Enemy state observations
-        sensor.AddObservation(enemyController.m_PlayerInRange);
-        sensor.AddObservation(enemyController.m_PlayerNear);
-        sensor.AddObservation(enemyController.m_IsPatrol);
-        sensor.AddObservation(enemyController.m_IsAttacking);
-        sensor.AddObservation((int)enemyController.enemyType);
-        sensor.AddObservation(enemyController.GetHealthPercentage());
-        
-        // Navigation observations
-        if (enemyController.navMeshAgent != null)
-        {
-            sensor.AddObservation(enemyController.navMeshAgent.velocity.magnitude);
-            sensor.AddObservation(enemyController.navMeshAgent.remainingDistance);
-        }
-        
-        // Player position observations
-        if (PlayerController.Instance != null)
-        {
-            float distance = Vector3.Distance(
-                transform.position,
-                PlayerController.Instance.transform.position);
-            sensor.AddObservation(distance / enemyController.viewRadius);
-            
-            Vector3 direction = (PlayerController.Instance.transform.position - transform.position).normalized;
-            sensor.AddObservation(direction.x);
-            sensor.AddObservation(direction.z);
-        }
+        // Add observations to the sensor
+        currentState.UpdateState(transform.position, playerTransform.position, enemyController.enemyHP);
+        sensor.AddObservation(currentState.Position);
+        sensor.AddObservation(currentState.PlayerPosition);
+        sensor.AddObservation(currentState.DistanceToPlayer);
+        sensor.AddObservation(currentState.Health);
+        sensor.AddObservation(currentState.IsAttacking);
+        sensor.AddObservation(currentState.PlayerInRange);
     }
 
+    // Handle actions and update the agent's state
     public override void OnActionReceived(ActionBuffers actions)
     {
-        // Continuous movement (x,z direction)
+        // Continuous movement (x, z direction)
         float moveX = actions.ContinuousActions[0];
         float moveZ = actions.ContinuousActions[1];
-        
+
         // Continuous attack intensity (0-1)
         float attackIntensity = actions.ContinuousActions[2];
-        
+
         // Special behavior (still binary)
         int specialBehavior = actions.DiscreteActions[0];
-        
+
         // Calculate movement vector
         Vector3 moveDirection = new Vector3(moveX, 0, moveZ).normalized;
-        
+
         // Update enemy behavior based on actions
         if (moveDirection.magnitude > 0.1f && patrolPoints.Length > 0)
         {
@@ -117,16 +86,16 @@ public class NormalEnemyAgents : Agent
             enemyController.navMeshAgent.isStopped = true;
             AddReward(idlePenalty);
         }
-        
+
         // Handle attack with intensity
         enemyController.m_IsAttacking = attackIntensity > 0.5f;
-        
+
         // Handle special behaviors when HP is low
         if (enemyController.IsHealthLow())
         {
             HandleLowHPBehavior(specialBehavior);
         }
-        
+
         // Position-based rewards
         _positionCheckTimer += Time.deltaTime;
         if (_positionCheckTimer >= _positionCheckInterval)
@@ -185,7 +154,7 @@ public class NormalEnemyAgents : Agent
 
     private bool AreOtherEnemiesAlive()
     {
-        EnemyController[] enemies = FindObjectsOfType<EnemyController>();
+        EnemyController[] enemies = UnityEngine.Object.FindObjectsByType<EnemyController>(UnityEngine.FindObjectsSortMode.None);
         foreach (EnemyController enemy in enemies)
         {
             if (enemy != enemyController && !enemy.IsDead())
@@ -194,6 +163,7 @@ public class NormalEnemyAgents : Agent
         return false;
     }
 
+    // Heuristic function for manual control (for testing)
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var continuousActions = actionsOut.ContinuousActions;
