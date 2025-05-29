@@ -67,7 +67,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0491af552860c2c4392bd119233596e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enemyController: {fileID: 1468944394863766001}
+  enemyController: {fileID: 0}
 --- !u!54 &7384286213365376556
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1407,7 +1407,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1468944394863766001}
+      addedObject: {fileID: 3413073641965294540}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6967424327214272843}
@@ -1446,7 +1446,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
   m_PrefabInstance: {fileID: 3561011368679869123}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1468944394863766001
+--- !u!114 &3413073641965294540
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1455,16 +1455,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 4443409237942974354}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 22a4d86c892c9e34599f6a1d48bce181, type: 3}
+  m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  navMeshAgent: {fileID: 4662399911735061079}
-  speedWalk: 1
-  speedRun: 2
+  navMeshAgent: {fileID: 0}
+  speedWalk: 6
+  speedRun: 9
   rotationSpeed: 5
-  waypoints:
-  - {fileID: 0}
-  - {fileID: 0}
+  waypoints: []
   patrolRadius: 5
   viewRadius: 45
   viewAngle: 90
@@ -1479,7 +1477,7 @@ MonoBehaviour:
   edgeDistance: 0.5
   enemyHP: 0
   healthBar: {fileID: 1552570349913411215}
-  boxCollider: {fileID: 2364513733960898035}
+  boxCollider: {fileID: 1255941309751475032}
   startWaitTime: 4
   timeToRotate: 2
   m_PlayerInRange: 0
@@ -1567,7 +1565,7 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4443409237942974354}
-  m_Enabled: 1
+  m_Enabled: 0
   m_AgentTypeID: 0
   m_Radius: 1.98
   m_Speed: 3.5
@@ -1657,11 +1655,11 @@ MonoBehaviour:
     VectorObservationSize: 1
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 0
-      BranchSizes: 01000000
+      m_NumContinuousActions: 1
+      BranchSizes: 
     VectorActionSize: 01000000
     VectorActionDescriptions: []
-    VectorActionSpaceType: 0
+    VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
@@ -1687,10 +1685,13 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 0
-  enemyController: {fileID: 1468944394863766001}
-  playerTransform: {fileID: 0}
+  MaxStep: 5000
+  enemyController: {fileID: 3413073641965294540}
+  malePlayerTransform: {fileID: 2469261571595659520, guid: df2394b1834916646ab4d514868d11ad, type: 3}
+  femalePlayerTransform: {fileID: 5172510939944526345, guid: 7161e19d17760d64abd1ae3adc7a4a62, type: 3}
   patrolPoints:
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   detectionReward: 0.1

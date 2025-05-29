@@ -6,9 +6,10 @@ using Unity.MLAgents.Sensors;
 public class NormalEnemyAgents : Agent
 {
     [Header("References")]
-    public EnemyController enemyController;
-    public Transform playerTransform;  // Reference to the player transform
-    public GameObject[] patrolPoints; // Patrol points for the enemy to move to
+    public RL_EnemyController enemyController;
+    public Transform malePlayerTransform;
+    public Transform femalePlayerTransform;
+    public Transform[] patrolPoints; // Patrol points for the enemy to move to
     private int currentPatrolIndex = 0; // Current patrol point index
     
     [Header("RL Settings")]
@@ -34,16 +35,43 @@ public class NormalEnemyAgents : Agent
 
     // Collect observations from the environment
     public override void CollectObservations(VectorSensor sensor)
+{
+    // Enemy state observations
+    sensor.AddObservation(enemyController.m_PlayerInRange);
+    sensor.AddObservation(enemyController.m_PlayerNear);
+    sensor.AddObservation(enemyController.m_IsPatrol);
+    sensor.AddObservation(enemyController.m_IsAttacking);
+    sensor.AddObservation((int)enemyController.enemyType);
+    sensor.AddObservation(enemyController.GetHealthPercentage());
+
+    // Navigation observations
+    if (enemyController.navMeshAgent != null)
     {
-        // Add observations to the sensor
-        currentState.UpdateState(transform.position, playerTransform.position, enemyController.enemyHP);
-        sensor.AddObservation(currentState.Position);
-        sensor.AddObservation(currentState.PlayerPosition);
-        sensor.AddObservation(currentState.DistanceToPlayer);
-        sensor.AddObservation(currentState.Health);
-        sensor.AddObservation(currentState.IsAttacking);
-        sensor.AddObservation(currentState.PlayerInRange);
+        sensor.AddObservation(enemyController.navMeshAgent.velocity.magnitude);
+        sensor.AddObservation(enemyController.navMeshAgent.remainingDistance);
     }
+
+    // Player position observations for both Male and Female players
+    if (malePlayerTransform != null)
+    {
+        float malePlayerDistance = Vector3.Distance(transform.position, malePlayerTransform.position);
+        sensor.AddObservation(malePlayerDistance / enemyController.viewRadius);
+
+        Vector3 malePlayerDirection = (malePlayerTransform.position - transform.position).normalized;
+        sensor.AddObservation(malePlayerDirection.x);
+        sensor.AddObservation(malePlayerDirection.z);
+    }
+
+    if (femalePlayerTransform != null)
+    {
+        float femalePlayerDistance = Vector3.Distance(transform.position, femalePlayerTransform.position);
+        sensor.AddObservation(femalePlayerDistance / enemyController.viewRadius);
+
+        Vector3 femalePlayerDirection = (femalePlayerTransform.position - transform.position).normalized;
+        sensor.AddObservation(femalePlayerDirection.x);
+        sensor.AddObservation(femalePlayerDirection.z);
+    }
+}
 
     // Handle actions and update the agent's state
     public override void OnActionReceived(ActionBuffers actions)
