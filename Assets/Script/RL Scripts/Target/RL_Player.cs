@@ -13,14 +13,24 @@ public class RL_Player : MonoBehaviour
     [Header("Spawn Settings")]
     [SerializeField] private LayerMask spawnCollisionLayers;
     [SerializeField] private float spawnRadiusCheck = 1f;
+    [SerializeField] public bool isTrainingTarget = false;
 
     private bool isDead = false;
     private Collider[] colliders;
+    private Vector3 initialPosition;
 
     private void Awake()
     {
         currentHealth = maxHealth;
         colliders = GetComponentsInChildren<Collider>();
+        initialPosition = transform.position;
+    }
+
+    public void SpawnAsTrainingTarget(Vector3 spawnPosition)
+    {
+        isTrainingTarget = true;
+        transform.position = spawnPosition;
+        Respawn();
     }
 
     public void SpawnRandomly(Vector3 spawnAreaCenter, Vector3 spawnAreaSize)
@@ -85,28 +95,43 @@ public class RL_Player : MonoBehaviour
 
         if (currentHealth <= 0)
         {
-            Die();
+            if (isTrainingTarget)
+            {
+                Respawn();
+            }
+            else
+            {
+                Die();
+            }
         }
     }
 
     private void Die()
     {
         isDead = true;
-        Debug.Log("Player has died!");
-
-        var enemies = FindObjectsOfType<EnemyController>();
-        foreach (var enemy in enemies)
+        
+        if (isTrainingTarget)
         {
-            if (enemy != null)
-            {
-                // Alternative approach since OnPlayerDeath doesn't exist
-                enemy.gameObject.SetActive(false);
-            }
+            gameObject.SetActive(false);
+            FindObjectOfType<TrainingTargetSpawner>()?.TargetDestroyed();
         }
-
-        foreach (var collider in colliders)
+        else
         {
-            collider.enabled = false;
+            Debug.Log("Player has died!");
+            
+            var enemies = FindObjectsOfType<EnemyController>();
+            foreach (var enemy in enemies)
+            {
+                if (enemy != null)
+                {
+                    enemy.gameObject.SetActive(false);
+                }
+            }
+
+            foreach (var collider in colliders)
+            {
+                collider.enabled = false;
+            }
         }
     }
 
@@ -118,6 +143,11 @@ public class RL_Player : MonoBehaviour
         foreach (var collider in colliders)
         {
             collider.enabled = true;
+        }
+
+        if (isTrainingTarget)
+        {
+            transform.position = initialPosition;
         }
     }
 

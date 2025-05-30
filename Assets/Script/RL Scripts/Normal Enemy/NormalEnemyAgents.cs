@@ -44,12 +44,9 @@ public class NormalEnemyAgents : Agent
     sensor.AddObservation((int)enemyController.enemyType);
     sensor.AddObservation(enemyController.GetHealthPercentage());
 
-    // Navigation observations
-    if (enemyController.navMeshAgent != null)
-    {
-        sensor.AddObservation(enemyController.navMeshAgent.velocity.magnitude);
-        sensor.AddObservation(enemyController.navMeshAgent.remainingDistance);
-    }
+    // Movement observations
+    sensor.AddObservation(enemyController.transform.position);
+    sensor.AddObservation(enemyController.transform.forward);
 
     // Player position observations for both Male and Female players
     if (malePlayerTransform != null)
@@ -93,14 +90,16 @@ public class NormalEnemyAgents : Agent
         if (moveDirection.magnitude > 0.1f && patrolPoints.Length > 0)
         {
             enemyController.m_IsPatrol = true;
-            enemyController.navMeshAgent.isStopped = false;
-            
-            // Set destination to current patrol point
+            // Move towards current patrol point
             Vector3 targetPos = patrolPoints[currentPatrolIndex].transform.position;
-            enemyController.navMeshAgent.SetDestination(targetPos);
+            Vector3 patrolMoveDir = (targetPos - transform.position).normalized;
+            enemyController.transform.position += patrolMoveDir * Time.deltaTime * 3f;
+            
+            // Rotate towards target
+            enemyController.RotateTowardsPlayer(targetPos, enemyController.rotationSpeed);
             
             // Move to next patrol point if reached current one
-            if (Vector3.Distance(transform.position, targetPos) < 1f)
+            if (Vector3.Distance(transform.position, targetPos) < 1.5f)
             {
                 currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
             }
@@ -111,7 +110,7 @@ public class NormalEnemyAgents : Agent
         else
         {
             enemyController.m_IsPatrol = false;
-            enemyController.navMeshAgent.isStopped = true;
+            // Stop movement by not updating position
             AddReward(idlePenalty);
         }
 
@@ -148,7 +147,8 @@ public class NormalEnemyAgents : Agent
                 {
                     Vector3 circlePos = PlayerController.Instance.transform.position;
                     circlePos += Quaternion.Euler(0, Time.time * 100f, 0) * Vector3.forward * 3f;
-                    enemyController.navMeshAgent.SetDestination(circlePos);
+                    Vector3 moveDir = (circlePos - transform.position).normalized;
+                    enemyController.transform.position += moveDir * Time.deltaTime * 3f;
                 }
                 break;
                 
@@ -156,7 +156,7 @@ public class NormalEnemyAgents : Agent
                 // Wait for other enemies
                 if (behaviorType == 1)
                 {
-                    enemyController.navMeshAgent.isStopped = true;
+                    // Stop movement by not updating position
                 }
                 break;
                 
@@ -168,7 +168,9 @@ public class NormalEnemyAgents : Agent
                     {
                         // Run away from player
                         Vector3 fleeDirection = transform.position - PlayerController.Instance.transform.position;
-                        enemyController.navMeshAgent.SetDestination(transform.position + fleeDirection.normalized * 5f);
+                        Vector3 fleePos = transform.position + fleeDirection.normalized * 5f;
+                        Vector3 moveDir = (fleePos - transform.position).normalized;
+                        enemyController.transform.position += moveDir * Time.deltaTime * 4f;
                     }
                     else
                     {

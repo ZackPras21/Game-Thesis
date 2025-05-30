@@ -6,16 +6,13 @@ public class RL_EnemyController : MonoBehaviour
 {
     #region Variables
 
-    // Navigation
-    [Header("Navigation")]
-    public UnityEngine.AI.NavMeshAgent navMeshAgent;
-
     // RL State
     [Header("RL State")]
     public Vector3 m_PlayerPosition;
-    public Vector3 PlayerLastPosition => playerLastPosition;
-    public float WaitTime => m_WaitTime;
-    public float TimeToRotate => m_TimeToRotate;
+    public Vector3 playerLastPosition;
+    public float m_WaitTime;
+    public float m_TimeToRotate;
+    public float rotationSpeed = 5f;
     public bool IsCaughtPlayer => m_CaughtPlayer;
 
     // Detection
@@ -84,7 +81,6 @@ public class RL_EnemyController : MonoBehaviour
         if (!isDead)
         {
             EnvironmentView();
-            HandleAttacking();
         }
     }
     void OnTriggerEnter(Collider other)
@@ -170,7 +166,7 @@ public class RL_EnemyController : MonoBehaviour
     }
 
 
-    private void RotateTowardsPlayer(Vector3 playerPosition, float rotationSpeed)
+    public void RotateTowardsPlayer(Vector3 playerPosition, float rotationSpeed)
     {
         Vector3 directionToPlayer = (playerPosition - transform.position).normalized;
         Quaternion targetRotation = Quaternion.LookRotation(directionToPlayer);
@@ -245,23 +241,6 @@ public class RL_EnemyController : MonoBehaviour
         m_CaughtPlayer = true;
     }
 
-    private void Chasing()
-    {
-        if (navMeshAgent != null && m_PlayerInRange)
-        {
-            navMeshAgent.isStopped = false;
-            navMeshAgent.SetDestination(m_PlayerPosition);
-        }
-    }
-
-    private IEnumerator StopNavMeshAgent()
-    {
-        if (navMeshAgent != null)
-        {
-            navMeshAgent.isStopped = true;
-        }
-        yield return null;
-    }
 
     #endregion
 
@@ -315,10 +294,7 @@ public class RL_EnemyController : MonoBehaviour
 
             RotateTowardsPlayer(m_PlayerPosition, rotationSpeed);
 
-            if (!m_IsAttacking)
-            {
-                Chasing();
-            }
+            // Player tracking logic remains without NavMesh
         }
     }
 
@@ -358,7 +334,6 @@ public class RL_EnemyController : MonoBehaviour
     {
         canAttack = false;
         animator.SetBool("IsAttacking", true);
-        StartCoroutine(StopNavMeshAgent());
         yield return new WaitForSeconds(1);
         animator.SetBool("IsAttacking", false);
         animator.SetBool("IsWalking", false);
