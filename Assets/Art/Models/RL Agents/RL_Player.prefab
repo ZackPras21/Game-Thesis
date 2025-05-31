@@ -693,7 +693,7 @@ MonoBehaviour:
   attackCooldown: 1
   spawnCollisionLayers:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 0
   spawnRadiusCheck: 1
   isTrainingTarget: 0
 --- !u!114 &8548450963426123013

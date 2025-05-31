@@ -29,7 +29,7 @@ public class EnemySpawner : MonoBehaviour
             {
                 AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);
                 StartCoroutine(SpawnEnemy());
-                Gate.GetComponent<GateInteraction>().CloseGate();
+                //Gate.GetComponent<GateInteraction>().CloseGate();
                 spawnTriggered = true;
             }
         }
@@ -82,12 +82,25 @@ public class EnemySpawner : MonoBehaviour
             // Debug.Log("One or both corners are not assigned.");
             return Vector3.zero; // Or any default position you want to return in case of error.
         }
+        
         Vector3 minCorner = Vector3.Min(corner1.transform.position, corner2.transform.position);
         Vector3 maxCorner = Vector3.Max(corner1.transform.position, corner2.transform.position);
-
-        float randomX = Random.Range(minCorner.x, maxCorner.x);
-        float randomZ = Random.Range(minCorner.z, maxCorner.z);
-
-        return new Vector3(randomX, 1f, randomZ);
+        
+        int maxAttempts = 10;
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            float randomX = Random.Range(minCorner.x, maxCorner.x);
+            float randomZ = Random.Range(minCorner.z, maxCorner.z);
+            Vector3 testPos = new Vector3(randomX, 1f, randomZ);
+            
+            // Check if position is clear of obstacles
+            if (!Physics.CheckSphere(testPos, 0.5f, LayerMask.GetMask("Obstacle")))
+            {
+                return testPos;
+            }
+        }
+        
+        // If no valid position found after max attempts
+        return Vector3.zero;
     }
 }

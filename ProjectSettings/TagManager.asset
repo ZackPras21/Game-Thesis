@@ -32,11 +32,11 @@ TagManager:
   - Player
   - Obstacle
   - Ground
-  - Post Processing
+  - Wall
   - Weapon
   - Hitbox
   - Assist
-  - 
+  - Post Processing
   - EnemyLighting
   - Cutscene
   - 
