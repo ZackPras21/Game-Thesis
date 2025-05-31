@@ -17,16 +17,24 @@ public class RL_EnemySpawner : MonoBehaviour
     private CameraFollow cameraFollow;
     private GameProgression gameProgression;
     public GameObject Gate;
-    private void Start()
+    private void Awake()
     {
+        cameraFollow = GameObject.FindGameObjectWithTag("MainCamera")?.GetComponent<CameraFollow>();
         gameProgression = GameProgression.Instance;
-        cameraFollow = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<CameraFollow>();
     }
+
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
         {
-            cameraFollow.CombatMode();
+            if (cameraFollow != null)
+            {
+                cameraFollow.CombatMode();
+            }
+            else
+            {
+                Debug.LogError("CameraFollow reference not set in RL_EnemySpawner");
+            }
             if (!spawnTriggered)
             {
                 AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);

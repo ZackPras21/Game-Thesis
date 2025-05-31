@@ -870,32 +870,6 @@ MonoBehaviour:
   spawnCollisionLayers:
     serializedVersion: 2
     m_Bits: 31999
---- !u!114 &837244402
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 837244390}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 058610cf77b598b48b59e9f5adcb17e3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  enemyPrefab:
-  - {fileID: 4443409237942974354, guid: fea521f89b9523a49bb83f6511b2e9a6, type: 3}
-  corner1: {fileID: 1918879154}
-  corner2: {fileID: 1307463746}
-  corner3: {fileID: 115404800}
-  corner4: {fileID: 1755728366}
-  waypoints:
-  - {fileID: 1918879155}
-  - {fileID: 1672686167}
-  - {fileID: 169480741}
-  - {fileID: 1823645010}
-  maxEnemyCount: 1
-  spawnTime: 0.5
-  Gate: {fileID: 1357536430}
 --- !u!114 &837244403
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -920,8 +894,10 @@ MonoBehaviour:
   - {fileID: 169480741}
   - {fileID: 1823645010}
   maxEnemyCount: 1
-  spawnTime: 0.5
+  spawnTime: 0
   Gate: {fileID: 1357536430}
+  spawnBeforeTargeting: 1
+  playerTarget: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
 --- !u!1001 &942594601
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2622,9 +2598,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5993655121497118794, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       insertIndex: -1
       addedObject: {fileID: 837244396}
-    - targetCorrespondingSourceObject: {fileID: 5993655121497118794, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 837244402}
   m_SourcePrefab: {fileID: 100100000, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
 --- !u!4 &2084220551 stripped
 Transform:

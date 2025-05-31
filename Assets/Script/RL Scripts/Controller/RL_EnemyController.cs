@@ -14,7 +14,10 @@ public class RL_EnemyController : MonoBehaviour
     public float m_TimeToRotate;
 
     public float rotationSpeed = 5f;
+    public float moveSpeed = 3f;
+    public float waypointThreshold = 0.5f;
     public bool IsCaughtPlayer => m_CaughtPlayer;
+    private int m_CurrentWaypointIndex = 0;
 
     // Detection
     [Header("Detection")]
@@ -84,6 +87,11 @@ public class RL_EnemyController : MonoBehaviour
         if (!isDead)
         {
             EnvironmentView();
+            
+            if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
+            {
+                MoveBetweenWaypoints();
+            }
         }
     }
     void OnTriggerEnter(Collider other)
@@ -176,6 +184,13 @@ public class RL_EnemyController : MonoBehaviour
         Vector3 directionToPlayer = (playerPosition - transform.position).normalized;
         Quaternion targetRotation = Quaternion.LookRotation(directionToPlayer);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    public void SetTarget(Transform target)
+    {
+        m_PlayerPosition = target.position;
+        m_PlayerInRange = true;
+        m_IsPatrol = false;
     }
 
     private void EnvironmentView()
@@ -279,11 +294,62 @@ public class RL_EnemyController : MonoBehaviour
 
     private void NextPoint()
     {
-        int nextWaypointIndex;
-        do
+        // RL-friendly waypoint selection
+        m_CurrentWaypointIndex = (m_CurrentWaypointIndex + 1) % waypoints.Length;
+        m_IsPatrol = true;
+        m_WaitTime = startWaitTime;
+    }
+
+    private void MoveBetweenWaypoints()
+    {
+        if (waypoints == null || waypoints.Length == 0 || m_PlayerInRange) return;
+
+        Vector3 targetPosition = waypoints[m_CurrentWaypointIndex].position;
+        Vector3 direction = (targetPosition - transform.position).normalized;
+        
+        // Obstacle avoidance
+        if (Physics.SphereCast(transform.position, 0.5f, direction, out RaycastHit hit, 2f, obstacleMask))
         {
-            nextWaypointIndex = Random.Range(0, waypoints.Length);
-        } while (nextWaypointIndex == m_CurrentWaypointIndex);
+            Vector3 avoidDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
+            direction = (direction + avoidDirection * 0.5f).normalized;
+        }
+        
+        // RL Observable: Distance to waypoint
+        float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);
+        
+        // Move with RL policy in mind
+        if (m_IsPatrol)
+        {
+            transform.position += direction * moveSpeed * Time.deltaTime;
+            RotateTowardsPlayer(targetPosition, rotationSpeed);
+            
+            // RL Reward signal when reaching waypoint
+            if (distanceToWaypoint < waypointThreshold)
+            {
+                NextPoint();
+            }
+        }
+        else if (m_WaitTime <= 0)
+        {
+            m_IsPatrol = true;
+        }
+        else
+        {
+            m_WaitTime -= Time.deltaTime;
+        }
+    }
+
+    // RL Helper Methods
+    public float GetDistanceToCurrentWaypoint()
+    {
+        if (waypoints == null || waypoints.Length == 0) return -1f;
+        return Vector3.Distance(transform.position, waypoints[m_CurrentWaypointIndex].position);
+    }
+
+    public Vector3 GetWaypointDirection()
+    {
+        if (waypoints == null || waypoints.Length == 0) return Vector3.zero;
+        return (waypoints[m_CurrentWaypointIndex].position - transform.position).normalized;
     }
 
 

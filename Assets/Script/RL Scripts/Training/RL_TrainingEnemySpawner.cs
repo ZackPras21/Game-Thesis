@@ -21,27 +21,10 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     {
         gameProgression = GameProgression.Instance;
         cameraFollow = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<CameraFollow>();
-    }
-    void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Player") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
-        {
-            cameraFollow.CombatMode();
-            if (!spawnTriggered)
-            {
-                AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);
-                StartCoroutine(SpawnEnemy());
-                //Gate.GetComponent<GateInteraction>().CloseGate();
-                spawnTriggered = true;
-            }
-        }
-    }
-    private void OnTriggerExit(Collider other)
-    {
-        if (other.CompareTag("Player") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
-        {
-            cameraFollow.NormalMode();
-        }
+        cameraFollow.CombatMode();
+        AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);
+        StartCoroutine(SpawnEnemy());
+        spawnTriggered = true;
     }
 
     [Header("Spawn Settings")]
@@ -64,9 +47,22 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
                 enemy.GetComponent<RL_EnemyController>().SetTarget(playerTarget);
             }
 
-            for (int i = 0; i < waypoints.Length; i++)
+            // Safely assign waypoints
+            if (waypoints != null && waypoints.Length > 0)
             {
-                enemy.GetComponent<RL_EnemyController>().waypoints[i] = waypoints[i];
+                var enemyController = enemy.GetComponent<RL_EnemyController>();
+                if (enemyController != null)
+                {
+                    enemyController.waypoints = new Transform[waypoints.Length];
+                    for (int i = 0; i < waypoints.Length; i++)
+                    {
+                        enemyController.waypoints[i] = waypoints[i];
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("No waypoints assigned to RL_TrainingEnemySpawner!");
             }
 
             yield return new WaitForSeconds(spawnTime);
@@ -77,7 +73,7 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
     GameObject GetEnemyToSpawn(float randomValue, float spawnChance)
     {
-        if (randomValue < 0.5f * spawnChance)
+        if (randomValue < 0.8f * spawnChance)
             return enemyPrefab[2];
         if (randomValue < spawnChance)
             return enemyPrefab[1];
