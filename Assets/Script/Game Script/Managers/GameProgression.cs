@@ -65,7 +65,15 @@ public class GameProgression : MonoBehaviour
 
             foreach (GameObject enemySpawner in GameObject.FindGameObjectsWithTag("Spawner"))
             {
-                enemySpawner.GetComponent<EnemySpawner>().maxEnemyCount = EnemySpawnCount;
+                var spawner = enemySpawner.GetComponent<EnemySpawner>();
+                if (spawner != null)
+                {
+                    spawner.maxEnemyCount = EnemySpawnCount;
+                }
+                else
+                {
+                    Debug.LogWarning($"EnemySpawner component missing on {enemySpawner.name}");
+                }
             }
             enemyCountMapped = true;
         }

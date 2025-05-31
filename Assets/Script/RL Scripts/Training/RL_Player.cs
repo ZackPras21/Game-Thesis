@@ -113,7 +113,7 @@ public class RL_Player : MonoBehaviour
         if (isTrainingTarget)
         {
             gameObject.SetActive(false);
-            FindObjectOfType<TrainingTargetSpawner>()?.TargetDestroyed();
+            FindObjectOfType<RL_TrainingTargetSpawner>()?.TargetDestroyed();
         }
         else
         {

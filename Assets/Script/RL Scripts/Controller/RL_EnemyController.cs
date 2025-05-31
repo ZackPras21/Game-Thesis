@@ -12,6 +12,7 @@ public class RL_EnemyController : MonoBehaviour
     public Vector3 playerLastPosition;
     public float m_WaitTime;
     public float m_TimeToRotate;
+
     public float rotationSpeed = 5f;
     public bool IsCaughtPlayer => m_CaughtPlayer;
 
@@ -24,6 +25,7 @@ public class RL_EnemyController : MonoBehaviour
     public float meshResolution = 1f;
     public int edgeInterations = 4;
     public float edgeDistance = 0.5f;
+    public Transform[] waypoints;
 
     // Combat
     [Header("Combat")]
@@ -74,6 +76,7 @@ public class RL_EnemyController : MonoBehaviour
         InitializeEnemyData();
         boxCollider = GetComponent<BoxCollider>();
         enemyStatDisplay = GetComponent<EnemyStatDisplay>();
+        SetupInitialValues();
     }
 
     void Update()
@@ -141,10 +144,12 @@ public class RL_EnemyController : MonoBehaviour
     public void SetupInitialValues()
     {
         m_PlayerPosition = Vector3.zero;
-        m_IsPatrol = true;
+        m_IsPatrol = false; // Start in active state
         m_CaughtPlayer = false;
-        m_WaitTime = startWaitTime;
-        m_TimeToRotate = timeToRotate;
+        m_WaitTime = 0f; // No wait time
+        m_TimeToRotate = 0f; // No rotation delay
+        m_PlayerInRange = true; // Always consider player in range
+        m_CurrentWaypointIndex = Random.Range(0, waypoints.Length); 
     }
 
 
@@ -175,43 +180,17 @@ public class RL_EnemyController : MonoBehaviour
 
     private void EnvironmentView()
     {
+        // Always active behavior - no player checks needed
+        m_PlayerInRange = true;
+        m_IsPatrol = false;
+        
+        // Still track player position if player exists
         Collider[] playerInRange = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
-
-        for (int i = 0; i < playerInRange.Length; i++)
+        if (playerInRange.Length > 0)
         {
-            Transform player = playerInRange[i].transform;
-            Vector3 dirToPlayer = (player.position - transform.position).normalized;
-            if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2)
-            {
-                float dstToPlayer = Vector3.Distance(transform.position, player.position);
-                if (!Physics.Raycast(transform.position, dirToPlayer, dstToPlayer, obstacleMask))
-                {
-                    m_PlayerInRange = true;
-                    m_IsPatrol = false;
-                }
-                else
-                {
-                    m_PlayerInRange = false;
-                }
-            }
-            if (Vector3.Distance(transform.position, player.position) > viewRadius)
-            {
-                m_PlayerInRange = false;
-            }
-            if (m_PlayerInRange)
-            {
-                m_PlayerPosition = player.transform.position;
-            }
-            else
-            {
-                m_IsPatrol = true;
-            }
+            m_PlayerPosition = playerInRange[0].transform.position;
         }
     }
-
-
-
-
 
     private Vector3 GetSeparationVector()
     {
@@ -296,6 +275,15 @@ public class RL_EnemyController : MonoBehaviour
 
             // Player tracking logic remains without NavMesh
         }
+    }
+
+    private void NextPoint()
+    {
+        int nextWaypointIndex;
+        do
+        {
+            nextWaypointIndex = Random.Range(0, waypoints.Length);
+        } while (nextWaypointIndex == m_CurrentWaypointIndex);
     }
 
 

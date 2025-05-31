@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class TrainingTargetSpawner : MonoBehaviour
+public class RL_TrainingTargetSpawner : MonoBehaviour
 {
     [Header("Spawn Settings")]
     public GameObject trainingTargetPrefab;
