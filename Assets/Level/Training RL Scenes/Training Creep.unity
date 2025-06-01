@@ -1201,6 +1201,14 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 1323046369732671158, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 132.02992
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323046369732671158, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.04
+      objectReference: {fileID: 0}
     - target: {fileID: 3015037728087295331, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 1
@@ -1215,7 +1223,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5750024216118169162, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -25.998154
+      value: -26.39
       objectReference: {fileID: 0}
     - target: {fileID: 5750024216118169162, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1223,7 +1231,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5750024216118169162, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -157.187
+      value: -157.112
       objectReference: {fileID: 0}
     - target: {fileID: 5750024216118169162, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1252,6 +1260,14 @@ PrefabInstance:
     - target: {fileID: 5750024216118169162, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6547164897412139667, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 132.02992
+      objectReference: {fileID: 0}
+    - target: {fileID: 6547164897412139667, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.04
       objectReference: {fileID: 0}
     - target: {fileID: 7866979261167528033, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_ScaleInLightmap
