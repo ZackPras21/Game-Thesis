@@ -5,6 +5,7 @@ public class RL_Player : MonoBehaviour
     [Header("Player Stats")]
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float currentHealth;
+    public float CurrentHealth { get => currentHealth; set => currentHealth = value; }
     [SerializeField] private float attackRange = 2f;
     [SerializeField] private float attackDamage = 10f;
     [SerializeField] private float attackCooldown = 1f;

@@ -95,6 +95,94 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 8
   m_CollisionDetection: 0
+--- !u!1 &1064194340138194330
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 177716066261282426}
+  m_Layer: 0
+  m_Name: Waypoints
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &177716066261282426
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1064194340138194330}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.05, y: 4.97, z: -2.65}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3954716295185296680}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2329572597100512790
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4282999676219328253}
+  - component: {fileID: 3247270290517839601}
+  m_Layer: 0
+  m_Name: Rewards
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4282999676219328253
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2329572597100512790}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.05, y: 4.97, z: -2.65}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3954716295185296680}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3247270290517839601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2329572597100512790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e4dd39d3d37e5f48a4a8af0f5948f94, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  KilledPlayerReward: 1
+  DiedByPlayerPunishment: -1
+  DetectPlayerReward: 0.8
+  ChasePlayerReward: 0.9
+  AttackPlayerReward: 1
+  LostFightPenalty: -0.6
+  ObstaclePenalty: -0.8
+  PatrolStepReward: 0.005
+  IdlePenalty: -0.01
+  NoMovementPenalty: -0.01
+  ApproachPlayerReward: 0.01
+  StayFarFromPlayerPenalty: -0.005
+  AttackMissedPenalty: -0.1
 --- !u!1 &2756545049020899991
 GameObject:
   m_ObjectHideFlags: 0
@@ -1400,6 +1488,12 @@ PrefabInstance:
       addedObject: {fileID: 8983219989160955692}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 4282999676219328253}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 177716066261282426}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 571224362856628930}
     - targetCorrespondingSourceObject: {fileID: -3823155983827850616, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
@@ -1435,6 +1529,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2912090546807148861}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8894129208516749644}
   m_SourcePrefab: {fileID: 100100000, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}
 --- !u!4 &3954716295185296680 stripped
 Transform:
@@ -1567,7 +1664,7 @@ NavMeshAgent:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4443409237942974354}
-  m_Enabled: 0
+  m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 1.98
   m_Speed: 3.5
@@ -1654,12 +1751,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 1
+    VectorObservationSize: 13
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 4
+      m_NumContinuousActions: 3
       BranchSizes: 
-    VectorActionSize: 04000000
+    VectorActionSize: 03000000
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
@@ -1688,19 +1785,31 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
-  enemyController: {fileID: 3413073641965294540}
-  malePlayerTransform: {fileID: 2469261571595659520, guid: df2394b1834916646ab4d514868d11ad, type: 3}
-  femalePlayerTransform: {fileID: 5172510939944526345, guid: 7161e19d17760d64abd1ae3adc7a4a62, type: 3}
-  patrolPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  detectionReward: 0.1
-  attackReward: 0.2
-  killReward: 1
-  damagePenalty: -0.5
-  idlePenalty: -0.01
+  playerTransform: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 136
+  maxHealth: 100
+  moveSpeed: 3.5
+  turnSpeed: 120
+  detectDistance: 10
+  attackRange: 2
+  rewardCalculator: {fileID: 3247270290517839601}
+--- !u!114 &8894129208516749644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4443409237942974354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DecisionPeriod: 5
+  DecisionStep: 0
+  TakeActionsBetweenDecisions: 1
 --- !u!4 &8906478605765353547 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3823155983827850616, guid: 458b0cb5ed910474aa26cb6b156ea5ab, type: 3}

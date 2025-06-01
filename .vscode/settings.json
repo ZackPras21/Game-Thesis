@@ -52,5 +52,8 @@
         "Temp/": true
     },
     "dotnet.defaultSolution": "Game-Thesis.sln",
-    "discord.enabled": true
+    "discord.enabled": true,
+    "python.analysis.extraPaths": [
+        "./ml-agents/ml-agents"
+    ]
 }
