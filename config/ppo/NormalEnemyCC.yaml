@@ -1,6 +1,10 @@
 behaviors:
   NormalEnemy:
     trainer_type: ppo
+    max_steps: 500000
+    time_horizon: 128
+    summary_freq: 10000
+    threaded: true
     hyperparameters:
       batch_size: 2048
       buffer_size: 20480
@@ -18,7 +22,3 @@ behaviors:
       extrinsic:
         gamma: 0.995
         strength: 1.0
-    max_steps: 500000
-    time_horizon: 128
-    summary_freq: 10000
-    threaded: true

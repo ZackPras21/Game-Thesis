@@ -1,0 +1,12 @@
+cd /d 
+
+conda activate mlagents
+
+mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRun1
+
+tambah :
+
+mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRun1 --torch-device=cuda
+--force (diakhir buat force)
+
+--resume (buat lanjut training tapi harus gedein step dulu)
