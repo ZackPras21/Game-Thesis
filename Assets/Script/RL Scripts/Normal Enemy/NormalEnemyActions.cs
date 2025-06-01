@@ -5,7 +5,6 @@ public enum EnemyAction
     StrafeLeft,
     StrafeRight,
     Attack,
-    TakeDamage,
     Idle,
     Patrol,
     Chase,

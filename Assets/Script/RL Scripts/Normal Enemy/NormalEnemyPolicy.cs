@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 public class NormalEnemyPolicy
-{
+{ /*
     private Dictionary<NormalEnemyState, EnemyAction> policyMap = new Dictionary<NormalEnemyState, EnemyAction>();
 
     public EnemyAction GetAction(NormalEnemyState state)
@@ -25,5 +25,5 @@ public class NormalEnemyPolicy
         {
             policyMap[state] = action;
         }
-    }
+    } */
 }

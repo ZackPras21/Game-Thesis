@@ -1458,12 +1458,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  navMeshAgent: {fileID: 0}
-  speedWalk: 6
-  speedRun: 9
+  m_PlayerPosition: {x: 0, y: 0, z: 0}
+  playerLastPosition: {x: 0, y: 0, z: 0}
+  m_WaitTime: 0
+  m_TimeToRotate: 0
   rotationSpeed: 5
-  waypoints: []
-  patrolRadius: 5
+  moveSpeed: 3
+  waypointThreshold: 0.5
   viewRadius: 45
   viewAngle: 90
   playerMask:
@@ -1475,6 +1476,7 @@ MonoBehaviour:
   meshResolution: 1
   edgeInterations: 4
   edgeDistance: 0.5
+  waypoints: []
   enemyHP: 0
   healthBar: {fileID: 1552570349913411215}
   boxCollider: {fileID: 1255941309751475032}
@@ -1655,16 +1657,16 @@ MonoBehaviour:
     VectorObservationSize: 1
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 1
+      m_NumContinuousActions: 4
       BranchSizes: 
-    VectorActionSize: 01000000
+    VectorActionSize: 04000000
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
-  m_BehaviorName: My Behavior
+  m_BehaviorName: NormalEnemy
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1

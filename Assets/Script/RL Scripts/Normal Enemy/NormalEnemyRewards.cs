@@ -10,11 +10,11 @@ public class NormalEnemyRewards
         // Reward for moving towards the player (closeness is better)
         reward += state.DistanceToPlayer * -0.1f; // Negative for distance, closer is better
 
-        // Penalty for getting hit
+        /* Penalty for getting hit
         if (action == EnemyAction.TakeDamage)
         {
             reward -= 1f; // Penalty for taking damage
-        }
+        } */
 
         // Reward for dealing damage
         if (action == EnemyAction.Attack)
@@ -26,7 +26,7 @@ public class NormalEnemyRewards
         if (state.IsHealthLow)
         {
             reward -= 0.5f; // Penalty for being low on health
-        }
+        } 
 
         return reward;
     }
