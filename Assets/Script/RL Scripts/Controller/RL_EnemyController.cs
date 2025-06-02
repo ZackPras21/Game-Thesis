@@ -387,10 +387,10 @@ public class RL_EnemyController : MonoBehaviour
     IEnumerator Attack()
     {
         canAttack = false;
-        animator.SetBool("IsAttacking", true);
+        animator.SetBool("isAttacking", true);
         yield return new WaitForSeconds(1);
-        animator.SetBool("IsAttacking", false);
-        animator.SetBool("IsWalking", false);
+        animator.SetBool("isAttacking", false);
+        animator.SetBool("isWalking", false);
         yield return new WaitForSeconds(2);
         canAttack = true;
     }

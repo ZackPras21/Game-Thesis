@@ -1569,7 +1569,7 @@ MonoBehaviour:
     m_Bits: 64
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 136
   meshResolution: 1
   edgeInterations: 4
   edgeDistance: 0.5
@@ -1667,7 +1667,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 1.98
-  m_Speed: 3.5
+  m_Speed: 4
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -1760,9 +1760,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: 2a8893dc770844f4da0c2cddf1f33eb0, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: NormalEnemy
   TeamId: 0
   m_UseChildSensors: 1
@@ -1789,8 +1789,10 @@ MonoBehaviour:
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 136
+  enemyController: {fileID: 9100000, guid: 3a91702552d7a6e43996bd218edba26a, type: 2}
   maxHealth: 100
-  moveSpeed: 3.5
+  attackDamage: 50
+  moveSpeed: 4
   turnSpeed: 120
   detectDistance: 10
   attackRange: 2
