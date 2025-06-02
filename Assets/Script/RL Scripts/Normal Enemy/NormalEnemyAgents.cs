@@ -1,132 +1,83 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AI;
 using Unity.MLAgents;
-using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
+using Unity.MLAgents.Actuators;
+using UnityEngine.AI;
 
-[RequireComponent(typeof(NavMeshAgent))]
 public class NormalEnemyAgent : Agent
 {
-    [Header("References")]
-    public Transform playerTransform;           // The “Player” Transform (tagged “Player”)
-    private Transform[] patrolPoints;
-    public LayerMask obstacleLayerMask;         // Walls/obstacles for raycasts
-
-    [Header("Animator Controller (optional)")]
-    // If you want to assign/swapping the controller at runtime, assign it in Inspector:
-    public RuntimeAnimatorController enemyController;
-
-    [Header("Stats")]
-    public float maxHealth = 100f;
-    private float currentHealth;
-    public float attackDamage = 10f;            // Damage dealt to the player on a successful hit
-
-    [Header("Movement Settings")]
-    public float moveSpeed = 3.5f;
+    // ───── PUBLIC INSPECTOR FIELDS ────────────────────────────────────────────
+    [Header("Movement / Combat Parameters")]
+    public float moveSpeed = 3f;
     public float turnSpeed = 120f;
-    public float detectDistance = 10f;          // Range to detect player (line‑of‑sight)
-    public float attackRange = 2.0f;            // Distance at which we “attack” the player
+    public float attackRange = 2f;
+    public float attackDamage = 10f;
+    public float detectDistance = 10f;   // Unique per‐prefab in Inspector
+    public float maxHealth = 100f;
 
-    [Header("Rewards")]
-    public NormalEnemyRewards rewardCalculator;
+    [Header("References")]
+    public Transform[] patrolPoints;       // Array of waypoints to patrol between
+    public Transform playerTransform;      // Reference to the player
+    public LayerMask obstacleLayerMask;    // LayerMask used for obstacle‐raycasts
+    public Animator animator;              // Assign the Animator component here
 
-    // Animator for playing animations:
-    private Animator animator;
+    
+    public enum EnemyType { Creep, Humanoid, Bull }
 
-    // Internal state:
+    [Header("Enemy Type (HP≤20% Behavior)")]
+    public EnemyType enemyType = EnemyType.Creep;
+
+    // ───── PRIVATE STATE FIELDS ───────────────────────────────────────────────
     private NavMeshAgent navAgent;
     private int currentPatrolIndex = 0;
-    private Vector3 lastPosition;
-    private float timeSinceLastMove = 0f;
-    private int stepsSinceLastMove = 0;
-    private bool hasEverSeenPlayer = false;
 
-    // Mode flags:
+    // High‐level mode flags:
     private bool isPatrolling = false;
-    private bool isChasing = false;
+    private bool isChasing   = false;
     private bool isAttacking = false;
-    private bool isDead = false;
+    private bool isDetecting = false;
+    private bool isIdle      = false;
+    private bool isDead      = false;
 
-    // Cache for relative distances:
-    private float prevDistanceToPlayer = Mathf.Infinity;
+    // Health + detection timer:
+    private float currentHealth;
+    private float detectionTimer = 0f;
+    private const float detectPhaseDuration = 0.5f; // seconds spent in “Detect” state
 
-    void Awake()
-    {
-        // Build the array of patrol points if you have them set up as children of this GameObject:
-        Transform[] pts = GetComponentsInChildren<Transform>();
-        patrolPoints = new Transform[pts.Length - 1];
-        int idx = 0;
-        foreach (var t in pts)
-        {
-            if (t != this.transform)
-            {
-                patrolPoints[idx++] = t;
-            }
-        }
-    }
+    // Reward tracking / bookkeeping:
+    private bool hasEverSeenPlayer = false;
+    private float prevDistanceToPlayer = float.PositiveInfinity;
 
+    // ───── INITIALIZE AGENT ───────────────────────────────────────────────────
     public override void Initialize()
     {
         navAgent = GetComponent<NavMeshAgent>();
         navAgent.speed = moveSpeed;
         navAgent.angularSpeed = turnSpeed;
+        navAgent.stoppingDistance = 0.1f;
+        navAgent.autoBraking = false;
 
-        // 1) Grab the Animator component
-         animator = GetComponent<Animator>();
-        if (animator == null)
-        {
-            Debug.LogWarning("No Animator component found on NormalEnemyAgent: " + name);
-        }
-        else
-        {
-            if (enemyController != null)
-            {
-                animator.runtimeAnimatorController = enemyController;
-            }
-            else
-            {
-                if (animator.runtimeAnimatorController == null)
-                {
-                    Debug.LogWarning("Animator has no Controller assigned on " + name +
-                                     ". Either assign in Inspector or set enemyController in this script.");
-                }
-            }
-        }
-
-        currentHealth = maxHealth;
-        lastPosition = transform.position;
-        timeSinceLastMove = 0f;
-        stepsSinceLastMove = 0;
-    }
-
-    public override void OnEpisodeBegin()
-    {
-        if (!Academy.Instance.IsCommunicatorOn)
-        {
-            return;
-        }
-
-        // Reset health
-        currentHealth = maxHealth;
-        isDead = false;
+        // Reset health & mode flags:
+        currentHealth     = maxHealth;
+        isDead            = false;
         hasEverSeenPlayer = false;
 
-        navAgent.enabled = true;
+        isPatrolling    = false;
+        isChasing       = false;
+        isAttacking     = false;
+        isDetecting     = false;
+        isIdle          = true;        // Start in Idle
+        detectionTimer  = 0f;
+
+        // Reset NavMeshAgent so it truly idles for the first frame:
+        navAgent.enabled  = true;
         navAgent.Warp(transform.position);
         navAgent.velocity = Vector3.zero;
-        navAgent.isStopped = false;
-        currentPatrolIndex = 0;
+        navAgent.isStopped = true;
 
-        // Reset “stuck” trackers
-        lastPosition = transform.position;
-        timeSinceLastMove = 0f;
-        stepsSinceLastMove = 0;
-
-        // Reset distance cache
-        prevDistanceToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-
-        // Reset Animator parameters
+        // Force Idle animation on spawn:
         if (animator != null)
         {
             animator.SetBool("isWalking", false);
@@ -134,10 +85,13 @@ public class NormalEnemyAgent : Agent
             animator.ResetTrigger("getHit");
             animator.SetBool("isDead", false);
         }
+        NormalEnemyActions.DoIdle(navAgent);
     }
 
+    // ───── COLLECT OBSERVATIONS ────────────────────────────────────────────────
     public override void CollectObservations(VectorSensor sensor)
     {
+        // Build a temporary state object (so we can reuse any logic you had before)
         NormalEnemyState s = new NormalEnemyState(
             agentTransform: transform,
             currentHealth: currentHealth,
@@ -147,33 +101,48 @@ public class NormalEnemyAgent : Agent
             obstacleMask: obstacleLayerMask
         );
 
+        // Override the state’s mode‐flags with our local booleans:
         s.IsPatrolling = isPatrolling;
-        s.IsChasing = isChasing;
-        s.IsAttacking = isAttacking;
-        s.IsDead = isDead;
+        s.IsChasing    = isChasing;
+        s.IsDetecting  = isDetecting;
+        s.IsAttacking  = isAttacking;
+        s.IsDead       = isDead;
+        s.IsIdle       = isIdle;
 
-        // [snip: same observation code as before…]
-        // 1) Agent pos
+        // 1) Agent’s X,Z position (normalized by arena size ≈50 units):
         sensor.AddObservation(s.AgentPosition.x / 50f);
         sensor.AddObservation(s.AgentPosition.z / 50f);
-        // 2) Health fraction
+
+        // 2) Health fraction (0..1):
         sensor.AddObservation(s.HealthFraction);
-        // 3) Player pos
+
+        // 3) Direction to next patrol point (X,Z):
+        sensor.AddObservation(s.NextPatrolPointDir.x);
+        sensor.AddObservation(s.NextPatrolPointDir.z);
+
+        // 4) Player’s X,Z position (normalized):
         sensor.AddObservation(s.PlayerPosition.x / 50f);
         sensor.AddObservation(s.PlayerPosition.z / 50f);
-        // 4) Can see player
+
+        // 5) Can see player? (1 or 0)
         sensor.AddObservation(s.CanSeePlayer ? 1f : 0f);
-        // 5) Dir to nearest obstacle normalized
+
+        // 6) Distance to nearest obstacle (clamped 0..10, then normalized):
         float obsDistNorm = Mathf.Clamp(s.DistToNearestObstacle, 0f, 10f) / 10f;
         sensor.AddObservation(obsDistNorm);
-        // 6) Mode flags
-        sensor.AddObservation(s.IsPatrolling  ? 1f : 0f);
-        sensor.AddObservation(s.IsChasing     ? 1f : 0f);
-        sensor.AddObservation(s.IsAttacking   ? 1f : 0f);
-        sensor.AddObservation(s.IsDead        ? 1f : 0f);
-        // 7) Relative distance delta
+
+        // 7) Mode flags (six booleans: Patrol, Chase, Detect, Attack, Dead, Idle):
+        sensor.AddObservation(s.IsPatrolling ? 1f : 0f);
+        sensor.AddObservation(s.IsChasing    ? 1f : 0f);
+        sensor.AddObservation(s.IsDetecting  ? 1f : 0f);
+        sensor.AddObservation(s.IsAttacking  ? 1f : 0f);
+        sensor.AddObservation(s.IsDead       ? 1f : 0f);
+        sensor.AddObservation(s.IsIdle       ? 1f : 0f);
+
+        // 8) Current distance to player & delta‐distance since last step:
         float currDist = Vector3.Distance(transform.position, playerTransform.position);
         sensor.AddObservation(currDist / 50f);
+
         float distDelta = float.IsInfinity(prevDistanceToPlayer)
             ? 0f
             : currDist - prevDistanceToPlayer;
@@ -181,258 +150,317 @@ public class NormalEnemyAgent : Agent
         prevDistanceToPlayer = currDist;
     }
 
+    // ───── ONACTIONRECEIVED ────────────────────────────────────────────────────
     public override void OnActionReceived(ActionBuffers actionBuffers)
     {
+        // 1) If already dead → play death routine and exit:
         if (isDead)
         {
             NormalEnemyActions.DoDead(transform, navAgent);
             return;
         }
 
-        float moveX   = Mathf.Clamp(actionBuffers.ContinuousActions[0], -1f, +1f);
-        float moveZ   = Mathf.Clamp(actionBuffers.ContinuousActions[1], -1f, +1f);
-        float rotateY = Mathf.Clamp(actionBuffers.ContinuousActions[2], -1f, +1f);
-
-        float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-        bool  canSee       = false;
-
-        // Recompute line‑of‑sight
+        // 2) HP ≤ 20% → Type‐specific behavior:
+        float healthFraction = currentHealth / maxHealth;
+        if (healthFraction <= 0.2f && !isDead)
         {
-            RaycastHit getHit;
-            if (Physics.Raycast(
-                origin: transform.position + Vector3.up * 0.5f,
-                direction: (playerTransform.position - transform.position).normalized,
-                out getHit,
-                detectDistance,
-                obstacleLayerMask
-            ))
+            switch (enemyType)
             {
-                if (getHit.transform == playerTransform)
-                    canSee = true;
+                case EnemyType.Creep:
+                {
+                    // Creep: run behind player (180° away) to attack from behind
+                    Vector3 toPlayer    = (playerTransform.position - transform.position).normalized;
+                    Vector3 behindPoint = playerTransform.position - toPlayer * attackRange;
+                    navAgent.isStopped = false;
+                    navAgent.SetDestination(behindPoint);
+
+                    isPatrolling   = false;
+                    isChasing      = false;
+                    isDetecting    = false;
+                    isAttacking    = false;
+                    isIdle         = false;
+                    return;
+                }
+                case EnemyType.Humanoid:
+                {
+                    // Humanoid: if other enemies still alive → idle; else chase
+                    bool othersAlive = false;
+                    foreach (var other in FindObjectsOfType<NormalEnemyAgent>())
+                    {
+                        if (other != this && other.currentHealth > 0f)
+                        {
+                            othersAlive = true;
+                            break;
+                        }
+                    }
+                    if (othersAlive)
+                    {
+                        isPatrolling = false;
+                        isChasing    = false;
+                        isDetecting  = false;
+                        isAttacking  = false;
+                        isIdle       = true;
+                        // half‐penalty for waiting
+                        AddReward(-0.005f);
+                        return;
+                    }
+                    // no allies → fall through to normal chase logic
+                    break;
+                }
+                case EnemyType.Bull:
+                {
+                    // Bull: if any allies remain → flee; else chase
+                    bool alliesRemain = false;
+                    foreach (var other in FindObjectsOfType<NormalEnemyAgent>())
+                    {
+                        if (other != this && other.currentHealth > 0f)
+                        {
+                            alliesRemain = true;
+                            break;
+                        }
+                    }
+                    if (alliesRemain)
+                    {
+                        // Flee straight away from player up to detectDistance
+                        Vector3 fleeDir   = (transform.position - playerTransform.position).normalized;
+                        Vector3 fleePoint = transform.position + fleeDir * detectDistance;
+                        navAgent.isStopped = false;
+                        navAgent.SetDestination(fleePoint);
+
+                        isPatrolling = false;
+                        isChasing    = false;
+                        isDetecting  = false;
+                        isAttacking  = false;
+                        isIdle       = false;
+                        return;
+                    }
+                    // otherwise, no allies → fall through to chase
+                    break;
+                }
             }
         }
 
-        // → If health ≤ 0 → go to Death
-        if (currentHealth <= 0f)
+        // 3) Check line‐of‐sight (raycast) and distance to player:
+        Vector3 dirToPlayer = (playerTransform.position - transform.position).normalized;
+        bool canSee = false;
+        if (Physics.Raycast(
+                origin: transform.position + Vector3.up * 0.5f,
+                direction: dirToPlayer,
+                hitInfo: out RaycastHit hit,
+                maxDistance: detectDistance,
+                layerMask: ~0 // Raycast against all layers; we'll check if hit == player
+            ))
         {
-            isDead = true;
-            isPatrolling = false;
-            isChasing = false;
-            isAttacking = false;
+            if (hit.transform == playerTransform)
+                canSee = true;
+        }
+        float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
+
+        // 4) Enter “Detect” as soon as the player becomes visible:
+        if (canSee && !isDetecting && !isChasing && !isAttacking && !isDead)
+        {
+            isDetecting    = true;
+            isChasing      = false;
+            isPatrolling   = false;
+            isAttacking    = false;
+            isIdle         = false;
+            detectionTimer = 0f;
+
             if (animator != null)
             {
-                animator.SetBool("isDead", true);
+                // Optional: trigger a Detect/Alert animation, if one exists.
+                // animator.SetTrigger("detectTrigger");
             }
-            NormalEnemyActions.DoDead(transform, navAgent);
-            AddReward(rewardCalculator.LostFightPenalty);
-            EndEpisode();
-            return;
+            // Reward for spotting the player:
+            AddReward(+0.01f);
         }
 
-        // → Decide between Chase, Attack, or Patrol
-        if (canSee && distToPlayer > attackRange)
+        // 5) If currently in Detect state → wait detectPhaseDuration, then begin chase:
+        if (isDetecting)
         {
-            isChasing = true;
+            detectionTimer += Time.deltaTime;
+            NormalEnemyActions.DoDetect(); // Currently a no‐op, but you can add visual cues here.
+
+            if (detectionTimer >= detectPhaseDuration)
+            {
+                isDetecting = false;
+                isChasing   = true;
+                isIdle      = false;
+                if (animator != null)
+                {
+                    animator.SetBool("isWalking", true);
+                }
+            }
+            return; // Skip the rest of logic this FixedUpdate
+        }
+
+        // 6) If can see && outside attack range → Chase:
+        if (canSee && distToPlayer > attackRange && !isChasing && !isAttacking && !isDead)
+        {
+            isChasing    = true;
             isPatrolling = false;
-            isAttacking = false;
+            isAttacking  = false;
+            isIdle       = false;
 
             if (!hasEverSeenPlayer)
             {
-                AddReward(rewardCalculator.DetectPlayerReward);
+                AddReward(+0.01f); // extra reward for first detection
                 hasEverSeenPlayer = true;
             }
-
             if (animator != null)
             {
                 animator.SetBool("isWalking", true);
-                animator.SetBool("isAttacking", false);
-                animator.ResetTrigger("getHit");
-                animator.SetBool("isDead", false);
-            }
-        }
-        else if (canSee && distToPlayer <= attackRange)
-        {
-            isAttacking = true;
-            isChasing = false;
-            isPatrolling = false;
-
-            if (animator != null)
-            {
-                animator.SetBool("isAttacking", true);
-                animator.SetBool("isWalking", false);
-                animator.ResetTrigger("getHit");
-                animator.SetBool("isDead", false);
-            }
-        }
-        else
-        {
-            isPatrolling = true;
-            isChasing = false;
-            isAttacking = false;
-
-            if (animator != null)
-            {
-                animator.SetBool("isWalking", true);
-                animator.SetBool("isAttacking", false);
-                animator.ResetTrigger("getHit");
-                animator.SetBool("isDead", false);
             }
         }
 
-        // ========== Movement and Attack Logic ==========
+        // 7) If already in Attacking state:
         if (isAttacking)
         {
             NormalEnemyActions.DoAttack(navAgent);
 
-            // ——————————————— New: Damage the Player ———————————————
-            if (distToPlayer <= attackRange)
+            // If still within attackRange, deal damage:
+            if (distToPlayer <= attackRange + 0.1f)
             {
                 RL_Player player = playerTransform.GetComponent<RL_Player>();
                 if (player != null)
                 {
                     player.TakeDamage(attackDamage);
-                    AddReward(rewardCalculator.AttackPlayerReward);
+                    AddReward(+0.05f); // reward for landing an attack
+
                     if (player.CurrentHealth <= 0f)
                     {
-                        AddReward(rewardCalculator.KilledPlayerReward);
-
-                        Collider playerCollider = playerTransform.GetComponent<Collider>();
-                        if (playerCollider != null) playerCollider.enabled = false;
-
-                        Rigidbody playerRb = playerTransform.GetComponent<Rigidbody>();
-                        if (playerRb != null) playerRb.isKinematic = true;
-
-                        playerTransform.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
-
+                        AddReward(+0.2f); // big reward for killing the player
                         EndEpisode();
                         return;
                     }
                 }
             }
-            else
-            {
-                AddReward(rewardCalculator.AttackMissedPenalty);
-            }
         }
+        // 8) If can see && within attack range → switch to Attacking:
+        else if (canSee && distToPlayer <= attackRange)
+        {
+            isAttacking   = true;
+            isChasing     = false;
+            isPatrolling  = false;
+            isIdle        = false;
+
+            if (animator != null)
+            {
+                animator.SetBool("isAttacking", true);
+            }
+            navAgent.isStopped = true;
+        }
+        // 9) If in Chasing state → continue moving toward player:
         else if (isChasing)
         {
-            navAgent.SetDestination(playerTransform.position);
+            NormalEnemyActions.DoChase(navAgent, playerTransform);
+        }
+        // 10) If cannot see & not attacking/dead → Patrol:
+        else if (!canSee && !isChasing && !isAttacking && !isDead)
+        {
+            isPatrolling  = true;
+            isChasing     = false;
+            isAttacking   = false;
+            isIdle        = false;
 
-            float newDist = distToPlayer;
-            if (newDist < prevDistanceToPlayer)
-                AddReward(rewardCalculator.ApproachPlayerReward);
-            else
-                AddReward(rewardCalculator.StayFarFromPlayerPenalty);
-
+            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex);
             if (animator != null)
             {
                 animator.SetBool("isWalking", true);
             }
+            AddReward(+0.001f); // small reward for patrolling step
         }
-        else if (isPatrolling)
-        {
-            NormalEnemyActions.ApplyMovement(
-                transform, navAgent,
-                moveX, moveZ, rotateY,
-                moveSpeed, turnSpeed
-            );
-
-            if (new Vector2(moveX, moveZ).sqrMagnitude > 0.01f)
-                AddReward(rewardCalculator.PatrolStepReward);
-            else
-                AddReward(rewardCalculator.IdlePenalty);
-        }
+        // 11) Otherwise → Idle (fallback):
         else
         {
-            NormalEnemyActions.DoIdle(navAgent);
-            AddReward(rewardCalculator.IdlePenalty * 0.5f);
+            isIdle        = true;
+            isPatrolling  = false;
+            isChasing     = false;
+            isDetecting   = false;
+            isAttacking   = false;
+
             if (animator != null)
+            {
                 animator.SetBool("isWalking", false);
+            }
+            NormalEnemyActions.DoIdle(navAgent);
+            AddReward(-0.005f); // slight penalty for standing idle
         }
 
-        // ========== Collision Penalty ==========
+        // 12) Collision penalty (raycast forward into obstacle):
         {
-            RaycastHit getHit;
             if (Physics.Raycast(
-                origin: transform.position + Vector3.up * 0.5f,
-                direction: transform.forward,
-                out getHit,
-                0.5f,
-                obstacleLayerMask
-            ))
-            {
-                AddReward(rewardCalculator.ObstaclePenalty);
-            }
-        }
-
-        // ========== Stuck Detection ==========
-        {
-            Vector3 currPos = transform.position;
-            float   distMove = Vector3.Distance(lastPosition, currPos);
-            if (distMove < 0.01f)
-            {
-                stepsSinceLastMove++;
-                timeSinceLastMove += Time.fixedDeltaTime;
-            }
-            else
-            {
-                stepsSinceLastMove = 0;
-                timeSinceLastMove = 0f;
-                lastPosition = currPos;
-            }
-
-            if (rewardCalculator.CheckIfStuck(
-                    prevPos: lastPosition,
-                    currPos: currPos,
-                    stepsSinceLastMove: stepsSinceLastMove,
-                    timeSinceLastMove: timeSinceLastMove
+                    origin: transform.position + Vector3.up * 0.5f,
+                    direction: transform.forward,
+                    out RaycastHit hitObs,
+                    maxDistance: 0.5f,
+                    layerMask: obstacleLayerMask
                 ))
             {
-                AddReward(rewardCalculator.NoMovementPenalty);
-                EndEpisode();
-                return;
+                AddReward(-0.01f);
             }
         }
 
-        prevDistanceToPlayer = distToPlayer;
+        // 13) Apply continuous‐action movement (if not Attacking or Dead):
+        if (!isAttacking && !isDead)
+        {
+            float moveX  = actionBuffers.ContinuousActions[0]; // -1..+1
+            float moveZ  = actionBuffers.ContinuousActions[1]; // -1..+1
+            float rotateY = actionBuffers.ContinuousActions[2]; // -1..+1
+
+            NormalEnemyActions.ApplyMovement(
+                agentTransform: transform,
+                navAgent: navAgent,
+                moveX: moveX,
+                moveZ: moveZ,
+                rotateY: rotateY,
+                moveSpeed: moveSpeed,
+                turnSpeed: turnSpeed
+            );
+        }
     }
 
+    // ───── HEURISTIC (for human testing) ──────────────────────────────────────
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        ActionSegment<float> cont = actionsOut.ContinuousActions;
-        float mx = 0f;
-        float mz = 0f;
-        float ry = 0f;
-
-        if (Input.GetKey(KeyCode.W)) mz = +1f;
-        if (Input.GetKey(KeyCode.S)) mz = -1f;
-        if (Input.GetKey(KeyCode.D)) mx = +1f;
-        if (Input.GetKey(KeyCode.A)) mx = -1f;
-        if (Input.GetKey(KeyCode.Q)) ry = -1f;
-        if (Input.GetKey(KeyCode.E)) ry = +1f;
-
-        cont[0] = mx;
-        cont[1] = mz;
-        cont[2] = ry;
+        var cont = actionsOut.ContinuousActions;
+        // Forward/Backward:
+        cont[1] = Input.GetAxis("Vertical");   // W/S or Up/Down arrow
+        // Strafe Left/Right:
+        cont[0] = Input.GetAxis("Horizontal"); // A/D or Left/Right arrow
+        // Rotate Left/Right:
+        float rot = 0f;
+        if (Input.GetKey(KeyCode.Q)) rot = -1f;
+        if (Input.GetKey(KeyCode.E)) rot = +1f;
+        cont[2] = rot;
     }
 
+    // ───── TAKE DAMAGE ────────────────────────────────────────────────────────
     public void TakeDamage(float amount)
     {
         if (isDead) return;
 
         currentHealth -= amount;
-        AddReward(rewardCalculator.NoMovementPenalty * 2f);
+        AddReward(-0.02f); // penalty for being hit
 
         if (animator != null)
         {
-            animator.SetTrigger("getHit"); // <— changed from “hit” to “getHit”
+            animator.SetTrigger("getHit");
         }
 
         if (currentHealth <= 0f)
         {
             currentHealth = 0f;
             isDead = true;
-            AddReward(rewardCalculator.DiedByPlayerPunishment);
+
+            // Clear all other flags:
+            isIdle       = false;
+            isPatrolling = false;
+            isChasing    = false;
+            isDetecting  = false;
+            isAttacking  = false;
+
+            AddReward(-0.2f); // punishment for dying
 
             if (animator != null)
             {
@@ -441,5 +469,12 @@ public class NormalEnemyAgent : Agent
 
             EndEpisode();
         }
+    }
+
+    // ───── ON EPISODE BEGIN ───────────────────────────────────────────────────
+    public override void OnEpisodeBegin()
+    {
+        // Reset position, health, flags, etc.
+        Initialize();
     }
 }

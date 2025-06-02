@@ -1,87 +1,101 @@
 using UnityEngine;
+using UnityEngine.AI;
+
 public enum EnemyHighLevelAction
 {
-    Idle = 0,
-    Patrol,
-    Detect,
-    Chase,
-    Attack,
-    Dead
+    Idle     = 0,
+    Patrol   = 1,
+    Detect   = 2,
+    Chase    = 3,
+    Attack   = 4,
+    Dead     = 5
 }
 
 public static class NormalEnemyActions
 {
     public static void ApplyMovement(
-    Transform agentTransform,
-    UnityEngine.AI.NavMeshAgent navAgent,
-    float moveX,
-    float moveZ,
-    float rotateY,
-    float moveSpeed,
-    float turnSpeed
+        Transform agentTransform,
+        NavMeshAgent navAgent,
+        float moveX,
+        float moveZ,
+        float rotateY,
+        float moveSpeed,
+        float turnSpeed
     )
     {
-        // 1) Build a local‐space direction vector from the network’s [moveX, moveZ]:
-        Vector3 localMove = new Vector3(moveX, 0f, moveZ);
-        if (localMove.sqrMagnitude > 1f)
-        localMove.Normalize();
-
-        // 2) Convert that to world‐space:
-        Vector3 worldDir = agentTransform.TransformDirection(localMove).normalized;
-
-        // 3) Let the NavMeshAgent “step” that way, letting it respect obstacle avoidance:
-        navAgent.Move(worldDir * moveSpeed * Time.deltaTime);
-
-        // 4) Rotate only around Y, clamping exclusively to horizontal rotation:
+        // Rotate horizontally:
         agentTransform.Rotate(0f, rotateY * turnSpeed * Time.deltaTime, 0f);
+
+        // Compute desired direction in local space:
+        Vector3 localMove = new Vector3(moveX, 0f, moveZ);
+        Vector3 worldMove = agentTransform.TransformDirection(localMove).normalized;
+
+        // Let NavMeshAgent handle collisions & path‐smoothing:
+        if (moveZ != 0f || moveX != 0f)
+        {
+            navAgent.isStopped = false;
+            navAgent.speed = moveSpeed;
+            navAgent.SetDestination(agentTransform.position + worldMove * 0.5f);
+        }
+        else
+        {
+            navAgent.velocity = Vector3.zero;
+            navAgent.isStopped = true;
+        }
     }
 
-    public static void DoIdle(UnityEngine.AI.NavMeshAgent navAgent)
-    {
-        navAgent.velocity = Vector3.zero;
-    }
-
-    public static void DoDead(Transform agentTransform, UnityEngine.AI.NavMeshAgent navAgent)
+    public static void DoIdle(NavMeshAgent navAgent)
     {
         navAgent.velocity = Vector3.zero;
         navAgent.isStopped = true;
-        // Optionally, you can set a “dead” animation or remove the GameObject after a short delay.
     }
 
     public static void DoPatrol(
-        UnityEngine.AI.NavMeshAgent navAgent,
+        NavMeshAgent navAgent,
         Transform[] patrolPoints,
         ref int currentPatrolIndex
     )
     {
         if (patrolPoints == null || patrolPoints.Length == 0) return;
 
-        Transform targetPoint = patrolPoints[currentPatrolIndex];
-        if (navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f)
-        {
-            // Arrived at waypoint → go to next, looping around
-            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-            targetPoint = patrolPoints[currentPatrolIndex];
-        }
+        Vector3 targetPos = patrolPoints[currentPatrolIndex].position;
+        navAgent.isStopped = false;
+        navAgent.SetDestination(targetPos);
 
-        navAgent.SetDestination(targetPoint.position);
+        // If close enough to this waypoint, advance to next:
+        if (!navAgent.pathPending && navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f)
+        {
+            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+        }
     }
 
     public static void DoDetect()
     {
-        // No built‐in movement needed; detection logic is handled in the Agent class via raycasts/spheres.
+        // Optionally: play an “alert” animation or sound.
     }
 
     public static void DoChase(
-        UnityEngine.AI.NavMeshAgent navAgent,
+        NavMeshAgent navAgent,
         Transform playerTransform
     )
     {
+        navAgent.isStopped = false;
         navAgent.SetDestination(playerTransform.position);
     }
-    public static void DoAttack(UnityEngine.AI.NavMeshAgent navAgent)
+
+    public static void DoAttack(NavMeshAgent navAgent)
     {
         navAgent.velocity = Vector3.zero;
         navAgent.isStopped = true;
+    }
+
+    public static void DoDead(
+        Transform agentTransform,
+        NavMeshAgent navAgent
+    )
+    {
+        navAgent.velocity = Vector3.zero;
+        navAgent.isStopped = true;
+        // Optionally: play ragdoll or sink into ground, etc.
     }
 }

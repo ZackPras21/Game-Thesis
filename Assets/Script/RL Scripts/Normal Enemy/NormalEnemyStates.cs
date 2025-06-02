@@ -1,75 +1,89 @@
 using UnityEngine;
+
 public class NormalEnemyState
 {
-    // The agent's own position (x,z) in world space, and its current health fraction (0..1).
-    public Vector3 AgentPosition;
-    public float   HealthFraction;         // 0..1
+    // ───── PUBLIC STATE FIELDS ────────────────────────────────────────────────
+    public Vector3 AgentPosition;       // Current (x,z) position in world
+    public float HealthFraction;        // currentHealth / maxHealth
 
-    // The player's position (x,z), and whether the agent has a direct line‐of‐sight to the player.
-    public Vector3 PlayerPosition;
-    public bool    CanSeePlayer;
+    public Vector3 PlayerPosition;      // (x,z) of player
+    public bool CanSeePlayer;           // True if LOS to player within detectDistance
 
-    // Distance from the agent to the nearest obstacle directly in front (raycast).
-    public float DistToNearestObstacle;
+    public Vector3 NextPatrolPointDir;  // Direction (normalized) to next patrol waypoint
+    public float DistToNearestObstacle; // Distance to nearest obstacle ahead (0..10)
 
-    // Current “mode” booleans (only one should be true at a time, except “IsDead” can override).
+    // High‐level modes:
     public bool IsPatrolling;
     public bool IsChasing;
+    public bool IsDetecting;
     public bool IsAttacking;
     public bool IsDead;
+    public bool IsIdle;
 
-    // Constructor – pulls everything from the agent’s MonoBehaviour (requires a reference to the GameObject + Player).
-    public NormalEnemyState(Transform agentTransform, float currentHealth, float maxHealth, 
-                            Transform playerTransform, float detectDistance, LayerMask obstacleMask)
+    // ───── CONSTRUCTOR ─────────────────────────────────────────────────────────
+    public NormalEnemyState(
+        Transform agentTransform,
+        float currentHealth,
+        float maxHealth,
+        Transform playerTransform,
+        float detectDistance,
+        LayerMask obstacleMask
+    )
     {
-        // 1) Agent position & health fraction.
-        AgentPosition   = agentTransform.position;
-        HealthFraction  = Mathf.Clamp01(currentHealth / maxHealth);
+        // 1) Agent’s world position:
+        AgentPosition = agentTransform.position;
 
-        // 2) Player position & line‐of‐sight (raycast from agent → player).
+        // 2) Health fraction:
+        HealthFraction = currentHealth / maxHealth;
+
+        // 3) Player’s world position:
         PlayerPosition = playerTransform.position;
+
+        // 4) Can see player? (raycast from agent → player)
         Vector3 dirToPlayer = (PlayerPosition - AgentPosition).normalized;
         RaycastHit hit;
         if (Physics.Raycast(
-            origin: agentTransform.position + Vector3.up * 0.5f,
-            direction: dirToPlayer,
-            out hit,
-            detectDistance,
-            obstacleMask    // anything in this mask blocks line‐of‐sight
-        ))
+                origin: AgentPosition + Vector3.up * 0.5f,
+                direction: dirToPlayer,
+                out hit,
+                maxDistance: detectDistance
+            ))
         {
-            if (hit.transform == playerTransform)
-                CanSeePlayer = true;
-            else
-                CanSeePlayer = false;
+            CanSeePlayer = (hit.transform == playerTransform);
         }
         else
         {
-            // If raycast didn’t hit anything within detectDistance, we assume "cannot see"
             CanSeePlayer = false;
         }
 
-        // 3) Distance to nearest obstacle in front (raycast forward + small offset).
-        DistToNearestObstacle = Mathf.Infinity;
-        {
-            RaycastHit obstacleHit;
-            if (Physics.Raycast(
-                origin: agentTransform.position + Vector3.up * 0.5f,
+        // 5) NextPatrolPointDir: 
+        // NOTE: The Agent script overwrote this via CollectObservations, so here we default to zero.
+        NextPatrolPointDir = Vector3.zero;
+
+        // 6) Dist to nearest obstacle (spherecast):
+        RaycastHit obsHit;
+        if (Physics.SphereCast(
+                origin: AgentPosition + Vector3.up * 0.5f,
+                radius: 0.5f,
                 direction: agentTransform.forward,
-                out obstacleHit,
-                1.0f,             // only look 1 meter ahead
-                obstacleMask
+                out obsHit,
+                maxDistance: 10f,
+                layerMask: obstacleMask
             ))
-            {
-                DistToNearestObstacle = obstacleHit.distance;
-            }
+        {
+            DistToNearestObstacle = obsHit.distance;
+        }
+        else
+        {
+            DistToNearestObstacle = 10f;
         }
 
-        // 4) Mode‐flags: the agent’s MonoBehaviour should set these externally each FixedUpdate or so.
-        //    We’ll assume the MonoBehaviour writes these into some fields before CollectObservations.
+        // 7) Initialize all booleans to false (will be overridden by CollectObservations):
         IsPatrolling = false;
         IsChasing    = false;
+        IsDetecting  = false;
         IsAttacking  = false;
         IsDead       = false;
+        IsIdle       = false;
     }
 }

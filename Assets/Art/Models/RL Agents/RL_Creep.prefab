@@ -1751,7 +1751,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 13
+    VectorObservationSize: 17
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 3
@@ -1785,18 +1785,19 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
+  moveSpeed: 4
+  turnSpeed: 120
+  attackRange: 2
+  attackDamage: 50
+  detectDistance: 10
+  maxHealth: 100
+  patrolPoints: []
   playerTransform: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 136
-  enemyController: {fileID: 9100000, guid: 3a91702552d7a6e43996bd218edba26a, type: 2}
-  maxHealth: 100
-  attackDamage: 50
-  moveSpeed: 4
-  turnSpeed: 120
-  detectDistance: 10
-  attackRange: 2
-  rewardCalculator: {fileID: 3247270290517839601}
+  animator: {fileID: 1525368558665590809}
+  enemyType: 0
 --- !u!114 &8894129208516749644
 MonoBehaviour:
   m_ObjectHideFlags: 0
