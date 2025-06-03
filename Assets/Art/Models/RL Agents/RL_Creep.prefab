@@ -1632,10 +1632,10 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 0
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 4
-  m_CollisionDetection: 0
+  m_CollisionDetection: 2
 --- !u!65 &1255941309751475032
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1788,7 +1788,7 @@ MonoBehaviour:
   moveSpeed: 4
   turnSpeed: 120
   attackRange: 2
-  attackDamage: 50
+  attackDamage: 100
   detectDistance: 10
   maxHealth: 100
   playerTransform: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}

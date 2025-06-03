@@ -372,7 +372,7 @@ public class NormalEnemyAgent : Agent
                 RL_Player player = playerTransform.GetComponent<RL_Player>();
                 if (player != null)
                 {
-                    player.TakeDamage(attackDamage);
+                    player.DamagePlayer(attackDamage);
                     AddReward(rewardConfig.AttackPlayerReward); // reward for landing an attack
 
                     if (player.CurrentHealth <= 0f)

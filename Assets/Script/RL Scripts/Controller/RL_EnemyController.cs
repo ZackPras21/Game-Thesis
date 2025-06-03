@@ -62,6 +62,7 @@ public class RL_EnemyController : MonoBehaviour
     private List<Vector3> occupiedWaypoints = new List<Vector3>();
     public float separationRadius = 2f;
     public LayerMask enemyMask;
+    public static RL_Player Instance;
 
     // New reference for EnemyStatDisplay
     private EnemyStatDisplay enemyStatDisplay;
@@ -80,6 +81,15 @@ public class RL_EnemyController : MonoBehaviour
         boxCollider = GetComponent<BoxCollider>();
         enemyStatDisplay = GetComponent<EnemyStatDisplay>();
         SetupInitialValues();
+
+        // Force Animator into Idle state on spawn:
+        if (animator != null)
+        {
+            animator.SetBool("isIdle", true);
+            animator.SetBool("isWalking", false);
+            animator.SetBool("isAttacking", false);
+            animator.SetBool("isDead", false);
+        }
     }
 
     void Update()
@@ -87,10 +97,27 @@ public class RL_EnemyController : MonoBehaviour
         if (!isDead)
         {
             EnvironmentView();
-            
+
             if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
             {
                 MoveBetweenWaypoints();
+            }
+        }
+        
+        HandleAttacking();
+
+        // Only patrol/way‐point move when not in range (IsPatrol == true)
+        if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
+        {
+            MoveBetweenWaypoints();
+        }
+        else
+        {
+            // If m_PlayerInRange is true AND not attacking, ensure enemy goes Idle:
+            if (!m_IsAttacking)
+            {
+                animator.SetBool("isIdle", true);
+                animator.SetBool("isWalking", false);
             }
         }
     }
@@ -284,7 +311,7 @@ public class RL_EnemyController : MonoBehaviour
         {
             m_PlayerInRange = true;
             m_IsPatrol = false;
-            m_PlayerPosition = PlayerController.Instance.transform.position;
+            m_PlayerPosition = RL_Player.Instance.transform.position;
 
             RotateTowardsPlayer(m_PlayerPosition, rotationSpeed);
 
@@ -306,24 +333,26 @@ public class RL_EnemyController : MonoBehaviour
 
         Vector3 targetPosition = waypoints[m_CurrentWaypointIndex].position;
         Vector3 direction = (targetPosition - transform.position).normalized;
-        
+
         // Obstacle avoidance
         if (Physics.SphereCast(transform.position, 0.5f, direction, out RaycastHit hit, 2f, obstacleMask))
         {
             Vector3 avoidDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
             direction = (direction + avoidDirection * 0.5f).normalized;
         }
-        
-        // RL Observable: Distance to waypoint
-        float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);
-        
-        // Move with RL policy in mind
+
         if (m_IsPatrol)
         {
-            transform.position += direction * moveSpeed * Time.deltaTime;
+            // Ensure the Walk animation is on:
+            if (animator != null)
+            {
+                animator.SetBool("isIdle", false);
+                animator.SetBool("isWalking", true);
+                animator.SetBool("isAttacking", false);
+            }
             RotateTowardsPlayer(targetPosition, rotationSpeed);
-            
-            // RL Reward signal when reaching waypoint
+
+            float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);
             if (distanceToWaypoint < waypointThreshold)
             {
                 NextPoint();
@@ -337,6 +366,9 @@ public class RL_EnemyController : MonoBehaviour
         {
             m_WaitTime -= Time.deltaTime;
         }
+        Vector3 newPos = transform.position + direction * moveSpeed * Time.deltaTime;
+        Rigidbody rb = GetComponent<Rigidbody>();
+        rb.MovePosition(newPos);
     }
 
     // RL Helper Methods
@@ -387,25 +419,41 @@ public class RL_EnemyController : MonoBehaviour
     IEnumerator Attack()
     {
         canAttack = false;
+        // 1) Set Attack on:
         animator.SetBool("isAttacking", true);
-        yield return new WaitForSeconds(1);
-        animator.SetBool("isAttacking", false);
+        animator.SetBool("isIdle", false);
         animator.SetBool("isWalking", false);
-        yield return new WaitForSeconds(2);
+
+        // 2) Wait for the “Attack” clip length (1 second assumed):
+        yield return new WaitForSeconds(1f);
+
+        // 3) Turn Attack off; decide next state – assume Idle if still in range:
+        animator.SetBool("isAttacking", false);
+
+        // If still “player in range,” maybe stay Idle until next attack:
+        animator.SetBool("isIdle", true);
+
+        yield return new WaitForSeconds(2f);
+
         canAttack = true;
     }
 
     public void AttackEnd()
     {
+        Debug.Log("Enemy AttackEnd called. OverlapBox center=" + boxCollider.center);
         Collider[] colliders = Physics.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.extents, boxCollider.transform.rotation);
         foreach (Collider collider in colliders)
         {
             if (collider.CompareTag("Player"))
             {
-                PlayerController.Instance.DamagePlayer(enemyData.enemyAttack, knockback, transform.position);
+                RL_Player.Instance.DamagePlayer(enemyData.enemyAttack);
                 if (AudioManager.instance != null)
                 {
                     AudioManager.instance.PlayEnemyAttackSound(enemyType);
+                }
+                else
+                {
+                    Debug.LogWarning("[RL_EnemyController] RL_Player.Instance is null. Cannot damage the player.");
                 }
                 break;
             }
@@ -414,7 +462,7 @@ public class RL_EnemyController : MonoBehaviour
 
     IEnumerator knockback()
     {
-        Vector3 knockbackDirection = (transform.position - PlayerController.Instance.transform.position).normalized;
+        Vector3 knockbackDirection = (transform.position - RL_Player.Instance.transform.position).normalized;
         float knockbackForce = 10f;
         float knockbackDuration = 0.5f;
 

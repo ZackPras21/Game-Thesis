@@ -1117,7 +1117,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trainingTargetPrefab: {fileID: 2819751379245008023, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
-  maxTargets: 0
+  maxTargets: 3
   spawnRadius: 8
   spawnInterval: 1
   spawnCollisionLayers:
@@ -1135,16 +1135,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: abeebae29da093f448d4461c70305373, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  creepPrefab: {fileID: 0}
-  humanoidPrefab: {fileID: 0}
-  bullPrefab: {fileID: 0}
+  creepPrefab: {fileID: 4443409237942974354, guid: fea521f89b9523a49bb83f6511b2e9a6, type: 3}
+  humanoidPrefab: {fileID: 920880024737537450, guid: 7d1284f14a072f54cad3a649490cddd6, type: 3}
+  bullPrefab: {fileID: 5392606700045520043, guid: f7bfeff87e8830a45a11800db7e103bc, type: 3}
   arenas:
   - corner1: {fileID: 655228537}
     corner2: {fileID: 655228536}
     corner3: {fileID: 655228535}
     corner4: {fileID: 655228534}
     creepCount: 0
-    humanoidCount: 0
+    humanoidCount: 1
     bullCount: 0
     spawnParent: {fileID: 0}
   spawnInterval: 0.2
