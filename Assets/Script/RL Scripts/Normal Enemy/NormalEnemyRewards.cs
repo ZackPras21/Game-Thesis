@@ -2,22 +2,22 @@ using UnityEngine;
 
 public class NormalEnemyRewards : MonoBehaviour
 {
-    // === Very large reward (+1) / very large punishment (–1) buckets ===
-    public float KilledPlayerReward        = +1f;
+    // === Very large reward (+1) / very large punishment (-1)===
+    public float KillPlayerReward          = +1f;
     public float DiedByPlayerPunishment    = -1f;
 
-    // === Large reward/punishment (+0.5 / –0.5) ===
-    public float DetectPlayerReward        = +0.8f;
-    public float ChasePlayerReward         = +0.9f;
-    public float AttackPlayerReward        = +1f;
-    public float LostFightPenalty          = -0.6f;
-    public float ObstaclePenalty           = -0.8f;  // bumping into wall
+    // === Large reward/punishment (+0.5 … +1 / -0.5 … -1) ===
+    public float DetectPlayerReward        = +0.5f;
+    public float ChasePlayerReward         = +0.6f;
+    public float AttackPlayerReward        = +0.8f;
+    public float HitByPlayerPenalty        = -0.7f;
+    public float ObstaclePenalty           = -0.9f;  
 
     // === Small reward/punishment (+0.005 … +0.5 / –0.005 … –0.5) ===
     public float PatrolStepReward          = +0.005f; // each step moved while patrolling
     public float IdlePenalty               = -0.010f; // standing still too long
     public float NoMovementPenalty         = -0.01f;  // >50 steps stuck
-    public float ApproachPlayerReward      = +0.01f;  // each timestep we get closer to the player
+    public float ApproachPlayerReward      = +0.01f;  
     public float StayFarFromPlayerPenalty  = -0.005f; // if distance to player is growing
     public float AttackMissedPenalty       = -0.1f;   // in range but failed to attack
 
@@ -25,8 +25,8 @@ public class NormalEnemyRewards : MonoBehaviour
     public bool CheckIfStuck(
         Vector3 prevPos,
         Vector3 currPos,
-        int      stepsSinceLastMove,
-        float    timeSinceLastMove
+        int stepsSinceLastMove,
+        float timeSinceLastMove
     )
     {
         // If the agent has barely changed position (within 0.01f) for > 50 steps or > 2 seconds → stuck

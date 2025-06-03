@@ -13,36 +13,50 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         public Transform corner3;
         public Transform corner4;
 
-        [Tooltip("How many enemies to spawn in this arena.")]
-        public int maxEnemyCount;
+        [Header("How Many of Each Enemy Type")]
+        [Tooltip("How many Creeps to spawn in this arena.")]
+        public int creepCount;
 
-        [Tooltip("Optional parent under which to organize the spawned enemies for this arena.")]
+        [Tooltip("How many Humanoids to spawn in this arena.")]
+        public int humanoidCount;
+
+        [Tooltip("How many Bulls to spawn in this arena.")]
+        public int bullCount;
+
+        [Tooltip("Optional parent under which to organize all spawned enemies in this arena.")]
         public Transform spawnParent;
     }
 
-    [Header("Enemy Prefab")]
-    [Tooltip("The Normal Enemy prefab (must already have NavMeshAgent + NormalEnemyAgent).")]
-    public GameObject enemyPrefab;
+    [Header("Enemy Prefabs (assign exactly one prefab per type)")]
+    [Tooltip("The Creep‐type enemy prefab (must have NavMeshAgent + NormalEnemyAgent component).")]
+    public GameObject creepPrefab;
 
-    [Header("Per-Arena Configuration")]
-    [Tooltip("For each arena, assign its 4 corners and how many enemies it should get.")]
+    [Tooltip("The Humanoid‐type enemy prefab (must have NavMeshAgent + NormalEnemyAgent component).")]
+    public GameObject humanoidPrefab;
+
+    [Tooltip("The Bull‐type enemy prefab (must have NavMeshAgent + NormalEnemyAgent component).")]
+    public GameObject bullPrefab;
+
+    [Header("Per‐Arena Configuration")]
+    [Tooltip("Configure each arena’s corners and how many of each enemy‐type it should spawn.")]
     public ArenaInfo[] arenas;
 
-    [Tooltip("How frequently (in seconds) to attempt spawning each enemy in an arena.")]
+    [Header("General Spawn Settings")]
+    [Tooltip("Time (in seconds) between individual spawn attempts.")]
     public float spawnInterval = 0.5f;
 
-    [Tooltip("How many random tries to find an unblocked spot per enemy.")]
+    [Tooltip("How many tries to find a free spot for each individual enemy before giving up.")]
     public int maxSpawnAttempts = 20;
 
-    [Tooltip("Which layers count as ‘obstacle’ when checking spawn collisions.")]
+    [Tooltip("Which layers count as “obstacle” when we check if a position is free.")]
     public LayerMask obstacleLayerMask = ~0;
 
-    // Keep track of all spawned enemies so we can clear or respawn later.
+    // Keep a running list of all spawned enemies (so you can clear or respawn later).
     private readonly List<GameObject> _spawnedEnemies = new List<GameObject>();
 
     private void Start()
     {
-        // Launch one coroutine per arena
+        // Start one coroutine per arena
         for (int i = 0; i < arenas.Length; i++)
         {
             StartCoroutine(SpawnInArenaCoroutine(arenas[i]));
@@ -51,7 +65,7 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
     private IEnumerator SpawnInArenaCoroutine(ArenaInfo arena)
     {
-        // Precompute min/max X and Z from the four corners
+        // Precompute the X/Z min‐max from the four corners
         float minX = Mathf.Min(
             arena.corner1.position.x,
             arena.corner2.position.x,
@@ -77,61 +91,123 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             arena.corner4.position.z
         );
 
-        int spawnedCount = 0;
-        while (spawnedCount < arena.maxEnemyCount)
+        // Helper local function: try to find a random free spot within those bounds
+        Vector3 FindFreeSpot()
         {
-            yield return new WaitForSeconds(spawnInterval);
-
-            Vector3 chosenPos = Vector3.zero;
-            bool foundSpot = false;
-
-            // Try up to maxSpawnAttempts to find a free spot
             for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
             {
                 float x = Random.Range(minX, maxX);
                 float z = Random.Range(minZ, maxZ);
-                Vector3 test = new Vector3(x, 1f, z);
+                // We choose a Y of 1.0f (assuming your ground is roughly at y=0)
+                Vector3 testPos = new Vector3(x, 1f, z);
 
-                // If no obstacle (wall/floor) within 0.5m, accept it
-                if (!Physics.CheckSphere(test, 0.5f, obstacleLayerMask))
+                // If nothing in that 0.5m radius (using obstacleLayerMask), accept it
+                if (!Physics.CheckSphere(testPos, 0.5f, obstacleLayerMask))
                 {
-                    chosenPos = test;
-                    foundSpot = true;
-                    break;
+                    return testPos;
                 }
             }
+            return Vector3.positiveInfinity;
+        }
 
-            if (foundSpot)
-            {
-                GameObject go = Instantiate(
-                    enemyPrefab,
-                    chosenPos,
-                    Quaternion.identity,
-                    arena.spawnParent
-                );
-                _spawnedEnemies.Add(go);
-                spawnedCount++;
-            }
-            else
+        // 1) Spawn exactly `arena.creepCount` creep enemies:
+        for (int i = 0; i < arena.creepCount; i++)
+        {
+            yield return new WaitForSeconds(spawnInterval);
+            Vector3 spawnPos = FindFreeSpot();
+            if (spawnPos == Vector3.positiveInfinity)
             {
                 Debug.LogWarning(
-                    $"[RL_TrainingEnemySpawner] Couldn’t find free spot in arena “" +
-                    $"{arena.corner1.name}…{arena.corner4.name}” after {maxSpawnAttempts} tries."
+                    $"[Spawner] Could not find free spot for Creep #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
                 );
-                // Optionally: break; to stop attempting further spawns in this arena
+                continue; // skip this creep and move on to the next
             }
+
+            if (creepPrefab == null)
+            {
+                Debug.LogError("[Spawner] creepPrefab is not assigned in the Inspector!");
+                continue;
+            }
+
+            GameObject go = Instantiate(
+                creepPrefab,
+                spawnPos,
+                Quaternion.identity,
+                arena.spawnParent
+            );
+            _spawnedEnemies.Add(go);
         }
+
+        // 2) Spawn exactly `arena.humanoidCount` humanoid enemies:
+        for (int i = 0; i < arena.humanoidCount; i++)
+        {
+            yield return new WaitForSeconds(spawnInterval);
+            Vector3 spawnPos = FindFreeSpot();
+            if (spawnPos == Vector3.positiveInfinity)
+            {
+                Debug.LogWarning(
+                    $"[Spawner] Could not find free spot for Humanoid #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
+                );
+                continue;
+            }
+
+            if (humanoidPrefab == null)
+            {
+                Debug.LogError("[Spawner] humanoidPrefab is not assigned in the Inspector!");
+                continue;
+            }
+
+            GameObject go = Instantiate(
+                humanoidPrefab,
+                spawnPos,
+                Quaternion.identity,
+                arena.spawnParent
+            );
+            _spawnedEnemies.Add(go);
+        }
+
+        // 3) Spawn exactly `arena.bullCount` bull enemies:
+        for (int i = 0; i < arena.bullCount; i++)
+        {
+            yield return new WaitForSeconds(spawnInterval);
+            Vector3 spawnPos = FindFreeSpot();
+            if (spawnPos == Vector3.positiveInfinity)
+            {
+                Debug.LogWarning(
+                    $"[Spawner] Could not find free spot for Bull #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
+                );
+                continue;
+            }
+
+            if (bullPrefab == null)
+            {
+                Debug.LogError("[Spawner] bullPrefab is not assigned in the Inspector!");
+                continue;
+            }
+
+            GameObject go = Instantiate(
+                bullPrefab,
+                spawnPos,
+                Quaternion.identity,
+                arena.spawnParent
+            );
+            _spawnedEnemies.Add(go);
+        }
+
+        // Once all three loops finish, this coroutine is done.
     }
 
     public void RespawnAllArenas()
     {
+        // Destroy every spawned enemy
         foreach (var e in _spawnedEnemies)
         {
-            Destroy(e);
+            if (e != null) Destroy(e);
         }
+
         _spawnedEnemies.Clear();
 
-        // Restart one coroutine per arena
+        // Restart coroutines for each arena
         for (int i = 0; i < arenas.Length; i++)
         {
             StartCoroutine(SpawnInArenaCoroutine(arenas[i]));

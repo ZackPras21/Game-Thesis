@@ -170,12 +170,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e4dd39d3d37e5f48a4a8af0f5948f94, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  KilledPlayerReward: 1
+  KillPlayerReward: 1
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
-  LostFightPenalty: -0.6
+  HitByPlayerPenalty: -0.7
   ObstaclePenalty: -0.8
   PatrolStepReward: 0.005
   IdlePenalty: -0.01
@@ -1760,9 +1760,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 2a8893dc770844f4da0c2cddf1f33eb0, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: NormalEnemy
   TeamId: 0
   m_UseChildSensors: 1
@@ -1791,12 +1791,13 @@ MonoBehaviour:
   attackDamage: 50
   detectDistance: 10
   maxHealth: 100
-  patrolPoints: []
   playerTransform: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 136
   animator: {fileID: 1525368558665590809}
+  rewardConfig: {fileID: 3247270290517839601}
+  patrolPoints: []
   enemyType: 0
 --- !u!114 &8894129208516749644
 MonoBehaviour:
@@ -1810,7 +1811,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DecisionPeriod: 5
+  DecisionPeriod: 1
   DecisionStep: 0
   TakeActionsBetweenDecisions: 1
 --- !u!4 &8906478605765353547 stripped
