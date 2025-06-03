@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,19 +34,7 @@ public class RL_Player : MonoBehaviour
     public bool isTrainingTarget = false;
     
     private Vector3 playerVelocity;
-    private bool groundedPlayer;
     private float gravityValue = -9.81f;
-
-    [Header("Dash Settings")]
-    [Tooltip("How long a dash lasts (in seconds).")]
-    [SerializeField] private float playerDashTime = 0.3f;
-    [Tooltip("How fast the dash moves the player.")]
-    [SerializeField] private float playerDashSpeed = 20f;
-    [Tooltip("Cooldown (in seconds) before you can dash again.")]
-    [SerializeField] private float dashCooldown = 2f;
-    [Tooltip("Particle system prefab to instantiate when performing a dash.")]
-    [SerializeField] private ParticleSystem DashParticle;
-    [Tooltip("Transform used as the spawn point for the DashParticle.")]
     [SerializeField] private Transform ParticleSpawnPoint;
 
     private bool canDash = true;
@@ -56,6 +45,8 @@ public class RL_Player : MonoBehaviour
     // Internally track current health
     private float currentHealth;
     public float CurrentHealth => currentHealth;
+    public float turnSpeed = 4f;
+    public static event System.Action OnPlayerDestroyed;
 
     [Header("UI Health Bar (Optional)")]
     [Tooltip("If you want a world‑space health bar above the player, assign a Slider here.")]
@@ -74,6 +65,23 @@ public class RL_Player : MonoBehaviour
     [Header("Invincibility")]
     [Tooltip("Seconds of invincibility after getting hit.")]
     [SerializeField] private float invincibilityDuration = 0.5f;
+
+    [Header("Player Attack Settings")]
+    [Tooltip("Does the player auto‐attack the target every attackInterval seconds?")]
+    [SerializeField]
+    private bool attackEnabled = false;
+
+    [Tooltip("Number of seconds between each automatic attack on the target.")]
+    [SerializeField]
+    private float attackInterval = 2.0f;
+
+    [Tooltip("Damage dealt per attack.")]
+    [SerializeField]
+    private float attackDamage = 30f;
+    [SerializeField] private float attackRange = 5f;
+
+    private Coroutine _attackCoroutine;
+
     private bool isInvincible = false;
 
     // Track whether the player is still alive
@@ -90,6 +98,10 @@ public class RL_Player : MonoBehaviour
         // Store initial spawn position (for Respawn)
         initialPosition = transform.position;
 
+        if (attackEnabled)
+        {
+            _attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
+        }
 
         if (animator == null)
         {
@@ -100,7 +112,7 @@ public class RL_Player : MonoBehaviour
             // Reset all Animator parameters to Idle at start
             animator.SetBool("isIdle", true);
             animator.SetBool("isWalking", false);
-            animator.SetBool("isAttacking", false);
+            animator.ResetTrigger("AttackTrigger");
             animator.ResetTrigger("getHit");
             animator.SetBool("isDead", false);
         }
@@ -114,53 +126,10 @@ public class RL_Player : MonoBehaviour
         }
 
         // Warn if any particle systems are missing
-        if (DashParticle == null)
-            Debug.LogWarning("[RL_Player] DashParticle is not assigned. No dash VFX will appear.");
         if (hurtParticle == null)
             Debug.LogWarning("[RL_Player] HurtParticle is not assigned. No hurt VFX will appear.");
         if (deathParticle == null)
             Debug.LogWarning("[RL_Player] DeathParticle is not assigned. No death VFX will appear.");
-    }
-
-    private void Update()
-    {
-        if (!isAlive)
-        {
-            // If dead, do not process movement or dash
-            return;
-        }
-
-        // 1) Standard movement (WASD / arrow keys)
-
-        Vector3 move = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
-        if (move.magnitude > 0.1f)
-        {
-            // Walk Animation
-            if (animator != null)
-            {
-                animator.SetBool("isWalking", true);
-                animator.SetBool("isIdle", false);
-            }
-            // Move the character
-        }
-        else
-        {
-            // Idle Animation
-            if (animator != null)
-            {
-                animator.SetBool("isWalking", false);
-                animator.SetBool("isIdle", true);
-            }
-        }
-
-        // Apply gravity
-        playerVelocity.y += gravityValue * Time.deltaTime;
-
-        // 2) Dash Input (Left Shift)
-        if (Input.GetKeyDown(KeyCode.LeftShift) && canDash)
-        {
-            StartCoroutine(Dash());
-        }
     }
 
     public void DamagePlayer(float damageAmount)
@@ -199,6 +168,114 @@ public class RL_Player : MonoBehaviour
         }
     }
 
+    public void SetAutoAttackEnabled(bool enabled)
+    {
+        if (enabled && _attackCoroutine == null)
+        {
+            attackEnabled = true;
+            _attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
+        }
+        else if (!enabled && _attackCoroutine != null)
+        {
+            attackEnabled = false;
+            StopCoroutine(_attackCoroutine);
+            _attackCoroutine = null;
+        }
+    }
+
+    private IEnumerator AutomaticAttackRoutine()
+    {
+        Debug.Log($"[RL_Player] Starting attack routine with interval {attackInterval}s");
+        while (attackEnabled)
+        {
+            yield return new WaitForSeconds(attackInterval);
+            Debug.Log($"[RL_Player] Attack interval reached, checking for enemies");
+
+            // Get all colliders in attack range
+            Collider[] hits = Physics.OverlapSphere(
+                transform.position,
+                attackRange
+            );
+
+            // Filter for enemies by tag
+            List<Transform> enemies = new List<Transform>();
+            foreach (var hit in hits)
+            {
+                if (hit != null && hit.CompareTag("Enemy"))
+                {
+                    enemies.Add(hit.transform);
+                }
+            }
+
+            // Debug visualization
+            Debug.DrawRay(transform.position, transform.forward * attackRange, Color.red, attackInterval);
+            Debug.Log($"[RL_Player] Found {enemies.Count} enemies in {attackRange}m range");
+            
+            foreach (var enemy in enemies)
+            {
+                Debug.DrawLine(transform.position, enemy.position, Color.yellow, attackInterval);
+                Debug.Log($"- Enemy: {enemy.gameObject.name}");
+            }
+
+            if (enemies.Count > 0)
+            {
+                // Attack the first detected enemy
+                PerformAttack(enemies[0]);
+            }
+        }
+    }
+
+    private void PerformAttack(Transform enemy)
+    {
+        if (enemy == null)
+        {
+            Debug.LogWarning("[RL_Player] PerformAttack called with null enemy");
+            return;
+        }
+
+        // ─── 1) Face the enemy ───
+        Vector3 directionToEnemy = enemy.position - transform.position;
+        directionToEnemy.y = 0f; 
+        if (directionToEnemy.sqrMagnitude > 0.001f)
+        {
+            Quaternion lookRotation = Quaternion.LookRotation(directionToEnemy);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * turnSpeed);
+            Debug.Log($"[RL_Player] Rotated to face enemy {enemy.name}");
+        }
+
+        // ─── 2) Trigger attack animation ───
+        if (animator != null)
+        {
+            animator.SetTrigger("AttackTrigger");
+            Debug.Log("[RL_Player] Triggered Attack animation");
+        }
+        else
+        {
+            Debug.LogWarning("[RL_Player] Animator is null; cannot play Attack animation");
+        }
+
+        // ─── 3) Deal damage via GetComponentInParent ───
+        NormalEnemyAgent enemyAgent = enemy.GetComponentInParent<NormalEnemyAgent>();
+        RL_EnemyController enemyController = enemy.GetComponentInParent<RL_EnemyController>();
+
+        if (enemyAgent != null)
+        {
+            Debug.Log($"[RL_Player] Dealing {attackDamage} to NormalEnemyAgent (GetComponentInParent)");
+            enemyAgent.TakeDamage(attackDamage);
+        }
+        else if (enemyController != null)
+        {
+            Debug.Log($"[RL_Player] Dealing {attackDamage} to RL_EnemyController (GetComponentInParent)");
+            enemyController.TakeDamage((int)attackDamage);
+        }
+        else
+        {
+            Debug.LogWarning($"[RL_Player] Enemy '{enemy.name}' has no NormalEnemyAgent or RL_EnemyController in parent chain");
+        }
+    }
+
+
+
     private IEnumerator InvincibilityRoutine()
     {
         isInvincible = true;
@@ -229,8 +306,11 @@ public class RL_Player : MonoBehaviour
                 col.enabled = false;
         }
 
-        // (Optional) Disable any movement or other scripts here,
-        // or call a GameOver manager, etc.
+        OnPlayerDestroyed?.Invoke();
+        // Finally, destroy this GameObject
+        Destroy(gameObject);
+        return;
+
     }
 
     public void Respawn()
@@ -262,35 +342,6 @@ public class RL_Player : MonoBehaviour
 
         // Move back to initial spawn point
         transform.position = initialPosition;
-    }
-
-    private IEnumerator Dash()
-    {
-        canDash = false;
-        float dashStartTime = Time.time;
-
-        // Instantiate the dash particle effect exactly once at the start
-        if (DashParticle != null && ParticleSpawnPoint != null)
-        {
-            Instantiate(DashParticle, ParticleSpawnPoint.position, Quaternion.identity);
-        }
-
-        // Until playerDashTime has elapsed, move forward at dash speed
-        while (Time.time < dashStartTime + playerDashTime)
-        {
-            // Note: We do not adjust y here, so gravity still applies if you hold forward in the air.
-            Vector3 forward = transform.forward;
-            yield return null;
-        }
-
-        // After finishing the dash, start cooldown
-        StartCoroutine(DashCooldownRoutine());
-    }
-
-    private IEnumerator DashCooldownRoutine()
-    {
-        yield return new WaitForSeconds(dashCooldown);
-        canDash = true;
     }
 
     private void OnDrawGizmosSelected()

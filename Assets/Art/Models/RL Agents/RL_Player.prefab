@@ -720,12 +720,17 @@ MonoBehaviour:
   dashCooldown: 2
   DashParticle: {fileID: 3251072668014186626, guid: ccb786ced3ed3f2428fdd63a6ce4db51, type: 3}
   ParticleSpawnPoint: {fileID: 5498272519640469317, guid: ccb786ced3ed3f2428fdd63a6ce4db51, type: 3}
-  maxHealth: 20
+  maxHealth: 25
+  turnSpeed: 4
   healthBarSlider: {fileID: 750789314923456546}
   animator: {fileID: 8625117619887489572}
   hurtParticle: {fileID: 756378077354520267}
   deathParticle: {fileID: 361908884663430434}
   invincibilityDuration: 0.5
+  attackEnabled: 0
+  attackInterval: 10
+  attackDamage: 30
+  attackRange: 1.5
 --- !u!95 &8625117619887489572
 Animator:
   serializedVersion: 7

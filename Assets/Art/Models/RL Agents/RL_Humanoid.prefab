@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 2533707441511333959}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.43, y: 1.15, z: -0.033}
-  m_LocalScale: {x: 2, y: 1.1897036, z: 1.3192}
+  m_LocalPosition: {x: 0.43, y: 1.15, z: -0.088561}
+  m_LocalScale: {x: 2, y: 1.1897036, z: 2.673359}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 543896707441329936}
@@ -47,6 +47,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyController: {fileID: 0}
+  RLenemyController: {fileID: 326335764756484714}
 --- !u!54 &261761204510855780
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1420,7 +1421,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_TagString
-      value: Enemy
+      value: Untagged
       objectReference: {fileID: 0}
     - target: {fileID: 1508779907985176101, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_Layer
@@ -1678,7 +1679,7 @@ MonoBehaviour:
   viewAngle: 90
   playerMask:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   obstacleMask:
     serializedVersion: 2
     m_Bits: 136
@@ -1688,14 +1689,14 @@ MonoBehaviour:
   waypoints: []
   enemyHP: 0
   healthBar: {fileID: 8359980924510194894}
-  boxCollider: {fileID: 5742426495150263617}
+  boxCollider: {fileID: 7083142781546743490}
   startWaitTime: 4
   timeToRotate: 2
   m_PlayerInRange: 0
   m_PlayerNear: 0
   m_IsPatrol: 0
   m_IsAttacking: 0
-  nonBossEnemyState: 0
+  nonBossEnemyState: 3
   animator: {fileID: 2030732665317957927}
   lootManager: {fileID: 4215898573996737307}
   vfxManager: {fileID: -3980627480044796084}
@@ -1851,10 +1852,10 @@ MonoBehaviour:
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 3
-      BranchSizes: 01000000
-    VectorActionSize: 
+      BranchSizes: 
+    VectorActionSize: 03000000
     VectorActionDescriptions: []
-    VectorActionSpaceType: 0
+    VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0

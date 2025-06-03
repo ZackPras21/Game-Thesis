@@ -63,6 +63,8 @@ public class RL_EnemyController : MonoBehaviour
     public float separationRadius = 2f;
     public LayerMask enemyMask;
     public static RL_Player Instance;
+    private bool playerAlive = true;
+    private Transform playerTransform;
 
     // New reference for EnemyStatDisplay
     private EnemyStatDisplay enemyStatDisplay;
@@ -94,6 +96,24 @@ public class RL_EnemyController : MonoBehaviour
 
     void Update()
     {
+        if (playerTransform == null)
+        {
+            // If our existing reference was destroyed, we force “patrol” mode
+            m_PlayerInRange = false;
+            m_IsPatrol = true;
+        }
+
+        if (m_PlayerInRange && playerTransform != null && playerAlive)
+        {
+            // Rotate→Move→Attack normally
+            RotateTowardsPlayer(playerTransform.position, rotationSpeed);
+            StartCoroutine(Attack());
+        }
+        else
+        {
+            MoveBetweenWaypoints();
+        }
+        
         if (!isDead)
         {
             EnvironmentView();
@@ -178,6 +198,7 @@ public class RL_EnemyController : MonoBehaviour
 
     public void SetupInitialValues()
     {
+        
         m_PlayerPosition = Vector3.zero;
         m_IsPatrol = false; // Start in active state
         m_CaughtPlayer = false;
@@ -185,15 +206,12 @@ public class RL_EnemyController : MonoBehaviour
         m_TimeToRotate = 0f; // No rotation delay
         m_PlayerInRange = true; // Always consider player in range
         m_CurrentWaypointIndex = Random.Range(0, waypoints.Length); 
+        
     }
 
 
     private void HandleAttacking()
     {
-        if (m_IsAttacking)
-        {
-        }
-
         if (m_IsAttacking && canAttack)
         {
             StartCoroutine(Attack());
@@ -213,24 +231,63 @@ public class RL_EnemyController : MonoBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
     }
 
+     private void OnEnable()
+    {
+        Debug.Log($"[RL_EnemyController:{name}] OnEnable() → subscribing to OnPlayerDestroyed");
+        RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
+    }
+
+    private void OnDisable()
+    {
+        Debug.Log($"[RL_EnemyController:{name}] Received OnPlayerDestroyed → clearing target");
+        RL_Player.OnPlayerDestroyed -= HandlePlayerDestroyed;
+    }
+
+    private void HandlePlayerDestroyed()
+    {
+        // Immediately drop “inRange” and clear the Transform reference
+        m_PlayerInRange = false;
+        playerAlive = false;
+        playerTransform = null;
+    }
+
     public void SetTarget(Transform target)
     {
-        m_PlayerPosition = target.position;
+        if (target == null)
+        {
+            // If someone calls SetTarget(null), drop out
+            m_PlayerInRange = false;
+            playerTransform = null;
+            return;
+        }
+
+        // If the player is flagged as dead, ignore
+        if (!playerAlive) return;
+
+        playerTransform = target;
         m_PlayerInRange = true;
         m_IsPatrol = false;
+        m_PlayerPosition = target.position;
     }
 
     private void EnvironmentView()
     {
-        // Always active behavior - no player checks needed
-        m_PlayerInRange = true;
-        m_IsPatrol = false;
-        
-        // Still track player position if player exists
-        Collider[] playerInRange = Physics.OverlapSphere(transform.position, viewRadius, playerMask);
-        if (playerInRange.Length > 0)
+        if (!playerAlive) return; 
+        Collider[] hits = Physics.OverlapSphere(
+            transform.position,
+            viewRadius,
+            playerMask
+        );
+        if (hits.Length > 0)
         {
-            m_PlayerPosition = playerInRange[0].transform.position;
+            playerTransform = hits[0].transform;
+            m_PlayerInRange = true;
+            m_PlayerPosition = playerTransform.position;
+            m_IsPatrol = false;
+        }
+        else
+        {
+            m_PlayerInRange = false;
         }
     }
 
@@ -387,7 +444,7 @@ public class RL_EnemyController : MonoBehaviour
 
     private void GetHit()
     {
-        animator.SetTrigger("GetHit");
+        animator.SetTrigger("getHit");
         if (AudioManager.instance != null)
         {
             AudioManager.instance.PlayEnemyGetHitSound(enemyType);
@@ -396,7 +453,7 @@ public class RL_EnemyController : MonoBehaviour
 
     private void Die()
     {
-        animator.SetTrigger("Die");
+        animator.SetBool("isDead", true);
         if (AudioManager.instance != null)
         {
             AudioManager.instance.PlayEnemyDieSound(enemyType);
@@ -440,13 +497,21 @@ public class RL_EnemyController : MonoBehaviour
 
     public void AttackEnd()
     {
-        Debug.Log("Enemy AttackEnd called. OverlapBox center=" + boxCollider.center);
-        Collider[] colliders = Physics.OverlapBox(boxCollider.bounds.center, boxCollider.bounds.extents, boxCollider.transform.rotation);
+        // Visualize attack range in Scene view
+        Debug.DrawLine(transform.position, boxCollider.bounds.center, Color.red, 1f);
+
+        Collider[] colliders = Physics.OverlapBox(
+            boxCollider.bounds.center,
+            boxCollider.bounds.extents,
+            boxCollider.transform.rotation,
+            playerMask);  // Use playerMask layer instead of tag check
+
         foreach (Collider collider in colliders)
         {
-            if (collider.CompareTag("Player"))
+            RL_Player player = collider.GetComponent<RL_Player>();
+            if (player != null && player.CurrentHealth > 0f)
             {
-                RL_Player.Instance.DamagePlayer(enemyData.enemyAttack);
+                player.DamagePlayer(enemyData.enemyAttack);
                 if (AudioManager.instance != null)
                 {
                     AudioManager.instance.PlayEnemyAttackSound(enemyType);
@@ -458,6 +523,8 @@ public class RL_EnemyController : MonoBehaviour
                 break;
             }
         }
+        animator.SetBool("isIdle", true);
+        MoveBetweenWaypoints();
     }
 
     IEnumerator knockback()

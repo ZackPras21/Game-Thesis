@@ -125,6 +125,14 @@ public class NormalEnemyAgent : Agent
             EndEpisode();
             return;
         }
+        // 0.2) Check if Player Died
+        if (playerTransform == null || RL_Player.Instance == null)
+        {
+            // Player has died mid‐training
+            AddReward(rewardConfig.KillPlayerReward); // Positive reward for surviving
+            EndEpisode();
+            return;
+        }
 
         // 1) If already dead → play death routine and exit:
         if (isDead)
@@ -593,25 +601,18 @@ public class NormalEnemyAgent : Agent
             animator.SetTrigger("getHit");
         }
 
+        if (currentHealth <= 0f) return;
+        currentHealth -= amount;
         if (currentHealth <= 0f)
         {
             currentHealth = 0f;
-            isDead = true;
-
-            // Clear all other flags:
-            isIdle       = false;
-            isPatrolling = false;
-            isChasing    = false;
-            isDetecting  = false;
-            isAttacking  = false;
-
-            AddReward(rewardConfig.DiedByPlayerPunishment); // punishment for dying
-
+            // Trigger death animation
             if (animator != null)
             {
                 animator.SetBool("isDead", true);
             }
-
+            // Give reward/penalty for dying by player
+            AddReward(rewardConfig.DiedByPlayerPunishment);
             EndEpisode();
         }
     }

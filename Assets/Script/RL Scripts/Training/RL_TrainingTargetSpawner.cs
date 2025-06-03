@@ -9,12 +9,20 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     public float spawnInterval = 2f;
     public LayerMask spawnCollisionLayers;
 
+    [Header("Visual Cues")]
+    public ParticleSystem spawnParticle;
+    public ParticleSystem episodeEndParticle;
+    public Light arenaLight;
+    public Color activeColor = Color.green;
+    public Color inactiveColor = Color.red;
+
     private int currentTargetCount = 0;
     private float lastSpawnTime;
 
     void Start()
     {
         lastSpawnTime = Time.time;
+        UpdateArenaVisuals();
     }
 
     void Update()
@@ -31,10 +39,40 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         Vector3 spawnPos = GetValidSpawnPosition();
         if (spawnPos != Vector3.zero)
         {
-            GameObject target = Instantiate(trainingTargetPrefab, spawnPos, Quaternion.identity);
-            var targetScript = target.GetComponent<RL_Player>();
-            targetScript.isTrainingTarget = true;
+            // Create new target
+            GameObject newTarget = Instantiate(trainingTargetPrefab, spawnPos, Quaternion.identity);
+            var targetPlayer = newTarget.GetComponent<RL_Player>();
+            targetPlayer.isTrainingTarget = true;
+            
+            // Subscribe to destruction event
+            System.Action destroyCallback = null;
+            destroyCallback = () => {
+                RL_Player.OnPlayerDestroyed -= destroyCallback;
+                currentTargetCount--;
+                UpdateArenaVisuals();
+                
+                // Play episode end effect if no targets left
+                if (currentTargetCount <= 0 && episodeEndParticle != null)
+                {
+                    episodeEndParticle.Play();
+                }
+                
+                // Respawn if below max targets
+                if (currentTargetCount < maxTargets)
+                {
+                    Invoke("SpawnTarget", spawnInterval);
+                }
+            };
+            RL_Player.OnPlayerDestroyed += destroyCallback;
+
             currentTargetCount++;
+            UpdateArenaVisuals();
+            
+            // Play spawn effect
+            if (spawnParticle != null)
+            {
+                Instantiate(spawnParticle, spawnPos, Quaternion.identity);
+            }
         }
     }
 
@@ -52,8 +90,17 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         return Vector3.zero;
     }
 
+    void UpdateArenaVisuals()
+    {
+        if (arenaLight != null)
+        {
+            arenaLight.color = currentTargetCount > 0 ? activeColor : inactiveColor;
+        }
+    }
+
     public void TargetDestroyed()
     {
         currentTargetCount--;
+        UpdateArenaVisuals();
     }
 }
