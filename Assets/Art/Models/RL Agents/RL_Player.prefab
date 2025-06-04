@@ -715,10 +715,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   isTrainingTarget: 1
-  playerDashTime: 0.3
-  playerDashSpeed: 20
-  dashCooldown: 2
-  DashParticle: {fileID: 3251072668014186626, guid: ccb786ced3ed3f2428fdd63a6ce4db51, type: 3}
   ParticleSpawnPoint: {fileID: 5498272519640469317, guid: ccb786ced3ed3f2428fdd63a6ce4db51, type: 3}
   maxHealth: 25
   turnSpeed: 4

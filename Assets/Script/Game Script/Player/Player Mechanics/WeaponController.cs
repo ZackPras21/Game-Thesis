@@ -26,10 +26,24 @@ public class WeaponController : MonoBehaviour
     }
     private void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.CompareTag("Enemy") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
+        if (other != null && other.gameObject != null)
         {
-            // Debug.Log("Hit Enemy");
-            other.gameObject.GetComponent<EnemyHitboxController>().TakeDamage(player.playerData.playerAttack);
+            if (other.gameObject.CompareTag("Enemy") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
+            {
+                var hitbox = other.gameObject.GetComponent<EnemyHitboxController>();
+                if (hitbox != null && player != null && player.playerData != null)
+                {
+                    hitbox.TakeDamage(player.playerData.playerAttack);
+                }
+            }
+            else if (other.gameObject.CompareTag("Player"))
+            {
+                var target = other.gameObject.GetComponent<RL_Player>();
+                if (target != null && player != null && player.playerData != null)
+                {
+                    target.DamagePlayer(player.playerData.playerAttack);
+                }
+            }
         }
 
         if (other.gameObject.CompareTag("Boss") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))

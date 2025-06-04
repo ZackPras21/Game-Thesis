@@ -2,28 +2,28 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 294066,
-                "file_path": "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-294066.onnx",
-                "reward": 2.1399998664855957,
-                "creation_time": 1748979698.0882638,
+                "steps": 1549,
+                "file_path": "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-1549.onnx",
+                "reward": 1.0,
+                "creation_time": 1749028181.2533963,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-294066.pt"
+                    "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-1549.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 294066,
+            "steps": 1549,
             "file_path": "results\\NormalEnemyRun2\\NormalEnemy.onnx",
-            "reward": 2.1399998664855957,
-            "creation_time": 1748979698.0882638,
+            "reward": 1.0,
+            "creation_time": 1749028181.2533963,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-294066.pt"
+                "results\\NormalEnemyRun2\\NormalEnemy\\NormalEnemy-1549.pt"
             ]
         }
     },
     "metadata": {
         "stats_format_version": "0.3.0",
         "mlagents_version": "1.1.0",
-        "torch_version": "2.7.0+cpu"
+        "torch_version": "2.2.2+cpu"
     }
 }

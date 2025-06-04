@@ -54,10 +54,12 @@ public class NormalEnemyAgent : Agent
     private Vector3 lastPosition;
     private int stepsSinceLastMove = 0;
     private float timeSinceLastMove = 0f;
+    private RL_TrainingTargetSpawner _targetSpawner;
 
     // ───── On Episode Begin ─────
     public override void OnEpisodeBegin()
     {
+        _targetSpawner = FindObjectOfType<RL_TrainingTargetSpawner>();
         lastPosition = transform.position;
         stepsSinceLastMove = 0;
         timeSinceLastMove = 0f;
@@ -96,6 +98,11 @@ public class NormalEnemyAgent : Agent
             animator.SetBool("isIdle", true);
         }
         NormalEnemyActions.DoIdle(navAgent);
+
+        if (_targetSpawner != null)
+        {
+            _targetSpawner.ResetArena();
+        }
     }
     
     // ───── ON ACTION RECIEVED ───
@@ -344,6 +351,8 @@ public class NormalEnemyAgent : Agent
             if (animator != null)
             {
                 animator.SetBool("isWalking", true);
+                animator.SetBool("isAttacking", false);
+                animator.SetBool("isIdle", false);
             }
 
             NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex);

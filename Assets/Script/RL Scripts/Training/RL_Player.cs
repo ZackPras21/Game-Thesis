@@ -5,29 +5,7 @@ using UnityEngine.UI;
 
 public class RL_Player : MonoBehaviour
 {
-    #region Singleton
     public static RL_Player Instance;
-    private void Awake()
-    {
-        // Standard singleton pattern: only one RL_Player can exist at a time.
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else if (Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        // Cache all the child colliders once
-        colliders = GetComponentsInChildren<Collider>();
-
-        // Initialize health immediately
-        currentHealth = maxHealth;
-    }
-    #endregion
 
     [Header("Training Target")]
     [Tooltip("Set to true if this RL_Player is being used as a training target")]
@@ -306,6 +284,13 @@ public class RL_Player : MonoBehaviour
                 col.enabled = false;
         }
 
+        // Notify training target system before destruction
+        var target = GetComponent<TrainingTarget>();
+        if (target != null)
+        {
+            target.ForceNotifyDestruction();
+        }
+        
         OnPlayerDestroyed?.Invoke();
         // Finally, destroy this GameObject
         Destroy(gameObject);
