@@ -128,11 +128,11 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         var playerComp = newTarget.GetComponent<RL_Player>();
         if (playerComp != null)
         {
-            playerComp.isTrainingTarget = true;
+            playerComp.isRL_TrainingTarget = true;
         }
 
-        // 3) Add the “TrainingTarget” life-tracker so we know when it dies.
-        var lifeTracker = newTarget.AddComponent<TrainingTarget>();
+        // 3) Add the “RL_TrainingTarget” life-tracker so we know when it dies.
+        var lifeTracker = newTarget.AddComponent<RL_TrainingTarget>();
         lifeTracker.Initialize(this);
 
         // 4) Keep track of it so we can forcibly clear on Reset.
@@ -189,7 +189,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
             {
                 if (target != null)
                 {
-                    var tracker = target.GetComponent<TrainingTarget>();
+                    var tracker = target.GetComponent<RL_TrainingTarget>();
                     if (tracker != null) tracker.Initialize(this);
                     activeTargets.Add(target);
                 }

@@ -1193,8 +1193,8 @@ MonoBehaviour:
   rotationSpeed: 5
   moveSpeed: 3
   waypointThreshold: 0.5
-  viewRadius: 75
-  viewAngle: 90
+  viewRadius: 4.5
+  viewAngle: 75
   playerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -1350,8 +1350,8 @@ MonoBehaviour:
   particleTowerOne: {fileID: 0}
   particleTowerTwo: {fileID: 0}
   enemyGettingHit: {fileID: 0}
-  creepGettingHitVFX: {fileID: 0}
-  medium1GettingHitVFX: {fileID: 0}
+  creepGettingHitVFX: {fileID: 8325126692494582252, guid: 276e9a2ce72c284478ed5912bf1c855e, type: 3}
+  medium1GettingHitVFX: {fileID: 8959237277660125984, guid: 10072df1a91fce745a3f6dc8975ccab0, type: 3}
   medium2GettingHitVFX: {fileID: 4185479963436013484, guid: 6ed8d84675b9af44d9b62fbdb5999d37, type: 3}
 --- !u!114 &6511220505642763827
 MonoBehaviour:
@@ -1375,9 +1375,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: dc97fd9e2fda99b48be54f1440d2246b, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: NormalEnemy
   TeamId: 0
   m_UseChildSensors: 1

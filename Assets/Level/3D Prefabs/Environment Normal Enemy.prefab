@@ -420,7 +420,7 @@ Transform:
   m_GameObject: {fileID: 3124285867132789932}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00471, y: -0.00552, z: 0}
+  m_LocalPosition: {x: -0.00782, y: -0.00698, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -517,7 +517,7 @@ Transform:
   m_GameObject: {fileID: 4306582152327133570}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.0059, y: -0.00552, z: 0}
+  m_LocalPosition: {x: 0.0071, y: -0.00691, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -548,7 +548,7 @@ Transform:
   m_GameObject: {fileID: 5319419106448081169}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00471, y: 0.00525, z: 0}
+  m_LocalPosition: {x: -0.00771, y: 0.00791, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -688,7 +688,9 @@ MonoBehaviour:
   corner2: {fileID: 4306582152327133570}
   waypoints:
   - {fileID: 4802145741181887974}
+  - {fileID: 1016196897865407825}
   - {fileID: 2760912271531336070}
+  - {fileID: 357979731513827213}
   maxEnemyCount: 5
   spawnTime: 0.5
   Gate: {fileID: 0}
@@ -1213,7 +1215,7 @@ Transform:
   m_GameObject: {fileID: 8982319122790434588}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.0059, y: 0.00525, z: 0}
+  m_LocalPosition: {x: 0.00697, y: 0.00801, z: -0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

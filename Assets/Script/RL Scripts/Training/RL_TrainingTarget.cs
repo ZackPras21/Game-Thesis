@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class TrainingTarget : MonoBehaviour
+public class RL_TrainingTarget : MonoBehaviour
 {
     private RL_TrainingTargetSpawner _spawner;
     private bool _isBeingDestroyed = false;

@@ -9,7 +9,7 @@ public class RL_Player : MonoBehaviour
 
     [Header("Training Target")]
     [Tooltip("Set to true if this RL_Player is being used as a training target")]
-    public bool isTrainingTarget = false;
+    public bool isRL_TrainingTarget = false;
     
     private Vector3 playerVelocity;
     private float gravityValue = -9.81f;
@@ -70,6 +70,21 @@ public class RL_Player : MonoBehaviour
 
     // If you want to reset the player’s position when respawning, store the initial position:
     private Vector3 initialPosition;
+
+    private void Awake()
+    {
+        // 1) Set the singleton Instance
+        Instance = this;
+
+        // 2) Cache initial position (if you want to reset position on respawn)
+        initialPosition = transform.position;
+
+        // 3) Cache all colliders so we can disable/enable on death
+        colliders = GetComponentsInChildren<Collider>();
+
+        // 4) Cache Animator if present
+        animator = GetComponent<Animator>();
+    }
 
     private void Start()
     {
@@ -285,7 +300,7 @@ public class RL_Player : MonoBehaviour
         }
 
         // Notify training target system before destruction
-        var target = GetComponent<TrainingTarget>();
+        var target = GetComponent<RL_TrainingTarget>();
         if (target != null)
         {
             target.ForceNotifyDestruction();
