@@ -223,13 +223,11 @@ public class RL_EnemyController : MonoBehaviour
 
      private void OnEnable()
     {
-        Debug.Log($"[RL_EnemyController:{name}] OnEnable() → subscribing to OnPlayerDestroyed");
         RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
     }
 
     private void OnDisable()
     {
-        Debug.Log($"[RL_EnemyController:{name}] Received OnPlayerDestroyed → clearing target");
         RL_Player.OnPlayerDestroyed -= HandlePlayerDestroyed;
     }
 

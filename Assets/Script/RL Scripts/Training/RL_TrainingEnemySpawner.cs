@@ -37,6 +37,10 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     [Tooltip("The Bull‐type enemy prefab (must have NavMeshAgent + NormalEnemyAgent component).")]
     public GameObject bullPrefab;
 
+    [Header("Player Settings")]
+    [Tooltip("Player prefab to spawn in each arena")]
+    public GameObject playerPrefab;
+
     [Header("Per‐Arena Configuration")]
     [Tooltip("Configure each arena’s corners and how many of each enemy‐type it should spawn.")]
     public ArenaInfo[] arenas;
@@ -197,6 +201,8 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         // Once all three loops finish, this coroutine is done.
     }
 
+    private List<GameObject> _spawnedPlayers = new List<GameObject>();
+
     public void RespawnAllArenas()
     {
         // Destroy every spawned enemy
@@ -204,13 +210,51 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         {
             if (e != null) Destroy(e);
         }
-
         _spawnedEnemies.Clear();
+
+        // Destroy every spawned player
+        foreach (var p in _spawnedPlayers)
+        {
+            if (p != null) Destroy(p);
+        }
+        _spawnedPlayers.Clear();
 
         // Restart coroutines for each arena
         for (int i = 0; i < arenas.Length; i++)
         {
+            // Spawn player at center of arena
+            Vector3 center = (arenas[i].corner1.position + arenas[i].corner2.position +
+                            arenas[i].corner3.position + arenas[i].corner4.position) / 4f;
+            GameObject player = Instantiate(playerPrefab, center, Quaternion.identity);
+            _spawnedPlayers.Add(player);
+
             StartCoroutine(SpawnInArenaCoroutine(arenas[i]));
+        }
+    }
+
+    public void RespawnPlayer(GameObject playerToRespawn)
+    {
+        if (playerToRespawn == null) return;
+
+        // Find which arena this player was in
+        foreach (var arena in arenas)
+        {
+            Vector3 center = (arena.corner1.position + arena.corner2.position +
+                            arena.corner3.position + arena.corner4.position) / 4f;
+            
+            if (Vector3.Distance(playerToRespawn.transform.position, center) < 50f)
+            {
+                playerToRespawn.transform.position = center;
+                playerToRespawn.SetActive(true);
+                // Reset player health/components if needed
+                var player = playerToRespawn.GetComponent<RL_Player>();
+                if (player != null)
+                {
+                    player.gameObject.SetActive(true);
+                    // Add any other player reset logic here
+                }
+                break;
+            }
         }
     }
 }

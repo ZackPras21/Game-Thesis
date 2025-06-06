@@ -175,6 +175,7 @@ MonoBehaviour:
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
   FinishDetectReward: 0.5
+  PatrolCompleteReward: 1
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
   HitByPlayerPunishment: -0.7
@@ -1783,7 +1784,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
-  moveSpeed: 4
+  moveSpeed: 2.5
   turnSpeed: 120
   attackRange: 2
   detectThreshold: 0.5
@@ -1793,7 +1794,11 @@ MonoBehaviour:
   rewardConfig: {fileID: 3247270290517839601}
   animator: {fileID: 1525368558665590809}
   navAgent: {fileID: 4662399911735061079}
-  patrolPoints: []
+  patrolPointTag: Patrol Point
+  showDebugInfo: 1
+  debugTextOffset: {x: 10, y: 10}
+  debugTextColor: {r: 0.36119992, g: 0.020569567, b: 0.4037736, a: 1}
+  debugFontSize: 15
 --- !u!114 &8894129208516749644
 MonoBehaviour:
   m_ObjectHideFlags: 0

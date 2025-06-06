@@ -165,6 +165,13 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         // Update the arena light color based on whether any targets remain
         UpdateArenaVisuals();
 
+        // Immediately spawn a new target to maintain count
+        if (currentTargetCount < maxTargets && episodeActive)
+        {
+            SpawnTarget();
+            lastSpawnTime = Time.time;
+        }
+
         // If we just lost the final target, episode is over
         if (currentTargetCount <= 0 && episodeActive)
         {

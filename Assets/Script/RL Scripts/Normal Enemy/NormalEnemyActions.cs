@@ -57,9 +57,10 @@ public static class NormalEnemyActions
     }
 
     public static void DoPatrol(
-    NavMeshAgent navAgent,
-    Transform[] patrolPoints,
-    ref int currentPatrolIndex
+        NavMeshAgent navAgent,
+        Transform[] patrolPoints,
+        ref int currentPatrolIndex,
+        ref int patrolLoopsCompleted
     )
 
     {
@@ -91,17 +92,21 @@ public static class NormalEnemyActions
             int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
             if (nextIndex == 0)
             {
+                // We have just completed a full patrol loop
+                patrolLoopsCompleted++;
                 // We have just arrived at the spawn‐adjacent waypoint.
                 // ⇒ Enter idle for 5 seconds before setting currentPatrolIndex = 0 again
                 isIdlingAtSpawn = true;
                 patrolIdleTimer = 5.0f;
-                // Keep currentPatrolIndex = 0 so we actually “wait” here.
+                // Keep currentPatrolIndex = 0 so we actually "wait" here.
+                return; // Indicate loop completion
             }
             else
             {
                 // Normal wrap‐around
                 currentPatrolIndex = nextIndex;
             }
+            return;
         }
     }
 

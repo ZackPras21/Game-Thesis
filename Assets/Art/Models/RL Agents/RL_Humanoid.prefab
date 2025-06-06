@@ -123,7 +123,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.00537}
-  m_LocalScale: {x: 1.9253, y: 3.5547569, z: 1.6481}
+  m_LocalScale: {x: 1.9253, y: 1.3499545, z: 1.6481}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -943,6 +943,7 @@ MonoBehaviour:
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
   FinishDetectReward: 0.5
+  PatrolCompleteReward: 1
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
   HitByPlayerPunishment: -0.7
@@ -1879,7 +1880,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
-  moveSpeed: 3
+  moveSpeed: 2
   turnSpeed: 120
   attackRange: 2
   detectThreshold: 0.5
@@ -1889,7 +1890,11 @@ MonoBehaviour:
   rewardConfig: {fileID: 7144006557691622317}
   animator: {fileID: 2030732665317957927}
   navAgent: {fileID: 8707273861137654613}
-  patrolPoints: []
+  patrolPointTag: Patrol Point
+  showDebugInfo: 1
+  debugTextOffset: {x: 10, y: 100}
+  debugTextColor: {r: 0.7735849, g: 0.46905947, b: 0.016055519, a: 1}
+  debugFontSize: 14
 --- !u!114 &5817866243050837834
 MonoBehaviour:
   m_ObjectHideFlags: 0

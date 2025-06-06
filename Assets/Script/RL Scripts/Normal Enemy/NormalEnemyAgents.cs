@@ -7,10 +7,7 @@ using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Policies;
 using UnityEngine.AI;
 
-/// <summary>
-/// NormalEnemyAgent now uses RayPerceptionSensor3D for all “vision” and ray-based observations.
-/// You should have added a RayPerceptionSensor3D component (named "EnemyRaySensor") on the same GameObject in the Inspector.
-/// </summary>
+
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(RayPerceptionSensorComponent3D))]
 public class NormalEnemyAgent : Agent
@@ -63,8 +60,20 @@ public class NormalEnemyAgent : Agent
 
     // Patrol state
     [Header("Patrol Settings")]
-    public Transform[] patrolPoints;
+    [Tooltip("Tag name for patrol points in the scene")]
+    public string patrolPointTag = "PatrolPoint";
+    private Transform[] patrolPoints;
     private int currentPatrolIndex = 0;
+    private int patrolLoopsCompleted = 0;
+    
+    [Header("Debug Visualization")]
+    public bool showDebugInfo = true;
+    public Vector2 debugTextOffset = new Vector2(10, 10);
+    public Color debugTextColor = Color.white;
+    public int debugFontSize = 14;
+    private float cumulativeReward = 0f;
+    private int episodeSteps = 0;
+    private int successfulKills = 0;
 
     // ───── UNITY / ML‑AGENTS CALLBACKS ────────────────
 
@@ -73,6 +82,11 @@ public class NormalEnemyAgent : Agent
         // 1) Grab required components
         navAgent = GetComponent<NavMeshAgent>();
         raySensor = GetComponent<RayPerceptionSensorComponent3D>();
+        // Enable debug rays in editor
+        #if UNITY_EDITOR
+        // Debug visualization removed due to API changes
+        #endif
+
         navAgent.speed = moveSpeed;
         navAgent.angularSpeed = turnSpeed;
         navAgent.stoppingDistance = 0.1f;
@@ -84,15 +98,47 @@ public class NormalEnemyAgent : Agent
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) playerTransform = p.transform;
 
-        // 4) Initialize “lastPosition” for stuck detection
+        // 4) Find patrol points by tag
+        GameObject[] patrolObjs = GameObject.FindGameObjectsWithTag(patrolPointTag);
+        patrolPoints = new Transform[patrolObjs.Length];
+        for (int i = 0; i < patrolObjs.Length; i++)
+        {
+            patrolPoints[i] = patrolObjs[i].transform;
+        }
+
+        // 5) Initialize "lastPosition" for stuck detection
         lastPosition = transform.position;
         stepsSinceLastMove = 0;
         timeSinceLastMove = 0f;
     }
+    
+    // Unity's OnGUI method is called every frame when rendering GUI elements.
+    void OnGUI()
+    {
+        if (showDebugInfo)
+        {
+            // Set up the label style with the color, font size, etc.
+            GUIStyle labelStyle = new GUIStyle();
+            labelStyle.fontSize = debugFontSize;
+            labelStyle.normal.textColor = debugTextColor;
+
+            // Display the agent state and other debug info at the top-left corner
+            string debugText = $"State: {(isPatrolling ? "Patrol" : isDetecting ? "Detect" : isChasing ? "Chase" : isAttacking ? "Attack" : "Idle")}\n" +
+            $"Steps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
+            
+            // Draw the text in the GUI
+            GUI.Label(new Rect(debugTextOffset.x, debugTextOffset.y, 300, 100), debugText, labelStyle);
+        }
+    }
 
     public override void OnEpisodeBegin()
     {
-        // Reset agent’s position, health, states, etc.
+        // Reset metrics
+        cumulativeReward = 0f;
+        episodeSteps = 0;
+        patrolLoopsCompleted = 0;
+
+        // Reset agent's position, health, states, etc.
         currentHealth = maxHealth;
         isPatrolling = true;
         isDetecting = false;
@@ -305,9 +351,15 @@ public class NormalEnemyAgent : Agent
                         AddReward(rewardConfig.AttackPlayerReward);
                         if (player.CurrentHealth <= 0f)
                         {
+                            successfulKills++;
                             AddReward(rewardConfig.KillPlayerReward);
-                            EndEpisode();
-                            return;
+                            
+                            // End episode if killed at least one player
+                            if (successfulKills >= 1)
+                            {
+                                EndEpisode();
+                                return;
+                            }
                         }
                     }
                 }
@@ -341,16 +393,25 @@ public class NormalEnemyAgent : Agent
             isAttacking = false;
         }
 
-        // 3) **Patrol Step**: incentivize movement if agent is not doing anything else
-        if (isPatrolling)
+        // 3) **Patrol Step**: incentivize movement if agent is not doing anything else
+        if (isPatrolling && patrolPoints.Length > 0)
         {
-            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex);
+            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted);
             AddReward(rewardConfig.PatrolStepReward * Time.deltaTime);
+            
+            // End episode if completed 2 full patrol loops
+            if (patrolLoopsCompleted >= 2)
+            {
+                AddReward(rewardConfig.PatrolCompleteReward);
+                EndEpisode();
+                return;
+            }
         }
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
+        
         // Optional: define human input for debugging (e.g. arrow keys to move, space to attack)
         var continuousActions = actionsOut.ContinuousActions;
         continuousActions.Clear();
@@ -388,9 +449,17 @@ public class NormalEnemyAgent : Agent
             // Play death animation, spawn loot, etc.
             if (animator != null)
             {
-                animator.SetTrigger("Die");
+                animator.SetTrigger("isDead");
             }
             AddReward(rewardConfig.DiedByPlayerPunishment);
+            
+            // Find spawner and respawn player
+            RL_TrainingEnemySpawner spawner = FindObjectOfType<RL_TrainingEnemySpawner>();
+            if (spawner != null && playerTransform != null)
+            {
+                spawner.RespawnPlayer(playerTransform.gameObject);
+            }
+            
             EndEpisode();
         }
         else
@@ -398,7 +467,7 @@ public class NormalEnemyAgent : Agent
             // Play “hit” feedback
             if (animator != null)
             {
-                animator.SetTrigger("GetHit");
+                animator.SetTrigger("getHit");
             }
             AddReward(rewardConfig.HitByPlayerPunishment);
         }
