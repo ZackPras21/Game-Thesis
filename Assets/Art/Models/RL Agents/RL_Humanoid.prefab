@@ -942,16 +942,18 @@ MonoBehaviour:
   KillPlayerReward: 1
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
+  FinishDetectReward: 0.5
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
-  HitByPlayerPenalty: -0.7
-  ObstaclePenalty: -0.8
+  HitByPlayerPunishment: -0.7
+  ObstaclePunishment: -0.9
   PatrolStepReward: 0.005
-  IdlePenalty: -0.01
-  NoMovementPenalty: -0.01
+  ChaseStepReward: 0.01
+  IdlePunishment: -0.01
+  NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
-  StayFarFromPlayerPenalty: -0.005
-  AttackMissedPenalty: -0.1
+  StayFarFromPlayerPunishment: -0.005
+  AttackMissedPunishment: -0.1
 --- !u!1 &7554904805282469337
 GameObject:
   m_ObjectHideFlags: 0
@@ -1645,6 +1647,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5817866243050837834}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6315682029616046579}
   m_SourcePrefab: {fileID: 100100000, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
 --- !u!4 &543896707441329936 stripped
 Transform:
@@ -1675,18 +1680,10 @@ MonoBehaviour:
   rotationSpeed: 5
   moveSpeed: 3
   waypointThreshold: 0.5
-  viewRadius: 5
-  viewAngle: 45
-  playerMask:
-    serializedVersion: 2
-    m_Bits: 64
+  waypoints: []
   obstacleMask:
     serializedVersion: 2
     m_Bits: 136
-  meshResolution: 1
-  edgeInterations: 4
-  edgeDistance: 0.5
-  waypoints: []
   enemyHP: 0
   healthBar: {fileID: 8359980924510194894}
   boxCollider: {fileID: 7083142781546743490}
@@ -1848,18 +1845,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 17
+    VectorObservationSize: 4
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 3
+      m_NumContinuousActions: 4
       BranchSizes: 
-    VectorActionSize: 03000000
+    VectorActionSize: 04000000
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: dc97fd9e2fda99b48be54f1440d2246b, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: NormalEnemy
   TeamId: 0
   m_UseChildSensors: 1
@@ -1885,17 +1882,14 @@ MonoBehaviour:
   moveSpeed: 3
   turnSpeed: 120
   attackRange: 2
-  attackDamage: 80
-  detectDistance: 20
+  detectThreshold: 0.5
   maxHealth: 100
-  playerTransform: {fileID: 2469261571595659520, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
-  obstacleLayerMask:
-    serializedVersion: 2
-    m_Bits: 136
-  animator: {fileID: 2030732665317957927}
+  attackDamage: 80
+  HP_FleeThreshold: 0.2
   rewardConfig: {fileID: 7144006557691622317}
+  animator: {fileID: 2030732665317957927}
+  navAgent: {fileID: 8707273861137654613}
   patrolPoints: []
-  enemyType: 1
 --- !u!114 &5817866243050837834
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1911,6 +1905,39 @@ MonoBehaviour:
   DecisionPeriod: 1
   DecisionStep: 0
   TakeActionsBetweenDecisions: 1
+--- !u!114 &6315682029616046579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 920880024737537450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb6b867a41448888c1cd4f99643ad71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SensorName: RayPerceptionSensor
+  m_DetectableTags:
+  - Enemy
+  - Wall
+  - Box
+  - Gate
+  - Player
+  m_RaysPerDirection: 10
+  m_MaxRayDegrees: 45
+  m_SphereCastRadius: 0.5
+  m_RayLength: 30
+  m_RayLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967291
+  m_ObservationStacks: 3
+  m_AlternatingRayOrder: 1
+  m_UseBatchedRaycasts: 0
+  rayHitColor: {r: 0, g: 0.11241293, b: 1, a: 1}
+  rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
+  m_StartVerticalOffset: 0
+  m_EndVerticalOffset: 0
 --- !u!4 &6033344054375008523 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}

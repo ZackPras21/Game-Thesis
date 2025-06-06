@@ -714,7 +714,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 009558f9ff5584248b0e2758e20a02f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  isTrainingTarget: 1
+  isRL_TrainingTarget: 1
   ParticleSpawnPoint: {fileID: 5498272519640469317, guid: ccb786ced3ed3f2428fdd63a6ce4db51, type: 3}
   maxHealth: 25
   turnSpeed: 4

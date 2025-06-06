@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class NormalEnemyState
+public class NormalEnemyStates
 {
     // ───── PUBLIC STATE FIELDS ────────────────────────────────────────────────
     public Vector3 AgentPosition;       // Current (x,z) position in world
@@ -21,7 +21,7 @@ public class NormalEnemyState
     public bool IsIdle;
 
     // ───── CONSTRUCTOR ─────────────────────────────────────────────────────────
-    public NormalEnemyState(
+    public NormalEnemyStates(
         Transform agentTransform,
         float currentHealth,
         float maxHealth,

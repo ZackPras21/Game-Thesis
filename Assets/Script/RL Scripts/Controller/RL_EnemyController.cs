@@ -19,16 +19,8 @@ public class RL_EnemyController : MonoBehaviour
     public bool IsCaughtPlayer => m_CaughtPlayer;
     private int m_CurrentWaypointIndex = 0;
 
-    // Detection
-    [Header("Detection")]
-    public float viewRadius = 15;
-    public float viewAngle = 90;
-    public LayerMask playerMask;
-    public LayerMask obstacleMask;
-    public float meshResolution = 1f;
-    public int edgeInterations = 4;
-    public float edgeDistance = 0.5f;
     public Transform[] waypoints;
+    public LayerMask obstacleMask; // For pathfinding collision avoidance
 
     // Combat
     [Header("Combat")]
@@ -116,8 +108,6 @@ public class RL_EnemyController : MonoBehaviour
         
         if (!isDead)
         {
-            EnvironmentView();
-
             if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
             {
                 MoveBetweenWaypoints();
@@ -270,26 +260,6 @@ public class RL_EnemyController : MonoBehaviour
         m_PlayerPosition = target.position;
     }
 
-    private void EnvironmentView()
-    {
-        if (!playerAlive) return; 
-        Collider[] hits = Physics.OverlapSphere(
-            transform.position,
-            viewRadius,
-            playerMask
-        );
-        if (hits.Length > 0)
-        {
-            playerTransform = hits[0].transform;
-            m_PlayerInRange = true;
-            m_PlayerPosition = playerTransform.position;
-            m_IsPatrol = false;
-        }
-        else
-        {
-            m_PlayerInRange = false;
-        }
-    }
 
     private Vector3 GetSeparationVector()
     {
@@ -504,7 +474,7 @@ public class RL_EnemyController : MonoBehaviour
             boxCollider.bounds.center,
             boxCollider.bounds.extents,
             boxCollider.transform.rotation,
-            playerMask);  // Use playerMask layer instead of tag check
+            LayerMask.GetMask("Player"));  // Use Player layer instead of playerMask
 
         foreach (Collider collider in colliders)
         {
