@@ -133,6 +133,7 @@ public class NormalEnemyAgent : Agent
 
     public override void OnEpisodeBegin()
     {
+        base.OnEpisodeBegin();
         // Reset metrics
         cumulativeReward = 0f;
         episodeSteps = 0;
@@ -147,6 +148,7 @@ public class NormalEnemyAgent : Agent
         isFleeing = false;
         hasEverSeenPlayer = false;
         prevDistanceToPlayer = Mathf.Infinity;
+        currentPatrolIndex = 0;
 
         // Reset NavMeshAgent
         navAgent.Warp(/* your spawn position logic here */ transform.position);
@@ -263,7 +265,7 @@ public class NormalEnemyAgent : Agent
                 if (playerTransform != null)
                 {
                     Vector3 fleeDir = (transform.position - playerTransform.position).normalized;
-                    Vector3 fleeTarget = transform.position + fleeDir * detectThreshold; 
+                    Vector3 fleeTarget = transform.position + fleeDir * detectThreshold;
                     navAgent.SetDestination(fleeTarget);
                 }
                 isFleeing = true;
@@ -279,6 +281,17 @@ public class NormalEnemyAgent : Agent
         if (playerVisible)
         {
             hasEverSeenPlayer = true;
+            if (playerTransform == null)
+            {
+                // Player was destroyed - transition to patrol state
+                isPatrolling = true;
+                isChasing = false;
+                isDetecting = false;
+                isAttacking = false;
+                playerVisible = false;
+                hasEverSeenPlayer = false;
+                return;
+            }
             float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
 
             // If just detected and not already chasing, enter “Detecting” for a short delay
@@ -323,11 +336,19 @@ public class NormalEnemyAgent : Agent
                 {
                     // Continue chasing via NavMesh
                     navAgent.isStopped = false;
-                    navAgent.SetDestination(playerTransform.position);
+                    if (playerTransform != null)
+                    {
+                        navAgent.SetDestination(playerTransform.position);
+                    }
+                    else
+                    {
+                        isPatrolling = true;
+                        isChasing = false;
+                    }
                 }
                 // Reward for moving closer
                 float deltaDist = prevDistanceToPlayer - distToPlayer;
-                AddReward(rewardConfig.ChaseStepReward * Mathf.Clamp01(deltaDist)); 
+                AddReward(rewardConfig.ChaseStepReward * Mathf.Clamp01(deltaDist));
                 prevDistanceToPlayer = distToPlayer;
                 return;
             }
@@ -336,6 +357,12 @@ public class NormalEnemyAgent : Agent
             if (isAttacking)
             {
                 // Face the player
+                if (playerTransform == null)
+                {
+                    isAttacking = false;
+                    isPatrolling = true;
+                    return;
+                }
                 Vector3 lookDir = (playerTransform.position - transform.position).normalized;
                 Quaternion lookRot = Quaternion.LookRotation(lookDir, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * turnSpeed);
@@ -353,7 +380,7 @@ public class NormalEnemyAgent : Agent
                         {
                             successfulKills++;
                             AddReward(rewardConfig.KillPlayerReward);
-                            
+
                             // End episode if killed at least one player
                             if (successfulKills >= 1)
                             {
@@ -394,14 +421,17 @@ public class NormalEnemyAgent : Agent
         }
 
         // 3) **Patrol Step**: incentivize movement if agent is not doing anything else
-        if (isPatrolling && patrolPoints.Length > 0)
+        if (isPatrolling && patrolPoints != null && patrolPoints.Length > 0)
         {
             NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted, animator);
             AddReward(rewardConfig.PatrolStepReward * Time.deltaTime);
-            
-            // End episode if completed 2 full patrol loops
-            if (patrolLoopsCompleted >= 2)
+            var target = patrolPoints[currentPatrolIndex].position;
+            navAgent.SetDestination(target);
+
+            // If we’re close, advance index
+            if (Vector3.Distance(transform.position, target) < 1f && patrolLoopsCompleted >= 2)
             {
+                currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
                 AddReward(rewardConfig.PatrolCompleteReward);
                 EndEpisode();
                 return;
@@ -439,6 +469,12 @@ public class NormalEnemyAgent : Agent
         navAgent.velocity = Vector3.zero;
         navAgent.isStopped = true;
     }
+    
+    public void SetPatrolPoints(Transform[] points)
+    {
+        patrolPoints = points;
+        currentPatrolIndex = 0;
+    }
 
     // ───── PUBLIC “Damage” API ────────────────
     public void TakeDamage(float amount)
@@ -453,14 +489,14 @@ public class NormalEnemyAgent : Agent
                 animator.SetTrigger("isDead");
             }
             AddReward(rewardConfig.DiedByPlayerPunishment);
-            
+
             // Find spawner and respawn player
             RL_TrainingEnemySpawner spawner = FindObjectOfType<RL_TrainingEnemySpawner>();
             if (spawner != null && playerTransform != null)
             {
                 spawner.RespawnPlayer(playerTransform.gameObject);
             }
-            
+
             EndEpisode();
         }
         else

@@ -13,6 +13,9 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     [Tooltip("Maximum number of targets to have alive at once.")]
     public int maxTargets = 3;
 
+    [Tooltip("How many attempts to find a valid spawn per target.")]
+    public int maxSpawnAttempts = 10;
+
     [Tooltip("How far from this spawner's position a valid spawn may appear.")]
     public float spawnRadius = 10f;
 
@@ -52,11 +55,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
     private void Start()
     {
-        _activeSpawners.Add(this);
-        if (_activeInstance == null)
-        {
-            SetAsActiveInstance();
-        }
+        SpawnUpToMax();
         UpdateArenaVisuals();
     }
 
@@ -70,6 +69,40 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
             SpawnTarget();
             lastSpawnTime = Time.time;
         }
+    }
+    
+    private void SpawnUpToMax()
+    {
+        while (activeTargets.Count < maxTargets)
+        {
+            Vector3 pos = FindValidSpawnPosition();
+            if (pos == Vector3.zero) break;
+            var go = Instantiate(trainingTargetPrefab, pos, Quaternion.identity);
+            activeTargets.Add(go);
+            // Allow the RL_Player script to know which spawner it belongs to, if needed:
+            var player = go.GetComponent<RL_Player>();
+            if (player != null) player.spawner = this;
+        }
+    }
+
+    private Vector3 FindValidSpawnPosition()
+    {
+        for (int i = 0; i < maxSpawnAttempts; i++)
+        {
+            Vector3 offset = Random.insideUnitSphere * spawnRadius;
+            offset.y = 0;
+            Vector3 candidate = transform.position + offset;
+            // You could do a Physics.CheckSphere here to avoid obstacles
+            return candidate;
+        }
+        return Vector3.zero;
+    }
+
+    public void NotifyTargetRemoved(GameObject target)
+    {
+        activeTargets.Remove(target);
+        UpdateArenaVisuals();
+        SpawnUpToMax();
     }
 
 
@@ -92,7 +125,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
         // 3) Mark episode as active, reset spawn timer, update visuals to “no targets”
         episodeActive = true;
-        lastSpawnTime = Time.time - spawnInterval; 
+        lastSpawnTime = Time.time - spawnInterval;
         // (Set it earlier so that the loop below can spawn immediately)
 
         UpdateArenaVisuals(); // This will set the arenaLight to "inactiveColor" (since currentTargetCount == 0)
@@ -101,7 +134,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         for (int i = 0; i < maxTargets; i++)
         {
             SpawnTarget();
-            lastSpawnTime = Time.time; 
+            lastSpawnTime = Time.time;
         }
     }
 

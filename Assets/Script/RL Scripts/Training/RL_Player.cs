@@ -70,6 +70,7 @@ public class RL_Player : MonoBehaviour
 
     // If you want to reset the player’s position when respawning, store the initial position:
     private Vector3 initialPosition;
+    public RL_TrainingTargetSpawner spawner;
 
     private void Awake()
     {
