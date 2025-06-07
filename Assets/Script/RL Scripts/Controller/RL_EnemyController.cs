@@ -93,6 +93,8 @@ public class RL_EnemyController : MonoBehaviour
             // If our existing reference was destroyed, we force “patrol” mode
             m_PlayerInRange = false;
             m_IsPatrol = true;
+            animator.SetBool("isIdle", false);
+            animator.SetBool("isWalking", true);
         }
 
         if (m_PlayerInRange && playerTransform != null && playerAlive)
@@ -121,14 +123,11 @@ public class RL_EnemyController : MonoBehaviour
         {
             MoveBetweenWaypoints();
         }
-        else
+        else if (!m_IsAttacking)
         {
             // If m_PlayerInRange is true AND not attacking, ensure enemy goes Idle:
-            if (!m_IsAttacking)
-            {
-                animator.SetBool("isIdle", true);
-                animator.SetBool("isWalking", false);
-            }
+            animator.SetBool("isIdle", true);
+            animator.SetBool("isWalking", false);
         }
     }
     void OnTriggerEnter(Collider other)
@@ -368,13 +367,7 @@ public class RL_EnemyController : MonoBehaviour
 
         if (m_IsPatrol)
         {
-            // Ensure the Walk animation is on:
-            if (animator != null)
-            {
-                animator.SetBool("isIdle", false);
-                animator.SetBool("isWalking", true);
-                animator.SetBool("isAttacking", false);
-            }
+            // Animation states are now handled by NormalEnemyActions
             RotateTowardsPlayer(targetPosition, rotationSpeed);
 
             float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);

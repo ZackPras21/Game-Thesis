@@ -396,7 +396,7 @@ public class NormalEnemyAgent : Agent
         // 3) **Patrol Step**: incentivize movement if agent is not doing anything else
         if (isPatrolling && patrolPoints.Length > 0)
         {
-            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted);
+            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted, animator);
             AddReward(rewardConfig.PatrolStepReward * Time.deltaTime);
             
             // End episode if completed 2 full patrol loops
@@ -449,6 +449,7 @@ public class NormalEnemyAgent : Agent
             // Play death animation, spawn loot, etc.
             if (animator != null)
             {
+                Debug.Log("Setting death animation");
                 animator.SetTrigger("isDead");
             }
             AddReward(rewardConfig.DiedByPlayerPunishment);

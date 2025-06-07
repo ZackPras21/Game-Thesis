@@ -60,7 +60,8 @@ public static class NormalEnemyActions
         NavMeshAgent navAgent,
         Transform[] patrolPoints,
         ref int currentPatrolIndex,
-        ref int patrolLoopsCompleted
+        ref int patrolLoopsCompleted,
+        Animator animator = null
     )
 
     {
@@ -71,6 +72,12 @@ public static class NormalEnemyActions
         {
             patrolIdleTimer -= Time.deltaTime;
             navAgent.isStopped = true;
+            if (animator != null)
+            {
+                animator.SetBool("isWalking", false);
+                animator.SetBool("isIdle", true);
+                Debug.Log($"Patrol: Setting isIdle=true at waypoint {currentPatrolIndex}");
+            }
             if (patrolIdleTimer <= 0f)
             {
                 // Done idling → leave idle mode and move to next waypoint
@@ -84,6 +91,12 @@ public static class NormalEnemyActions
         Vector3 targetPos = patrolPoints[currentPatrolIndex].position;
         navAgent.isStopped = false;
         navAgent.SetDestination(targetPos);
+        if (animator != null)
+        {
+            animator.SetBool("isWalking", true);
+            animator.SetBool("isIdle", false);
+            Debug.Log($"Patrol: Setting isWalking=true moving to waypoint {currentPatrolIndex}");
+        }
 
         // If we are close enough to this waypoint:
         if (!navAgent.pathPending && navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f)
