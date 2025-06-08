@@ -1,11 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
-using Unity.MLAgents.Policies;
 using UnityEngine.AI;
+using System.Linq;
 
 
 [RequireComponent(typeof(NavMeshAgent))]
@@ -33,6 +31,7 @@ public class NormalEnemyAgent : Agent
     [Header("References")]
     public Animator animator;
     public NavMeshAgent navAgent;
+    public LayerMask obstacleMask;
 
     // ───── PRIVATE FIELDS ─────────────────────────
     private float currentHealth;
@@ -68,6 +67,7 @@ public class NormalEnemyAgent : Agent
     
     [Header("Debug Visualization")]
     public bool showDebugInfo = true;
+    public static bool TrainingActive = true;
     public Vector2 debugTextOffset = new Vector2(10, 10);
     public Color debugTextColor = Color.white;
     public int debugFontSize = 14;
@@ -79,38 +79,43 @@ public class NormalEnemyAgent : Agent
 
     public override void Initialize()
     {
-        // 1) Grab required components
         navAgent = GetComponent<NavMeshAgent>();
         raySensor = GetComponent<RayPerceptionSensorComponent3D>();
-        // Enable debug rays in editor
-        #if UNITY_EDITOR
-        // Debug visualization removed due to API changes
-        #endif
-
         navAgent.speed = moveSpeed;
         navAgent.angularSpeed = turnSpeed;
         navAgent.stoppingDistance = 0.1f;
 
-        // 2) Assign initial health
         currentHealth = maxHealth;
+        playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
+        patrolPoints = GameObject.FindGameObjectsWithTag("Patrol Point").Select(o => o.transform).ToArray();
+        ResetState();
+    }
 
-        // 3) Find the Player in scene (assuming tag = "Player")
-        GameObject p = GameObject.FindGameObjectWithTag("Player");
-        if (p != null) playerTransform = p.transform;
-
-        // 4) Find patrol points by tag
-        GameObject[] patrolObjs = GameObject.FindGameObjectsWithTag(patrolPointTag);
-        patrolPoints = new Transform[patrolObjs.Length];
-        for (int i = 0; i < patrolObjs.Length; i++)
-        {
-            patrolPoints[i] = patrolObjs[i].transform;
-        }
-
-        // 5) Initialize "lastPosition" for stuck detection
+    private void ResetState()
+    {
+        isPatrolling = true;
+        isChasing = false;
+        isAttacking = false;
+        playerVisible = false;
+        currentPatrolIndex = 0;
+        patrolLoopsCompleted = 0;
+        cumulativeReward = 0f;
+        episodeSteps = 0;
         lastPosition = transform.position;
         stepsSinceLastMove = 0;
         timeSinceLastMove = 0f;
     }
+
+    void Update()
+    {
+        // Only for testing outside training
+        if (!Application.isPlaying) return;
+        if (!TrainingActive)
+        {
+            if (playerVisible) ChasePlayer(); else Patrol();
+        }
+    }
+
     
     // Unity's OnGUI method is called every frame when rendering GUI elements.
     void OnGUI()
@@ -123,9 +128,11 @@ public class NormalEnemyAgent : Agent
             labelStyle.normal.textColor = debugTextColor;
 
             // Display the agent state and other debug info at the top-left corner
-            string debugText = $"State: {(isPatrolling ? "Patrol" : isDetecting ? "Detect" : isChasing ? "Chase" : isAttacking ? "Attack" : "Idle")}\n" +
+            string debugText =
+            $"{gameObject.name}:" +
+            $"State: {(isPatrolling ? "Patrol" : isDetecting ? "Detect" : isChasing ? "Chase" : isAttacking ? "Attack" : "Idle")}\n" +
             $"Steps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
-            
+
             // Draw the text in the GUI
             GUI.Label(new Rect(debugTextOffset.x, debugTextOffset.y, 300, 100), debugText, labelStyle);
         }
@@ -133,315 +140,128 @@ public class NormalEnemyAgent : Agent
 
     public override void OnEpisodeBegin()
     {
-        base.OnEpisodeBegin();
-        // Reset metrics
-        cumulativeReward = 0f;
-        episodeSteps = 0;
-        patrolLoopsCompleted = 0;
-
-        // Reset agent's position, health, states, etc.
+        ResetState();
         currentHealth = maxHealth;
-        isPatrolling = true;
-        isDetecting = false;
-        isChasing = false;
-        isAttacking = false;
-        isFleeing = false;
-        hasEverSeenPlayer = false;
-        prevDistanceToPlayer = Mathf.Infinity;
-        currentPatrolIndex = 0;
-
-        // Reset NavMeshAgent
-        navAgent.Warp(/* your spawn position logic here */ transform.position);
-
-        // Reset timing flags
-        stepsSinceLastMove = 0;
-        timeSinceLastMove = 0f;
-        lastPosition = transform.position;
-
-        // (If you have a training‐arena spawner, call its ResetArena())
-        RL_TrainingTargetSpawner targetSpawner = Object.FindFirstObjectByType<RL_TrainingTargetSpawner>();
-        if (targetSpawner != null)
-        {
-            targetSpawner.ResetArena();
-        }
+        // warp to random patrol point
+        int idx = Random.Range(0, patrolPoints.Length);
+        navAgent.Warp(patrolPoints[idx].position);
+        RL_TrainingTargetSpawner sp = FindObjectOfType<RL_TrainingTargetSpawner>();
+        if (sp != null) sp.ResetArena();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // 1) **Inject RayPerception observations automatically**  
-        // 2) Add scalar observations (e.g. currentHealth, normalized by maxHealth)
+        // Health
         sensor.AddObservation(currentHealth / maxHealth);
 
-        // 3) If desired, also provide normalized distance to player & agent’s current velocity
+        // Distance to player
         if (playerTransform != null)
         {
             float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-            sensor.AddObservation(distToPlayer / 20f); // normalize by some max expected distance (e.g. 20 units)
+            sensor.AddObservation(distToPlayer / 20f);
         }
         else
         {
-            sensor.AddObservation(1f); // “Player is far-away or null”
+            sensor.AddObservation(0f);
         }
 
-        Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
-        sensor.AddObservation(localVelocity.x / moveSpeed);
-        sensor.AddObservation(localVelocity.z / moveSpeed);
+        // Velocity
+        Vector3 v = transform.InverseTransformDirection(navAgent.velocity);
+        sensor.AddObservation(v.x / moveSpeed);
+        sensor.AddObservation(v.z / moveSpeed);
     }
 
-    public override void OnActionReceived(ActionBuffers actionBuffers)
+    public override void OnActionReceived(ActionBuffers actions)
     {
-        // 0) **Stuck Detection** (similar to your existing code)
-        float distanceSinceLast = Vector3.Distance(transform.position, lastPosition);
-        if (distanceSinceLast < 0.01f)
+        episodeSteps++;
+        // Stuck detection
+        if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
         {
             stepsSinceLastMove++;
             timeSinceLastMove += Time.deltaTime;
         }
-        else
-        {
-            stepsSinceLastMove = 0;
-            timeSinceLastMove = 0f;
-            lastPosition = transform.position;
-        }
-
+        else { stepsSinceLastMove = 0; timeSinceLastMove = 0f; lastPosition = transform.position; }
         if (rewardConfig.CheckIfStuck(lastPosition, transform.position, stepsSinceLastMove, timeSinceLastMove))
         {
-            // Penalize & end episode if agent is stuck
             AddReward(rewardConfig.NoMovementPunishment);
             EndEpisode();
             return;
         }
 
-        // 1) Read ActionBuffers (discrete or continuous) → convert to movement commands
-        //     (Example: assume continuous actions [moveX, moveZ, turnY, attackFlag])
-        float moveX = Mathf.Clamp(actionBuffers.ContinuousActions[0], -1f, 1f);
-        float moveZ = Mathf.Clamp(actionBuffers.ContinuousActions[1], -1f, 1f);
-        float turnY = Mathf.Clamp(actionBuffers.ContinuousActions[2], -1f, 1f);
-        float attackSignal = Mathf.Clamp(actionBuffers.ContinuousActions[3], 0f, 1f);
-
-        // 1.a) Apply turning
-        transform.Rotate(Vector3.up, turnY * turnSpeed * Time.deltaTime);
-
-        // 1.b) Apply movement (via NavMesh or direct CharacterController)
-        Vector3 forward = transform.forward * moveZ * moveSpeed * Time.deltaTime;
-        Vector3 strafe = transform.right * moveX * moveSpeed * Time.deltaTime;
-        Vector3 desiredMove = forward + strafe;
+        // Movement & detection
+        Vector3 move = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
+        float turn = actions.ContinuousActions[2];
+        transform.Rotate(0, turn * turnSpeed * Time.deltaTime, 0);
 
         navAgent.isStopped = false;
-        navAgent.Move(desiredMove);
-        if (playerTransform != null)
+        navAgent.Move(move * moveSpeed * Time.deltaTime);
+
+        UpdateDetection();
+        UpdateStateMachine();
+    }
+    
+    private void UpdateDetection()
+    {
+        playerVisible = false;
+        if (playerTransform)
         {
-            float dist = Vector3.Distance(transform.position, playerTransform.position);
-            if (dist <= detectThreshold * raySensor.RayLength)
+            float d = Vector3.Distance(transform.position, playerTransform.position);
+            if (d <= detectThreshold * raySensor.RayLength)
             {
-                // Further confirm line‐of‐sight with a single raycast to the player’s center
                 RaycastHit hit;
                 Vector3 dir = (playerTransform.position - transform.position).normalized;
                 if (Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, out hit, raySensor.RayLength))
                 {
-                    if (hit.collider != null && hit.collider.CompareTag("Player"))
-                    {
-                        playerVisible = true;
-                    }
+                    if (hit.collider.CompareTag("Player")) playerVisible = true;
                 }
             }
         }
+    }
 
-        // 2.b) Health‐based logic: if HP < HP_FleeThreshold, enter “Flee” if no allies
-        if (currentHealth / maxHealth < HP_FleeThreshold)
+    private void UpdateStateMachine()
+    {
+        if (playerVisible) { isPatrolling = false; isChasing = true; }
+        else if (isChasing) { isChasing = false; isPatrolling = true; }
+
+        if (isChasing) ChasePlayer();
+        else Patrol();
+    }
+
+    private void Patrol()
+    {
+        if (patrolPoints.Length == 0) return;
+        Vector3 target = patrolPoints[currentPatrolIndex].position;
+        navAgent.SetDestination(target);
+        if (Vector3.Distance(transform.position, target) < 0.5f)
         {
-            bool alliesAlive = false;
-            foreach (var other in Object.FindObjectsByType<NormalEnemyAgent>(FindObjectsSortMode.None))
-            {
-                if (other != this && other.currentHealth > 0f)
-                {
-                    alliesAlive = true;
-                    break;
-                }
-            }
-            if (!alliesAlive)
-            {
-                // Flee from player
-                if (playerTransform != null)
-                {
-                    Vector3 fleeDir = (transform.position - playerTransform.position).normalized;
-                    Vector3 fleeTarget = transform.position + fleeDir * detectThreshold;
-                    navAgent.SetDestination(fleeTarget);
-                }
-                isFleeing = true;
-                isChasing = false;
-                isDetecting = false;
-                isPatrolling = false;
-                isAttacking = false;
-                return;
-            }
+            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+            if (currentPatrolIndex == 0) patrolLoopsCompleted++;
+            AddReward(rewardConfig.PatrolCompleteReward);
         }
+    }
 
-        // 2.c) If you see the player AND you have sufficient HP, go into chase/attack states
-        if (playerVisible)
+    private void ChasePlayer()
+    {
+        if (playerTransform == null) return;
+        navAgent.SetDestination(playerTransform.position);
+        if (Vector3.Distance(transform.position, playerTransform.position) <= attackRange)
         {
-            hasEverSeenPlayer = true;
-            if (playerTransform == null)
-            {
-                // Player was destroyed - transition to patrol state
-                isPatrolling = true;
-                isChasing = false;
-                isDetecting = false;
-                isAttacking = false;
-                playerVisible = false;
-                hasEverSeenPlayer = false;
-                return;
-            }
-            float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-
-            // If just detected and not already chasing, enter “Detecting” for a short delay
-            if (!isChasing && !isDetecting && distToPlayer <= raySensor.RayLength)
-            {
-                isDetecting = true;
-                detectPhaseTimer = 0f;
-
-                // Reward for initial “see”
-                AddReward(rewardConfig.DetectPlayerReward);
-            }
-
-            // If verifying “Detect” phase
-            if (isDetecting)
-            {
-                detectPhaseTimer += Time.deltaTime;
-                // You can animate a “detecting” pose here (e.g. play animation)
-                if (detectPhaseTimer >= detectPhaseDuration)
-                {
-                    isDetecting = false;
-                    isChasing = true;
-                    // Reward for finishing detection
-                    AddReward(rewardConfig.FinishDetectReward);
-                }
-                // When in detect state, do not move.  
-                navAgent.isStopped = true;
-                return;
-            }
-
-            // Now “chase” the player
-            if (isChasing)
-            {
-                // If within attack range, switch to “Attack”
-                if (distToPlayer <= attackRange)
-                {
-                    isAttacking = true;
-                    isChasing = false;
-                    // Stop NavMesh movement
-                    navAgent.isStopped = true;
-                }
-                else
-                {
-                    // Continue chasing via NavMesh
-                    navAgent.isStopped = false;
-                    if (playerTransform != null)
-                    {
-                        navAgent.SetDestination(playerTransform.position);
-                    }
-                    else
-                    {
-                        isPatrolling = true;
-                        isChasing = false;
-                    }
-                }
-                // Reward for moving closer
-                float deltaDist = prevDistanceToPlayer - distToPlayer;
-                AddReward(rewardConfig.ChaseStepReward * Mathf.Clamp01(deltaDist));
-                prevDistanceToPlayer = distToPlayer;
-                return;
-            }
-
-            // “Attack” State
-            if (isAttacking)
-            {
-                // Face the player
-                if (playerTransform == null)
-                {
-                    isAttacking = false;
-                    isPatrolling = true;
-                    return;
-                }
-                Vector3 lookDir = (playerTransform.position - transform.position).normalized;
-                Quaternion lookRot = Quaternion.LookRotation(lookDir, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * turnSpeed);
-
-                // Fire attack if “attackSignal” from actionBuffer is > 0.5
-                if (attackSignal > 0.5f && distToPlayer <= attackRange + 0.1f)
-                {
-                    // Do your damage to player
-                    RL_Player player = playerTransform.GetComponent<RL_Player>();
-                    if (player != null)
-                    {
-                        player.DamagePlayer(attackDamage);
-                        AddReward(rewardConfig.AttackPlayerReward);
-                        if (player.CurrentHealth <= 0f)
-                        {
-                            successfulKills++;
-                            AddReward(rewardConfig.KillPlayerReward);
-
-                            // End episode if killed at least one player
-                            if (successfulKills >= 1)
-                            {
-                                EndEpisode();
-                                return;
-                            }
-                        }
-                    }
-                }
-
-                // If player moves out of range, go back to chasing
-                if (distToPlayer > attackRange + 0.1f)
-                {
-                    isAttacking = false;
-                    isChasing = true;
-                }
-                return;
-            }
+            AddReward(rewardConfig.AttackPlayerReward);
+            // Perform attack logic
         }
+    }
 
-        // 2.d) If you’ve seen the player but currently can’t see them (lost line-of-sight), decide fallback
-        if (hasEverSeenPlayer && !playerVisible)
+    void OnCollisionEnter(Collision col)
+    {
+        if (((1 << col.gameObject.layer) & obstacleMask) != 0)
         {
-            // Example: ⇒ go back to patrolling or stand idle for a moment
-            isChasing = false;
-            isDetecting = false;
-            isAttacking = false;
-            isPatrolling = true;
-        }
-
-        // 2.e) Default “Patrolling” behavior
-        if (!hasEverSeenPlayer)
-        {
-            isPatrolling = true;
-            isChasing = false;
-            isDetecting = false;
-            isAttacking = false;
-        }
-
-        // 3) **Patrol Step**: incentivize movement if agent is not doing anything else
-        if (isPatrolling && patrolPoints != null && patrolPoints.Length > 0)
-        {
-            NormalEnemyActions.DoPatrol(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted, animator);
-            AddReward(rewardConfig.PatrolStepReward * Time.deltaTime);
-            var target = patrolPoints[currentPatrolIndex].position;
-            navAgent.SetDestination(target);
-
-            // If we’re close, advance index
-            if (Vector3.Distance(transform.position, target) < 1f && patrolLoopsCompleted >= 2)
-            {
-                currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-                AddReward(rewardConfig.PatrolCompleteReward);
-                EndEpisode();
-                return;
-            }
+            AddReward(rewardConfig.ObstaclePunishment);
         }
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
-        
+
         // Optional: define human input for debugging (e.g. arrow keys to move, space to attack)
         var continuousActions = actionsOut.ContinuousActions;
         continuousActions.Clear();

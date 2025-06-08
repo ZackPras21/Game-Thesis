@@ -1993,6 +1993,9 @@ MonoBehaviour:
   rewardConfig: {fileID: 3247270290517839601}
   animator: {fileID: 1525368558665590809}
   navAgent: {fileID: 4662399911735061079}
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 648
   patrolPointTag: Patrol Point
   showDebugInfo: 1
   debugTextOffset: {x: 10, y: 10}

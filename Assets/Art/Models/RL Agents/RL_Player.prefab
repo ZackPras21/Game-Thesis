@@ -664,7 +664,7 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 6143
@@ -727,6 +727,7 @@ MonoBehaviour:
   attackInterval: 10
   attackDamage: 30
   attackRange: 1.5
+  spawner: {fileID: 0}
 --- !u!95 &8625117619887489572
 Animator:
   serializedVersion: 7
