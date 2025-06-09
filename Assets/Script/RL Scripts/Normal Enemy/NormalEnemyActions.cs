@@ -76,7 +76,6 @@ public static class NormalEnemyActions
             {
                 animator.SetBool("isWalking", false);
                 animator.SetBool("isIdle", true);
-                Debug.Log($"Patrol: Setting isIdle=true at waypoint {currentPatrolIndex}");
             }
             if (patrolIdleTimer <= 0f)
             {
@@ -95,7 +94,6 @@ public static class NormalEnemyActions
         {
             animator.SetBool("isWalking", true);
             animator.SetBool("isIdle", false);
-            Debug.Log($"Patrol: Setting isWalking=true moving to waypoint {currentPatrolIndex}");
         }
 
         // If we are close enough to this waypoint:

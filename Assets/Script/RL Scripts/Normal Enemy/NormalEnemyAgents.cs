@@ -105,17 +105,6 @@ public class NormalEnemyAgent : Agent
         stepsSinceLastMove = 0;
         timeSinceLastMove = 0f;
     }
-
-    void Update()
-    {
-        // Only for testing outside training
-        if (!Application.isPlaying) return;
-        if (!TrainingActive)
-        {
-            if (playerVisible) ChasePlayer(); else Patrol();
-        }
-    }
-
     
     // Unity's OnGUI method is called every frame when rendering GUI elements.
     void OnGUI()
@@ -126,14 +115,14 @@ public class NormalEnemyAgent : Agent
             GUIStyle labelStyle = new GUIStyle();
             labelStyle.fontSize = debugFontSize;
             labelStyle.normal.textColor = debugTextColor;
-
+            
             // Display the agent state and other debug info at the top-left corner
             string debugText =
             $"{gameObject.name}:" +
             $"State: {(isPatrolling ? "Patrol" : isDetecting ? "Detect" : isChasing ? "Chase" : isAttacking ? "Attack" : "Idle")}\n" +
             $"Steps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
-
-            // Draw the text in the GUI
+            
+            // Draw main text
             GUI.Label(new Rect(debugTextOffset.x, debugTextOffset.y, 300, 100), debugText, labelStyle);
         }
     }

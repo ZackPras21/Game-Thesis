@@ -1895,8 +1895,8 @@ MonoBehaviour:
     m_Bits: 648
   patrolPointTag: Patrol Point
   showDebugInfo: 1
-  debugTextOffset: {x: 10, y: 100}
-  debugTextColor: {r: 0.7735849, g: 0.46905947, b: 0.016055519, a: 1}
+  debugTextOffset: {x: 10, y: 60}
+  debugTextColor: {r: 1, g: 0.60103625, b: 0, a: 1}
   debugFontSize: 14
 --- !u!114 &5817866243050837834
 MonoBehaviour:

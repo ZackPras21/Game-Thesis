@@ -568,9 +568,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 31999
   spawnParticlePrefab: {fileID: 0}
-  episodeStartPrefab: {fileID: 162509357}
-  episodeEndPrefab: {fileID: 891716046}
-  arenaLight: {fileID: 2013067877}
+  episodeStartPrefab: {fileID: 0}
+  episodeEndPrefab: {fileID: 0}
+  arenaLight: {fileID: 0}
   activeColor: {r: 0, g: 1, b: 0, a: 1}
   inactiveColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!114 &47029522
@@ -5833,7 +5833,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &404663857
 Transform:
   m_ObjectHideFlags: 0
@@ -5919,6 +5919,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &515439517 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6545821289585710392, guid: 4d2d6f6831927644a8c212c1e4c3a2ae, type: 3}
+  m_PrefabInstance: {fileID: 1138403591}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &639563255
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11362,7 +11373,7 @@ PrefabInstance:
     - target: {fileID: 319109105654840616, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: lootManager
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 515439517}
     - target: {fileID: 554060234031813743, guid: b118e800255be8a49b54a1d342fda7d6, type: 3}
       propertyPath: m_ScaleInLightmap
       value: 1

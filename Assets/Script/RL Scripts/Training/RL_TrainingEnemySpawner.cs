@@ -121,15 +121,11 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             Vector3 spawnPos = FindFreeSpot();
             if (spawnPos == Vector3.positiveInfinity)
             {
-                Debug.LogWarning(
-                    $"[Spawner] Could not find free spot for Creep #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
-                );
                 continue; // skip this creep and move on to the next
             }
 
             if (creepPrefab == null)
             {
-                Debug.LogError("[Spawner] creepPrefab is not assigned in the Inspector!");
                 continue;
             }
 
@@ -149,15 +145,11 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             Vector3 spawnPos = FindFreeSpot();
             if (spawnPos == Vector3.positiveInfinity)
             {
-                Debug.LogWarning(
-                    $"[Spawner] Could not find free spot for Humanoid #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
-                );
                 continue;
             }
 
             if (humanoidPrefab == null)
             {
-                Debug.LogError("[Spawner] humanoidPrefab is not assigned in the Inspector!");
                 continue;
             }
 
@@ -177,15 +169,11 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             Vector3 spawnPos = FindFreeSpot();
             if (spawnPos == Vector3.positiveInfinity)
             {
-                Debug.LogWarning(
-                    $"[Spawner] Could not find free spot for Bull #{i+1} in arena {arena.corner1.name}…{arena.corner4.name}"
-                );
                 continue;
             }
 
             if (bullPrefab == null)
             {
-                Debug.LogError("[Spawner] bullPrefab is not assigned in the Inspector!");
                 continue;
             }
 
