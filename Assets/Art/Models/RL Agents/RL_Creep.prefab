@@ -1999,7 +1999,7 @@ MonoBehaviour:
   patrolPointTag: Patrol Point
   showDebugInfo: 1
   debugTextOffset: {x: 10, y: 10}
-  debugTextColor: {r: 0.36119992, g: 0.020569567, b: 0.4037736, a: 1}
+  debugTextColor: {r: 0.79622644, g: 0, b: 0.740533, a: 1}
   debugFontSize: 15
 --- !u!114 &8894129208516749644
 MonoBehaviour:
