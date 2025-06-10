@@ -41,17 +41,14 @@ public class NormalEnemyAgent : Agent
     private Vector3 lastPosition;
     private int stepsSinceLastMove = 0;
     private float timeSinceLastMove = 0f;
+    private Vector3 lastKnownPlayerPosition;
+    private float lastSeenTime = 0f;
 
     // Ray sensor component reference (set automatically in Initialize())
     private RayPerceptionSensorComponent3D raySensor;
 
-    // States (driven by sensor observations + health checks)
-    private bool isPatrolling = true;
-    private bool isDetecting = false;
-    private bool isChasing = false;
-    private bool isAttacking = false;
-    private bool isFleeing = false;  // e.g. if HP < threshold and no allies
-    private bool playerVisible = false;
+    // RL-driven behavior only
+    private bool playerVisible = false; // For observation only
 
     // Cached reward‐state references
     private float detectPhaseTimer = 0f;
@@ -93,9 +90,6 @@ public class NormalEnemyAgent : Agent
 
     private void ResetState()
     {
-        isPatrolling = true;
-        isChasing = false;
-        isAttacking = false;
         playerVisible = false;
         currentPatrolIndex = 0;
         patrolLoopsCompleted = 0;
@@ -119,7 +113,7 @@ public class NormalEnemyAgent : Agent
             // Display the agent state and other debug info at the top-left corner
             string debugText =
             $"{gameObject.name}:" +
-            $"State: {(isPatrolling ? "Patrol" : isDetecting ? "Detect" : isChasing ? "Chase" : isAttacking ? "Attack" : "Idle")}\n" +
+            $"State: {(playerVisible ? "Player Visible" : "Patroling")}\n" +
             $"Steps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
             
             // Draw main text
@@ -160,67 +154,55 @@ public class NormalEnemyAgent : Agent
         sensor.AddObservation(v.z / moveSpeed);
     }
 
-    public override void OnActionReceived(ActionBuffers actions)
-    {
-        episodeSteps++;
-        // Stuck detection
-        if (Vector3.Distance(transform.position, lastPosition) < 0.01f)
-        {
-            stepsSinceLastMove++;
-            timeSinceLastMove += Time.deltaTime;
-        }
-        else { stepsSinceLastMove = 0; timeSinceLastMove = 0f; lastPosition = transform.position; }
-        if (rewardConfig.CheckIfStuck(lastPosition, transform.position, stepsSinceLastMove, timeSinceLastMove))
-        {
-            AddReward(rewardConfig.NoMovementPunishment);
-            EndEpisode();
-            return;
-        }
-
-        // Movement & detection
-        Vector3 move = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
-        float turn = actions.ContinuousActions[2];
-        transform.Rotate(0, turn * turnSpeed * Time.deltaTime, 0);
-
-        navAgent.isStopped = false;
-        navAgent.Move(move * moveSpeed * Time.deltaTime);
-
-        UpdateDetection();
-        UpdateStateMachine();
-    }
     
     private void UpdateDetection()
     {
         playerVisible = false;
-        if (playerTransform)
+        if (playerTransform == null)
         {
-            float d = Vector3.Distance(transform.position, playerTransform.position);
-            if (d <= detectThreshold * raySensor.RayLength)
+            playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
+            if (playerTransform == null) return;
+        }
+
+        float d = Vector3.Distance(transform.position, playerTransform.position);
+        if (d <= raySensor.RayLength)
+        {
+            // Use ray sensor's built-in detection (non-batched)
+            var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
+            foreach (var ray in rayOutputs.RayOutputs)
             {
-                RaycastHit hit;
-                Vector3 dir = (playerTransform.position - transform.position).normalized;
-                if (Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, out hit, raySensor.RayLength))
+                if (ray.HasHit && ray.HitGameObject.CompareTag("Player"))
                 {
-                    if (hit.collider.CompareTag("Player")) playerVisible = true;
+                    playerVisible = true;
+                    break;
+                }
+            }
+
+            // Additional check for obstacles
+            if (playerVisible)
+            {
+                Vector3 dir = (playerTransform.position - transform.position).normalized;
+                if (Physics.Raycast(transform.position, dir, out RaycastHit hit, d, obstacleMask))
+                {
+                    if (!hit.collider.CompareTag("Player"))
+                    {
+                        playerVisible = false;
+                    }
                 }
             }
         }
     }
 
-    private void UpdateStateMachine()
+    private void UpdateBehavior()
     {
-        if (playerVisible) { isPatrolling = false; isChasing = true; }
-        else if (isChasing) { isChasing = false; isPatrolling = true; }
-
-        if (isChasing) ChasePlayer();
-        else Patrol();
-    }
-
-    private void Patrol()
-    {
+        // Let RL decide all actions through policy
+        if (playerVisible)
+        {
+            AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
+        }
+        
         if (patrolPoints.Length == 0) return;
         Vector3 target = patrolPoints[currentPatrolIndex].position;
-        navAgent.SetDestination(target);
         if (Vector3.Distance(transform.position, target) < 0.5f)
         {
             currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
@@ -229,15 +211,37 @@ public class NormalEnemyAgent : Agent
         }
     }
 
-    private void ChasePlayer()
+    public override void OnActionReceived(ActionBuffers actions)
     {
-        if (playerTransform == null) return;
-        navAgent.SetDestination(playerTransform.position);
+	    episodeSteps++;
+        // Handle movement directly from actions
+        Vector3 move = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
+        navAgent.Move(move * moveSpeed * Time.deltaTime);
+
+        // Handle rotation
+        float turn = actions.ContinuousActions[2];
+        transform.Rotate(0, turn * turnSpeed * Time.deltaTime, 0);
+
+        // Only proceed if player exists
+        if (playerTransform == null)
+        {
+            playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
+            if (playerTransform == null) return;
+        }
+
+        // Handle attack if in range
         if (Vector3.Distance(transform.position, playerTransform.position) <= attackRange)
         {
-            AddReward(rewardConfig.AttackPlayerReward);
-            // Perform attack logic
+            if (actions.ContinuousActions[3] > 0.5f)
+            {
+                AddReward(rewardConfig.AttackPlayerReward);
+                // Perform attack
+            }
         }
+
+        // Update detection and rewards
+        UpdateDetection();
+        UpdateBehavior();
     }
 
     void OnCollisionEnter(Collision col)
@@ -264,11 +268,6 @@ public class NormalEnemyAgent : Agent
     {
         // Reset to default state
         currentHealth = maxHealth;
-        isPatrolling = true;
-        isDetecting = false;
-        isChasing = false;
-        isAttacking = false;
-        isFleeing = false;
         hasEverSeenPlayer = false;
         prevDistanceToPlayer = Mathf.Infinity;
         currentPatrolIndex = 0;
