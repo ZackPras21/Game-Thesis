@@ -182,7 +182,7 @@ public class NormalEnemyAgent : Agent
 
     private void ResetTrainingArena()
     {
-        var spawner = FindObjectOfType<RL_TrainingTargetSpawner>();
+        var spawner = FindFirstObjectByType<RL_TrainingTargetSpawner>();
         spawner?.ResetArena();
     }
 
@@ -295,7 +295,7 @@ public class NormalEnemyAgent : Agent
 
     private void RespawnPlayer()
     {
-        var spawner = FindObjectOfType<RL_TrainingEnemySpawner>();
+        var spawner = FindFirstObjectByType<RL_TrainingEnemySpawner>();
         var playerTransform = playerDetection.GetPlayerTransform();
         
         if (spawner != null && playerTransform != null)

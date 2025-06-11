@@ -6639,7 +6639,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4976020134731569598, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5443696297955083286, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: IsMan
@@ -7980,7 +7980,7 @@ GameObject:
   - component: {fileID: 1393397019}
   - component: {fileID: 1393397018}
   m_Layer: 8
-  m_Name: Plane
+  m_Name: Nav Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8005,7 +8005,7 @@ MonoBehaviour:
   m_Center: {x: 0, y: 2, z: 0}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 392
+    m_Bits: 904
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
@@ -8016,7 +8016,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.16666667
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 23800000, guid: b9be7db4862b81f42b2dff8879a5f591, type: 2}
+  m_NavMeshData: {fileID: 23800000, guid: 0268efbca38a4994ab51a875de39b7ee, type: 2}
   m_BuildHeightMesh: 0
 --- !u!64 &1393397019
 MeshCollider:
@@ -9122,11 +9122,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4976020134731569598, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5443696297955083286, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: IsMan
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5443696297955083286, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7995372790159885636, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_LocalPosition.x

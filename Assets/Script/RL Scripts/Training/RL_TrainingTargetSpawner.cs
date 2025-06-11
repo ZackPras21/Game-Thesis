@@ -3,278 +3,294 @@ using UnityEngine;
 
 public class RL_TrainingTargetSpawner : MonoBehaviour
 {
-    private static List<RL_TrainingTargetSpawner> _activeSpawners = new List<RL_TrainingTargetSpawner>();
-    private static RL_TrainingTargetSpawner _activeInstance;
+    private static List<RL_TrainingTargetSpawner> activeSpawners = new List<RL_TrainingTargetSpawner>();
+    private static RL_TrainingTargetSpawner activeInstance;
     
-    [Header("Spawn Settings")]
-    [Tooltip("The prefab you want to spawn as a target (which also has RL_Player on it).")]
-    public GameObject trainingTargetPrefab;
+    [Header("Spawn Configuration")]
+    [SerializeField] private GameObject trainingTargetPrefab;
+    [SerializeField] private int maxTargets = 3;
+    [SerializeField] private int maxSpawnAttempts = 10;
+    [SerializeField] private float spawnRadius = 10f;
+    [SerializeField] private float spawnInterval = 2f;
+    [SerializeField] private LayerMask spawnCollisionLayers;
 
-    [Tooltip("Maximum number of targets to have alive at once.")]
-    public int maxTargets = 3;
+    [Header("Visual Effects")]
+    [SerializeField] private GameObject spawnParticlePrefab;
+    [SerializeField] private GameObject episodeStartPrefab;
+    [SerializeField] private GameObject episodeEndPrefab;
+    [SerializeField] private Light arenaLight;
+    [SerializeField] private Color activeColor = Color.green;
+    [SerializeField] private Color inactiveColor = Color.red;
 
-    [Tooltip("How many attempts to find a valid spawn per target.")]
-    public int maxSpawnAttempts = 10;
-
-    [Tooltip("How far from this spawner's position a valid spawn may appear.")]
-    public float spawnRadius = 10f;
-
-    [Tooltip("Seconds between consecutive spawns (if currentTargetCount < maxTargets).")]
-    public float spawnInterval = 2f;
-
-    [Tooltip("Layers you want to consider as obstacles when choosing a spawn location.")]
-    public LayerMask spawnCollisionLayers;
-
-    [Header("Visual Cues")]
-    [Tooltip("A short “poof” or dust effect to play whenever a single target appears (optional).")]
-    public GameObject spawnParticlePrefab;
-
-    [Tooltip("A prefab containing a ParticleSystem for the **start** of each episode (e.g. a green flash).")]
-    public GameObject episodeStartPrefab;
-
-    [Tooltip("A prefab containing a ParticleSystem for the **end** of an episode (e.g. smoke puff / red flash).")]
-    public GameObject episodeEndPrefab;
-
-    [Tooltip("If you want the light to turn Green/Red depending on alive targets, drag it here.")]
-    public Light arenaLight;
-
-    [Tooltip("What color should the arena light be when targets are present?")]
-    public Color activeColor = Color.green;
-
-    [Tooltip("What color should the arena light be when no targets remain?")]
-    public Color inactiveColor = Color.red;
-
-    // ─── Private state ─────────────────────────────────────────────────────────
-    private int currentTargetCount = 0;
-    private float lastSpawnTime = 0f;
-    private bool episodeActive = false;
-    private bool isActiveInstance = false;
-
-    // Keep track of all spawned targets so we can forcibly destroy them on reset
     private List<GameObject> activeTargets = new List<GameObject>();
+    private float lastSpawnTime;
+    private bool episodeActive;
+    private bool isActiveInstance;
 
     private void Start()
     {
-        SpawnUpToMax();
-        UpdateArenaVisuals();
+        InitializeSpawner();
     }
 
     private void Update()
     {
-        // Only spawn if the episode is active AND we haven't reached maxTargets yet
-        if (!episodeActive) return;
-
-        if (currentTargetCount < maxTargets && Time.time >= lastSpawnTime + spawnInterval)
-        {
-            SpawnTarget();
-            lastSpawnTime = Time.time;
-        }
-    }
-    
-    private void SpawnUpToMax()
-    {
-        while (activeTargets.Count < maxTargets)
-        {
-            Vector3 pos = FindValidSpawnPosition();
-            if (pos == Vector3.zero) break;
-            var go = Instantiate(trainingTargetPrefab, pos, Quaternion.identity);
-            activeTargets.Add(go);
-            // Allow the RL_Player script to know which spawner it belongs to, if needed:
-            var player = go.GetComponent<RL_Player>();
-            if (player != null) player.spawner = this;
-        }
+        HandleContinuousSpawning();
     }
 
-    private Vector3 FindValidSpawnPosition()
+    private void OnDestroy()
     {
-        for (int i = 0; i < maxSpawnAttempts; i++)
-        {
-            Vector3 offset = Random.insideUnitSphere * spawnRadius;
-            offset.y = 0;
-            Vector3 candidate = transform.position + offset;
-            // You could do a Physics.CheckSphere here to avoid obstacles
-            return candidate;
-        }
-        return Vector3.zero;
+        CleanupSpawnerInstance();
+    }
+
+    public void ResetArena()
+    {
+        DestroyAllTargets();
+        PlayEpisodeStartEffect();
+        StartNewEpisode();
+        SpawnInitialTargets();
+    }
+
+    public void OnTargetDestroyed(GameObject target)
+    {
+        if (!isActiveInstance) return;
+        
+        RemoveTargetFromTracking(target);
+        UpdateArenaVisuals();
+        TrySpawnReplacementTarget();
+        CheckForEpisodeEnd();
     }
 
     public void NotifyTargetRemoved(GameObject target)
     {
         activeTargets.Remove(target);
         UpdateArenaVisuals();
-        SpawnUpToMax();
+        SpawnUpToMaximum();
     }
 
-
-    public void ResetArena()
+    private void InitializeSpawner()
     {
-        // 1) If there are any leftover targets (e.g. from a previous run), destroy them now.
-        foreach (GameObject t in activeTargets)
+        activeSpawners.Add(this);
+        SetAsActiveInstance();
+        SpawnUpToMaximum();
+        UpdateArenaVisuals();
+    }
+
+    private void HandleContinuousSpawning()
+    {
+        if (!episodeActive) return;
+        if (activeTargets.Count >= maxTargets) return;
+        if (Time.time < lastSpawnTime + spawnInterval) return;
+
+        SpawnSingleTarget();
+        lastSpawnTime = Time.time;
+    }
+
+    private void DestroyAllTargets()
+    {
+        foreach (GameObject target in activeTargets)
         {
-            if (t != null)
-                Destroy(t);
+            if (target != null)
+                Destroy(target);
         }
         activeTargets.Clear();
-        currentTargetCount = 0;
+    }
 
-        // 2) Play "Episode Start" Particle (once)
+    private void PlayEpisodeStartEffect()
+    {
         if (episodeStartPrefab != null)
         {
             Instantiate(episodeStartPrefab, transform.position, Quaternion.identity);
         }
+    }
 
-        // 3) Mark episode as active, reset spawn timer, update visuals to “no targets”
+    private void StartNewEpisode()
+    {
         episodeActive = true;
         lastSpawnTime = Time.time - spawnInterval;
-        // (Set it earlier so that the loop below can spawn immediately)
+        UpdateArenaVisuals();
+    }
 
-        UpdateArenaVisuals(); // This will set the arenaLight to "inactiveColor" (since currentTargetCount == 0)
-
-        // 4) Immediately spawn exactly maxTargets targets
+    private void SpawnInitialTargets()
+    {
         for (int i = 0; i < maxTargets; i++)
         {
-            SpawnTarget();
+            SpawnSingleTarget();
             lastSpawnTime = Time.time;
         }
     }
 
+    private void SpawnUpToMaximum()
+    {
+        while (activeTargets.Count < maxTargets)
+        {
+            Vector3 spawnPosition = FindValidSpawnPosition();
+            if (spawnPosition == Vector3.zero) break;
+            
+            CreateTargetAtPosition(spawnPosition);
+        }
+    }
 
-    private void SpawnTarget()
+    private void SpawnSingleTarget()
     {
         if (trainingTargetPrefab == null)
         {
-            Debug.LogWarning("RL_TrainingTargetSpawner: trainingTargetPrefab is NULL!");
+            Debug.LogWarning("Training target prefab is not assigned!");
             return;
         }
 
-        Vector3 spawnPos = GetValidSpawnPosition();
-        if (spawnPos == Vector3.zero)
-        {
-            // Couldn't find a place to spawn after a few tries—skip this round.
-            return;
-        }
+        Vector3 spawnPosition = GetValidSpawnPosition();
+        if (spawnPosition == Vector3.zero) return;
 
-        // 1) Instantiate the target prefab
-        GameObject newTarget = Instantiate(trainingTargetPrefab, spawnPos, Quaternion.identity);
+        GameObject newTarget = CreateTargetAtPosition(spawnPosition);
+        ConfigureNewTarget(newTarget);
+        PlaySpawnEffect(spawnPosition);
+        UpdateArenaVisuals();
+    }
 
-        // 2) Mark it as a training target (optional, if you use that flag in RL_Player)
-        var playerComp = newTarget.GetComponent<RL_Player>();
-        if (playerComp != null)
-        {
-            playerComp.isRL_TrainingTarget = true;
-        }
-
-        // 3) Add the “RL_TrainingTarget” life-tracker so we know when it dies.
-        var lifeTracker = newTarget.AddComponent<RL_TrainingTarget>();
-        lifeTracker.Initialize(this);
-
-        // 4) Keep track of it so we can forcibly clear on Reset.
+    private GameObject CreateTargetAtPosition(Vector3 position)
+    {
+        GameObject newTarget = Instantiate(trainingTargetPrefab, position, Quaternion.identity);
         activeTargets.Add(newTarget);
-        currentTargetCount++;
+        return newTarget;
+    }
 
-        // 5) Play the “spawnParticlePrefab” if assigned
+    private void ConfigureNewTarget(GameObject target)
+    {
+        var playerComponent = target.GetComponent<RL_Player>();
+        if (playerComponent != null)
+        {
+            playerComponent.isRL_TrainingTarget = true;
+            playerComponent.spawner = this;
+        }
+
+        var lifeTracker = target.AddComponent<RL_TrainingTarget>();
+        lifeTracker.Initialize(this);
+    }
+
+    private void PlaySpawnEffect(Vector3 position)
+    {
         if (spawnParticlePrefab != null)
         {
-            Instantiate(spawnParticlePrefab, spawnPos, Quaternion.identity);
+            Instantiate(spawnParticlePrefab, position, Quaternion.identity);
         }
-
-        // 6) Update the arena light to “activeColor” (since we now have ≥1 target)
-        UpdateArenaVisuals();
     }
 
-
-    public void OnTargetDestroyed(GameObject target)
+    private Vector3 FindValidSpawnPosition()
     {
-        // Only handle destruction if we're the active instance
-        if (!isActiveInstance) return;
-        
-        // If the GameObject was already removed from activeTargets (or null), do nothing
-        if (activeTargets.Contains(target))
+        for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            activeTargets.Remove(target);
-            currentTargetCount = Mathf.Max(0, currentTargetCount - 1);
-        }
-
-        // Update the arena light color based on whether any targets remain
-        UpdateArenaVisuals();
-
-        // Immediately spawn a new target to maintain count
-        if (currentTargetCount < maxTargets && episodeActive)
-        {
-            SpawnTarget();
-            lastSpawnTime = Time.time;
-        }
-
-        // If we just lost the final target, episode is over
-        if (currentTargetCount <= 0 && episodeActive)
-        {
-            episodeActive = false; // Stop any more spawning
-
-            // Play Episode End effect once
-            if (episodeEndPrefab != null)
+            Vector3 offset = Random.insideUnitSphere * spawnRadius;
+            offset.y = 0;
+            Vector3 candidatePosition = transform.position + offset;
+            
+            // Check if this position is valid (no collision)
+            if (!Physics.CheckSphere(candidatePosition, 1f, spawnCollisionLayers))
             {
-                Instantiate(episodeEndPrefab, transform.position, Quaternion.identity);
-            }
-
-            // NOTE: We do NOT auto-call ResetArena() here. We wait for the Agent's OnEpisodeBegin().
-        }
-    }
-    
-    private void SetAsActiveInstance()
-    {
-        if (_activeInstance != null && _activeInstance != this)
-        {
-            // Transfer targets from previous active instance
-            foreach (var target in _activeInstance.activeTargets)
-            {
-                if (target != null)
-                {
-                    var tracker = target.GetComponent<RL_TrainingTarget>();
-                    if (tracker != null) tracker.Initialize(this);
-                    activeTargets.Add(target);
-                }
-            }
-            _activeInstance.activeTargets.Clear();
-            _activeInstance.isActiveInstance = false;
-        }
-        
-        _activeInstance = this;
-        isActiveInstance = true;
-        currentTargetCount = activeTargets.Count;
-        UpdateArenaVisuals();
-    }
-    
-    private void OnDestroy()
-    {
-        _activeSpawners.Remove(this);
-        if (_activeInstance == this)
-        {
-            _activeInstance = _activeSpawners.Count > 0 ? _activeSpawners[0] : null;
-            if (_activeInstance != null) _activeInstance.SetAsActiveInstance();
-        }
-    }
-
-
-    private Vector3 GetValidSpawnPosition()
-    {
-        for (int i = 0; i < 30; i++)
-        {
-            Vector3 randomPos = transform.position + Random.insideUnitSphere * spawnRadius;
-            randomPos.y = transform.position.y; // same height as spawner
-
-            if (!Physics.CheckSphere(randomPos, 1f, spawnCollisionLayers))
-            {
-                return randomPos;
+                return candidatePosition;
             }
         }
         return Vector3.zero;
+    }
+
+    private Vector3 GetValidSpawnPosition()
+    {
+        for (int attempt = 0; attempt < 30; attempt++)
+        {
+            Vector3 candidatePosition = transform.position + Random.insideUnitSphere * spawnRadius;
+            candidatePosition.y = transform.position.y;
+
+            if (!Physics.CheckSphere(candidatePosition, 1f, spawnCollisionLayers))
+            {
+                return candidatePosition;
+            }
+        }
+        return Vector3.zero;
+    }
+
+    private void RemoveTargetFromTracking(GameObject target)
+    {
+        if (activeTargets.Contains(target))
+        {
+            activeTargets.Remove(target);
+        }
+    }
+
+    private void TrySpawnReplacementTarget()
+    {
+        if (activeTargets.Count < maxTargets && episodeActive)
+        {
+            SpawnSingleTarget();
+            lastSpawnTime = Time.time;
+        }
+    }
+
+    private void CheckForEpisodeEnd()
+    {
+        if (activeTargets.Count <= 0 && episodeActive)
+        {
+            EndCurrentEpisode();
+        }
+    }
+
+    private void EndCurrentEpisode()
+    {
+        episodeActive = false;
+        PlayEpisodeEndEffect();
+    }
+
+    private void PlayEpisodeEndEffect()
+    {
+        if (episodeEndPrefab != null)
+        {
+            Instantiate(episodeEndPrefab, transform.position, Quaternion.identity);
+        }
+    }
+
+    private void SetAsActiveInstance()
+    {
+        if (activeInstance != null && activeInstance != this)
+        {
+            TransferTargetsFromPreviousInstance();
+        }
+        
+        activeInstance = this;
+        isActiveInstance = true;
+        UpdateArenaVisuals();
+    }
+
+    private void TransferTargetsFromPreviousInstance()
+    {
+        foreach (var target in activeInstance.activeTargets)
+        {
+            if (target != null)
+            {
+                var tracker = target.GetComponent<RL_TrainingTarget>();
+                if (tracker != null) tracker.Initialize(this);
+                activeTargets.Add(target);
+            }
+        }
+        
+        activeInstance.activeTargets.Clear();
+        activeInstance.isActiveInstance = false;
+    }
+
+    private void CleanupSpawnerInstance()
+    {
+        activeSpawners.Remove(this);
+        
+        if (activeInstance == this)
+        {
+            activeInstance = activeSpawners.Count > 0 ? activeSpawners[0] : null;
+            if (activeInstance != null) 
+                activeInstance.SetAsActiveInstance();
+        }
     }
 
     private void UpdateArenaVisuals()
     {
         if (arenaLight != null)
         {
-            arenaLight.color = (currentTargetCount > 0) ? activeColor : inactiveColor;
+            arenaLight.color = (activeTargets.Count > 0) ? activeColor : inactiveColor;
         }
     }
 }

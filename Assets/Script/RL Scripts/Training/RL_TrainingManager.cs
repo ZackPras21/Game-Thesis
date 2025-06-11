@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+
 public class RL_TrainingManager : MonoBehaviour
 {
     private RL_TrainingTargetSpawner targetSpawner;
@@ -7,19 +8,35 @@ public class RL_TrainingManager : MonoBehaviour
 
     private void Awake()
     {
-        targetSpawner = FindObjectOfType<RL_TrainingTargetSpawner>();
-        allAgents = new List<NormalEnemyAgent>(FindObjectsOfType<NormalEnemyAgent>());
+        InitializeComponents();
     }
 
     public void StartNewEpisode()
+    {
+        ResetTargetSpawner();
+        ResetAllAgents();
+    }
+
+    private void InitializeComponents()
+    {
+        targetSpawner = Object.FindFirstObjectByType<RL_TrainingTargetSpawner>();
+        allAgents = new List<NormalEnemyAgent>(FindObjectsByType<NormalEnemyAgent>(FindObjectsSortMode.None));
+    }
+
+    private void ResetTargetSpawner()
     {
         if (targetSpawner != null)
         {
             targetSpawner.ResetArena();
         }
+    }
+
+    private void ResetAllAgents()
+    {
         foreach (var agent in allAgents)
         {
-            agent.EndEpisode(); // forces them to run their own OnEpisodeBegin next
+            agent.EndEpisode();
         }
     }
 }
+

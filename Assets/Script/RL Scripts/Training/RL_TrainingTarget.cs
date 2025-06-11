@@ -2,33 +2,38 @@ using UnityEngine;
 
 public class RL_TrainingTarget : MonoBehaviour
 {
-    private RL_TrainingTargetSpawner _spawner;
-    private bool _isBeingDestroyed = false;
+    private RL_TrainingTargetSpawner spawner;
+    private bool isBeingDestroyed = false;
 
-    public void Initialize(RL_TrainingTargetSpawner spawner)
+    public void Initialize(RL_TrainingTargetSpawner newSpawner)
     {
-        // Only update if new spawner is not null
-        if (spawner != null)
+        if (newSpawner != null)
         {
-            _spawner = spawner;
+            spawner = newSpawner;
+        }
+    }
+
+    public void ForceNotifyDestruction()
+    {
+        if (!isBeingDestroyed)
+        {
+            OnDestroy();
         }
     }
 
     private void OnDestroy()
     {
-        if (_isBeingDestroyed) return;
-        _isBeingDestroyed = true;
+        if (isBeingDestroyed) return;
         
-        // If the spawner still exists, let it know one target died
-        if (_spawner != null)
-        {
-            _spawner.OnTargetDestroyed(gameObject);
-        }
+        isBeingDestroyed = true;
+        NotifySpawnerOfDestruction();
     }
-    
-    public void ForceNotifyDestruction()
+
+    private void NotifySpawnerOfDestruction()
     {
-        if (_isBeingDestroyed) return;
-        OnDestroy();
+        if (spawner != null)
+        {
+            spawner.OnTargetDestroyed(gameObject);
+        }
     }
 }
