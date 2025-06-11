@@ -4,223 +4,86 @@ using UnityEngine;
 
 public class RL_EnemyController : MonoBehaviour
 {
-    #region Variables
+    [Header("Movement Configuration")]
+    [SerializeField] private float rotationSpeed = 5f;
+    [SerializeField] private float moveSpeed = 3f;
+    [SerializeField] private float waypointThreshold = 0.5f;
+    [SerializeField] private Transform[] waypoints;
+    [SerializeField] private LayerMask obstacleMask;
 
-    // RL State
-    [Header("RL State")]
-    public Vector3 m_PlayerPosition;
-    public Vector3 playerLastPosition;
-    public float m_WaitTime;
-    public float m_TimeToRotate;
-
-    public float rotationSpeed = 5f;
-    public float moveSpeed = 3f;
-    public float waypointThreshold = 0.5f;
-    public bool IsCaughtPlayer => m_CaughtPlayer;
-    private int m_CurrentWaypointIndex = 0;
-
-    public Transform[] waypoints;
-    public LayerMask obstacleMask; // For pathfinding collision avoidance
-
-    // Combat
-    [Header("Combat")]
-    public int enemyHP;
+    [Header("Combat Configuration")]
+    [SerializeField] public int enemyHP;
     [SerializeField] private HealthBar healthBar;
-    public BoxCollider boxCollider;
-    private bool canAttack = true;
+    [SerializeField] private BoxCollider attackCollider;
 
-    // State
-    [Header("State")]
-    public float startWaitTime = 4;
-    public float timeToRotate = 2;
-    [Header("ML-Agents Access")]
-    public bool m_PlayerInRange;
-    public bool m_PlayerNear;
-    public bool m_IsPatrol;
-    bool m_CaughtPlayer;
-    public bool m_IsAttacking = false;
-    public Vector3 PlayerPosition => m_PlayerPosition;
-    private bool isDead = false;
-    public NonBossEnemyState nonBossEnemyState;
+    [Header("AI Behavior")]
+    [SerializeField] private float startWaitTime = 4f;
+    [SerializeField] private float timeToRotate = 2f;
+    [SerializeField] private float separationRadius = 2f;
+    [SerializeField] private LayerMask enemyMask;
 
-    // References
-    [Header("References")]
-    public Animator animator;
-    public LootManager lootManager;
-    public VFXManager vfxManager;
-    public Transform positionParticles;
-    public EnemyType enemyType;
+    [Header("Component References")]
+    [SerializeField] private Animator animator;
+    [SerializeField] private LootManager lootManager;
+    [SerializeField] private VFXManager vfxManager;
+    [SerializeField] private Transform particlePosition;
+    [SerializeField] private EnemyType enemyType;
+    [SerializeField] private NonBossEnemyState enemyState;
+
+    // State tracking
+    private PlayerTrackingState playerTracking;
+    private WaypointNavigationState waypointNavigation;
+    private CombatState combatState;
+    private HealthState healthState;
+
+    // Component references
     private EnemyData enemyData;
-    private List<Vector3> occupiedWaypoints = new List<Vector3>();
-    public float separationRadius = 2f;
-    public LayerMask enemyMask;
-    public static RL_Player Instance;
-    private bool playerAlive = true;
-    private Transform playerTransform;
+    private EnemyStatDisplay statDisplay;
+    private Rigidbody rigidBody;
 
-    // New reference for EnemyStatDisplay
-    private EnemyStatDisplay enemyStatDisplay;
+    private const float ATTACK_DURATION = 1f;
+    private const float ATTACK_COOLDOWN = 2f;
+    private const float KNOCKBACK_FORCE = 10f;
+    private const float KNOCKBACK_DURATION = 0.5f;
+    private const float DESTROY_DELAY = 8f;
 
-    #endregion
+    #region Unity Lifecycle
 
-    #region Unity Methods
-
-    #endregion
-
-    #region Unity Methods
-
-    void Start()
+    private void Start()
     {
-        InitializeEnemyData();
-        boxCollider = GetComponent<BoxCollider>();
-        enemyStatDisplay = GetComponent<EnemyStatDisplay>();
-        SetupInitialValues();
+        InitializeComponents();
+        InitializeStates();
+        SetupEnemyData();
+        ForceInitialAnimationState();
+    }
 
-        // Force Animator into Idle state on spawn:
-        if (animator != null)
+    private void Update()
+    {
+        UpdatePlayerTracking();
+        HandleCombatBehavior();
+        HandleMovementBehavior();
+        UpdateAnimationStates();
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (IsPlayerHitbox(other))
         {
-            animator.SetBool("isIdle", true);
-            animator.SetBool("isWalking", false);
-            animator.SetBool("isAttacking", false);
-            animator.SetBool("isDead", false);
+            HandlePlayerEnterCombat();
+            ShowEnemyStats();
         }
     }
 
-    void Update()
+    private void OnTriggerExit(Collider other)
     {
-        if (playerTransform == null)
+        if (IsPlayerHitbox(other))
         {
-            // If our existing reference was destroyed, we force “patrol” mode
-            m_PlayerInRange = false;
-            m_IsPatrol = true;
-            animator.SetBool("isIdle", false);
-            animator.SetBool("isWalking", true);
-        }
-
-        if (m_PlayerInRange && playerTransform != null && playerAlive)
-        {
-            // Rotate→Move→Attack normally
-            RotateTowardsPlayer(playerTransform.position, rotationSpeed);
-            StartCoroutine(Attack());
-        }
-        else
-        {
-            MoveBetweenWaypoints();
-        }
-        
-        if (!isDead)
-        {
-            if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
-            {
-                MoveBetweenWaypoints();
-            }
-        }
-        
-        HandleAttacking();
-
-        // Only patrol/way‐point move when not in range (IsPatrol == true)
-        if (!m_PlayerInRange && waypoints != null && waypoints.Length > 0)
-        {
-            MoveBetweenWaypoints();
-        }
-        else if (!m_IsAttacking)
-        {
-            // If m_PlayerInRange is true AND not attacking, ensure enemy goes Idle:
-            animator.SetBool("isIdle", true);
-            animator.SetBool("isWalking", false);
-        }
-    }
-    void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Player") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
-        {
-            m_IsAttacking = true;
-            canAttack = true;
-        }
-
-        // Show stats when the player is nearby
-        if (enemyStatDisplay != null)
-        {
-            enemyStatDisplay.ShowEnemyStats();
+            HandlePlayerExitCombat();
+            HideEnemyStats();
         }
     }
 
-    void OnTriggerExit(Collider other)
-    {
-        if (other.CompareTag("Player") && other.gameObject.layer == LayerMask.NameToLayer("Hitbox"))
-        {
-            m_IsAttacking = false;
-            
-            // Hide stats when the player moves away
-            if (enemyStatDisplay != null)
-            {
-                enemyStatDisplay.HideEnemyStats();
-            }
-        }
-    }
-
-    #endregion
-
-    #region Private Methods
-
-    private void InitializeEnemyData()
-    {
-        switch (enemyType)
-        {
-            case EnemyType.Creep:
-                enemyData = CreepEnemyData.Instance;
-                break;
-            case EnemyType.Medium1:
-                enemyData = Medium1EnemyData.medium1EnemyData;
-                break;
-            case EnemyType.Medium2:
-                enemyData = Medium2EnemyData.medium2EnemyData;
-                break;
-        }
-
-        enemyHP = enemyData.enemyHealth;
-        if (healthBar != null)
-        {
-            healthBar.SetMaxHealth(enemyHP);
-        }
-    }
-
-    public void SetupInitialValues()
-    {
-        
-        m_PlayerPosition = Vector3.zero;
-        m_IsPatrol = false; // Start in active state
-        m_CaughtPlayer = false;
-        m_WaitTime = 0f; // No wait time
-        m_TimeToRotate = 0f; // No rotation delay
-        m_PlayerInRange = true; // Always consider player in range
-        m_CurrentWaypointIndex = Random.Range(0, waypoints.Length); 
-        
-    }
-
-
-    private void HandleAttacking()
-    {
-        if (m_IsAttacking && canAttack)
-        {
-            StartCoroutine(Attack());
-        }
-
-        if (m_PlayerInRange)
-        {
-            RotateTowardsPlayer(m_PlayerPosition, rotationSpeed);
-        }
-    }
-
-
-    public void RotateTowardsPlayer(Vector3 playerPosition, float rotationSpeed)
-    {
-        Vector3 directionToPlayer = (playerPosition - transform.position).normalized;
-        Quaternion targetRotation = Quaternion.LookRotation(directionToPlayer);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-    }
-
-     private void OnEnable()
+    private void OnEnable()
     {
         RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
     }
@@ -230,66 +93,458 @@ public class RL_EnemyController : MonoBehaviour
         RL_Player.OnPlayerDestroyed -= HandlePlayerDestroyed;
     }
 
-    private void HandlePlayerDestroyed()
+    #endregion
+
+    #region Initialization
+
+    private void InitializeComponents()
     {
-        // Immediately drop “inRange” and clear the Transform reference
-        m_PlayerInRange = false;
-        playerAlive = false;
-        playerTransform = null;
+        attackCollider = GetComponent<BoxCollider>();
+        statDisplay = GetComponent<EnemyStatDisplay>();
+        rigidBody = GetComponent<Rigidbody>();
+    }
+
+    private void InitializeStates()
+    {
+        playerTracking = new PlayerTrackingState();
+        waypointNavigation = new WaypointNavigationState(waypoints, startWaitTime);
+        combatState = new CombatState();
+        healthState = new HealthState();
+    }
+
+    private void SetupEnemyData()
+    {
+        enemyData = GetEnemyDataByType();
+        enemyHP = enemyData.enemyHealth;
+        InitializeHealthBar();
+    }
+
+    private EnemyData GetEnemyDataByType()
+    {
+        return enemyType switch
+        {
+            EnemyType.Creep => CreepEnemyData.Instance,
+            EnemyType.Medium1 => Medium1EnemyData.medium1EnemyData,
+            EnemyType.Medium2 => Medium2EnemyData.medium2EnemyData,
+            _ => CreepEnemyData.Instance
+        };
+    }
+
+    private void InitializeHealthBar()
+    {
+        if (healthBar != null)
+        {
+            healthBar.SetMaxHealth(enemyHP);
+        }
+    }
+
+    private void ForceInitialAnimationState()
+    {
+        if (animator != null)
+        {
+            SetAnimationState(idle: true, walking: false, attacking: false, dead: false);
+        }
+    }
+
+    #endregion
+
+    #region Player Tracking
+
+    private void UpdatePlayerTracking()
+    {
+        if (playerTracking.PlayerTransform == null)
+        {
+            HandleLostPlayer();
+        }
+    }
+
+    private void HandleLostPlayer()
+    {
+        playerTracking.SetInRange(false);
+        waypointNavigation.SetPatrolling(true);
+        SetAnimationState(idle: false, walking: true);
     }
 
     public void SetTarget(Transform target)
     {
-        if (target == null)
+        if (target == null || !playerTracking.IsPlayerAlive)
         {
-            // If someone calls SetTarget(null), drop out
-            m_PlayerInRange = false;
-            playerTransform = null;
+            playerTracking.ClearTarget();
             return;
         }
 
-        // If the player is flagged as dead, ignore
-        if (!playerAlive) return;
-
-        playerTransform = target;
-        m_PlayerInRange = true;
-        m_IsPatrol = false;
-        m_PlayerPosition = target.position;
+        playerTracking.SetTarget(target);
+        waypointNavigation.SetPatrolling(false);
     }
 
-
-    private Vector3 GetSeparationVector()
+    private void HandlePlayerDestroyed()
     {
-        Vector3 separation = Vector3.zero;
-        Collider[] colliders = Physics.OverlapSphere(transform.position, separationRadius, enemyMask);
-        foreach (Collider collider in colliders)
-        {
-            if (collider.transform != transform)
-            {
-                Vector3 direction = transform.position - collider.transform.position;
-                separation += direction.normalized / direction.magnitude;
-            }
-        }
-        return separation;
+        playerTracking.HandlePlayerDestroyed();
     }
-
-    private IEnumerator RemoveOccupiedPointAfterDelay(Vector3 point, float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        occupiedWaypoints.Remove(point);
-    }
-
-
-
-    private void CaughtPlayer()
-    {
-        m_CaughtPlayer = true;
-    }
-
 
     #endregion
 
-    #region Public Methods
+    #region Combat System
+
+    private void HandleCombatBehavior()
+    {
+        if (playerTracking.IsInRange && playerTracking.PlayerTransform != null && playerTracking.IsPlayerAlive)
+        {
+            RotateTowardsTarget(playerTracking.PlayerPosition);
+            
+            if (combatState.CanAttack)
+            {
+                StartCoroutine(ExecuteAttackSequence());
+            }
+        }
+    }
+
+    private void HandlePlayerEnterCombat()
+    {
+        combatState.SetAttacking(true);
+        combatState.SetCanAttack(true);
+    }
+
+    private void HandlePlayerExitCombat()
+    {
+        combatState.SetAttacking(false);
+    }
+
+    private IEnumerator ExecuteAttackSequence()
+    {
+        combatState.SetCanAttack(false);
+        
+        SetAnimationState(attacking: true, idle: false, walking: false);
+        yield return new WaitForSeconds(ATTACK_DURATION);
+        
+        SetAnimationState(attacking: false, idle: true);
+        yield return new WaitForSeconds(ATTACK_COOLDOWN);
+        
+        combatState.SetCanAttack(true);
+    }
+
+    public void AttackEnd()
+    {
+        ExecuteAttackDamage();
+        SetAnimationState(idle: true);
+        HandlePostAttackMovement();
+    }
+
+    private void ExecuteAttackDamage()
+    {
+        Collider[] hitTargets = Physics.OverlapBox(
+            attackCollider.bounds.center,
+            attackCollider.bounds.extents,
+            attackCollider.transform.rotation,
+            LayerMask.GetMask("Player"));
+
+        foreach (Collider target in hitTargets)
+        {
+            ProcessPlayerDamage(target);
+        }
+    }
+
+    private void ProcessPlayerDamage(Collider target)
+    {
+        RL_Player player = target.GetComponent<RL_Player>();
+        if (player != null && player.CurrentHealth > 0f)
+        {
+            player.DamagePlayer(enemyData.enemyAttack);
+            PlayAttackSound();
+        }
+    }
+
+    public void TakeDamage(int damageAmount)
+    {
+        enemyHP -= damageAmount;
+        UpdateHealthBar();
+
+        if (enemyHP > 0)
+        {
+            HandleDamageReaction();
+        }
+        else
+        {
+            HandleDeath();
+        }
+    }
+
+    private void HandleDamageReaction()
+    {
+        PlayHitAnimation();
+        PlayHitSound();
+        CreateHitEffect();
+        ReactToPlayerAttack();
+    }
+
+    private void ReactToPlayerAttack()
+    {
+        if (!healthState.IsDead)
+        {
+            playerTracking.SetInRange(true);
+            waypointNavigation.SetPatrolling(false);
+            
+            if (RL_Player.Instance != null)
+            {
+                playerTracking.SetPlayerPosition(RL_Player.Instance.transform.position);
+                RotateTowardsTarget(playerTracking.PlayerPosition);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Movement System
+
+    private void HandleMovementBehavior()
+    {
+        if (healthState.IsDead) return;
+
+        if (!playerTracking.IsInRange && HasValidWaypoints())
+        {
+            ExecuteWaypointMovement();
+        }
+        else if (!combatState.IsAttacking)
+        {
+            SetAnimationState(idle: true, walking: false);
+        }
+    }
+
+    private void ExecuteWaypointMovement()
+    {
+        if (waypointNavigation.IsPatrolling)
+        {
+            MoveToCurrentWaypoint();
+        }
+        else if (waypointNavigation.WaitTime <= 0)
+        {
+            waypointNavigation.SetPatrolling(true);
+        }
+        else
+        {
+            waypointNavigation.DecrementWaitTime();
+        }
+    }
+
+    private void MoveToCurrentWaypoint()
+    {
+        Vector3 targetPosition = waypointNavigation.GetCurrentWaypointPosition();
+        Vector3 movementDirection = CalculateMovementDirection(targetPosition);
+        
+        RotateTowardsTarget(targetPosition);
+        ExecuteMovement(movementDirection);
+        
+        CheckWaypointReached(targetPosition);
+    }
+
+    private Vector3 CalculateMovementDirection(Vector3 targetPosition)
+    {
+        Vector3 direction = (targetPosition - transform.position).normalized;
+        return ApplyObstacleAvoidance(direction);
+    }
+
+    private Vector3 ApplyObstacleAvoidance(Vector3 direction)
+    {
+        if (Physics.SphereCast(transform.position, 0.5f, direction, out RaycastHit hit, 2f, obstacleMask))
+        {
+            Vector3 avoidanceDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
+            return (direction + avoidanceDirection * 0.5f).normalized;
+        }
+        return direction;
+    }
+
+    private void ExecuteMovement(Vector3 direction)
+    {
+        Vector3 newPosition = transform.position + direction * moveSpeed * Time.deltaTime;
+        rigidBody.MovePosition(newPosition);
+    }
+
+    private void CheckWaypointReached(Vector3 targetPosition)
+    {
+        float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);
+        if (distanceToWaypoint < waypointThreshold)
+        {
+            waypointNavigation.MoveToNextWaypoint();
+        }
+    }
+
+    private void RotateTowardsTarget(Vector3 targetPosition)
+    {
+        Vector3 directionToTarget = (targetPosition - transform.position).normalized;
+        Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    #endregion
+
+    #region Animation Management
+
+    private void UpdateAnimationStates()
+    {
+        if (combatState.IsAttacking && combatState.CanAttack)
+        {
+            return; // Attack handling is done in HandleCombatBehavior
+        }
+
+        if (playerTracking.IsInRange)
+        {
+            RotateTowardsTarget(playerTracking.PlayerPosition);
+        }
+    }
+
+    private void SetAnimationState(bool idle = false, bool walking = false, bool attacking = false, bool dead = false)
+    {
+        if (animator == null) return;
+
+        animator.SetBool("isIdle", idle);
+        animator.SetBool("isWalking", walking);
+        animator.SetBool("isAttacking", attacking);
+        animator.SetBool("isDead", dead);
+    }
+
+    private void PlayHitAnimation()
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger("getHit");
+        }
+    }
+
+    #endregion
+
+    #region Health and Death
+
+    private void UpdateHealthBar()
+    {
+        if (healthBar != null)
+        {
+            healthBar.SetHealth(enemyHP);
+        }
+    }
+
+    private void HandleDeath()
+    {
+        healthState.SetDead(true);
+        SetAnimationState(dead: true);
+        
+        PlayDeathSound();
+        DisableCollider();
+        HideHealthBar();
+        NotifyGameProgression();
+        SpawnLoot();
+        
+        Destroy(gameObject, DESTROY_DELAY);
+    }
+
+    private void DisableCollider()
+    {
+        GetComponent<Collider>().enabled = false;
+    }
+
+    private void HideHealthBar()
+    {
+        if (healthBar != null)
+        {
+            healthBar.gameObject.SetActive(false);
+        }
+    }
+
+    private void SpawnLoot()
+    {
+        if (lootManager != null)
+        {
+            lootManager.SpawnGearLoot(transform);
+        }
+    }
+
+    #endregion
+
+    #region Audio and Effects
+
+    private void PlayHitSound()
+    {
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.PlayEnemyGetHitSound(enemyType);
+        }
+    }
+
+    private void PlayDeathSound()
+    {
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.PlayEnemyDieSound(enemyType);
+        }
+    }
+
+    private void PlayAttackSound()
+    {
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.PlayEnemyAttackSound(enemyType);
+        }
+    }
+
+    private void CreateHitEffect()
+    {
+        if (vfxManager != null)
+        {
+            vfxManager.EnemyGettingHit(particlePosition, enemyType);
+        }
+    }
+
+    #endregion
+
+    #region UI Management
+
+    private void ShowEnemyStats()
+    {
+        if (statDisplay != null)
+        {
+            statDisplay.ShowEnemyStats();
+        }
+    }
+
+    private void HideEnemyStats()
+    {
+        if (statDisplay != null)
+        {
+            statDisplay.HideEnemyStats();
+        }
+    }
+
+    #endregion
+
+    #region Utility Methods
+
+    private bool IsPlayerHitbox(Collider collider)
+    {
+        return collider.CompareTag("Player") && 
+               collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
+    }
+
+    private bool HasValidWaypoints()
+    {
+        return waypoints != null && waypoints.Length > 0;
+    }
+
+    private void HandlePostAttackMovement()
+    {
+        // Additional post-attack logic can be added here
+    }
+
+    private void NotifyGameProgression()
+    {
+        if (GameProgression.Instance != null)
+        {
+            GameProgression.Instance.EnemyKill();
+        }
+    }
+
+    #endregion
+
+    #region Public API
+
     public float GetHealthPercentage()
     {
         return (float)enemyHP / enemyData.enemyHealth;
@@ -302,208 +557,148 @@ public class RL_EnemyController : MonoBehaviour
 
     public bool IsDead()
     {
-        return isDead;
-    }
-    #endregion
-
-
-    #region Combat Methods
-
-    public void TakeDamage(int damageAmount)
-    {
-        enemyHP -= damageAmount;
-
-        if (healthBar != null)
-        {
-            healthBar.SetHealth(enemyHP);
-        }
-
-        if (enemyHP > 0)
-        {
-            GetHit();
-            vfxManager.EnemyGettingHit(positionParticles, enemyType);
-            OnPlayerAttack();
-        }
-        else
-        {
-            Die();
-        }
-    }
-    public void OnPlayerAttack()
-    {
-        if (!isDead)
-        {
-            m_PlayerInRange = true;
-            m_IsPatrol = false;
-            m_PlayerPosition = RL_Player.Instance.transform.position;
-
-            RotateTowardsPlayer(m_PlayerPosition, rotationSpeed);
-
-            // Player tracking logic remains without NavMesh
-        }
+        return healthState.IsDead;
     }
 
-    private void NextPoint()
-    {
-        // RL-friendly waypoint selection
-        m_CurrentWaypointIndex = (m_CurrentWaypointIndex + 1) % waypoints.Length;
-        m_IsPatrol = true;
-        m_WaitTime = startWaitTime;
-    }
-
-    private void MoveBetweenWaypoints()
-    {
-        if (waypoints == null || waypoints.Length == 0 || m_PlayerInRange) return;
-
-        Vector3 targetPosition = waypoints[m_CurrentWaypointIndex].position;
-        Vector3 direction = (targetPosition - transform.position).normalized;
-
-        // Obstacle avoidance
-        if (Physics.SphereCast(transform.position, 0.5f, direction, out RaycastHit hit, 2f, obstacleMask))
-        {
-            Vector3 avoidDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
-            direction = (direction + avoidDirection * 0.5f).normalized;
-        }
-
-        if (m_IsPatrol)
-        {
-            // Animation states are now handled by NormalEnemyActions
-            RotateTowardsPlayer(targetPosition, rotationSpeed);
-
-            float distanceToWaypoint = Vector3.Distance(transform.position, targetPosition);
-            if (distanceToWaypoint < waypointThreshold)
-            {
-                NextPoint();
-            }
-        }
-        else if (m_WaitTime <= 0)
-        {
-            m_IsPatrol = true;
-        }
-        else
-        {
-            m_WaitTime -= Time.deltaTime;
-        }
-        Vector3 newPos = transform.position + direction * moveSpeed * Time.deltaTime;
-        Rigidbody rb = GetComponent<Rigidbody>();
-        rb.MovePosition(newPos);
-    }
-
-    // RL Helper Methods
     public float GetDistanceToCurrentWaypoint()
     {
-        if (waypoints == null || waypoints.Length == 0) return -1f;
-        return Vector3.Distance(transform.position, waypoints[m_CurrentWaypointIndex].position);
+        return waypointNavigation.GetDistanceToCurrentWaypoint(transform.position);
     }
 
     public Vector3 GetWaypointDirection()
     {
-        if (waypoints == null || waypoints.Length == 0) return Vector3.zero;
-        return (waypoints[m_CurrentWaypointIndex].position - transform.position).normalized;
+        return waypointNavigation.GetDirectionToCurrentWaypoint(transform.position);
     }
 
-
-    private void GetHit()
-    {
-        animator.SetTrigger("getHit");
-        if (AudioManager.instance != null)
-        {
-            AudioManager.instance.PlayEnemyGetHitSound(enemyType);
-        }
-    }
-
-    private void Die()
-    {
-        animator.SetBool("isDead", true);
-        if (AudioManager.instance != null)
-        {
-            AudioManager.instance.PlayEnemyDieSound(enemyType);
-        }
-
-
-        GetComponent<Collider>().enabled = false;
-
-        if (healthBar != null)
-        {
-            healthBar.gameObject.SetActive(false);
-        }
-        GameProgression.Instance.EnemyKill();
-        lootManager.SpawnGearLoot(transform);
-        isDead = true;
-        Destroy(gameObject, 8f);
-    }
-
-
-    IEnumerator Attack()
-    {
-        canAttack = false;
-        // 1) Set Attack on:
-        animator.SetBool("isAttacking", true);
-        animator.SetBool("isIdle", false);
-        animator.SetBool("isWalking", false);
-
-        // 2) Wait for the “Attack” clip length (1 second assumed):
-        yield return new WaitForSeconds(1f);
-
-        // 3) Turn Attack off; decide next state – assume Idle if still in range:
-        animator.SetBool("isAttacking", false);
-
-        // If still “player in range,” maybe stay Idle until next attack:
-        animator.SetBool("isIdle", true);
-
-        yield return new WaitForSeconds(2f);
-
-        canAttack = true;
-    }
-
-    public void AttackEnd()
-    {
-        // Visualize attack range in Scene view
-        Debug.DrawLine(transform.position, boxCollider.bounds.center, Color.red, 1f);
-
-        Collider[] colliders = Physics.OverlapBox(
-            boxCollider.bounds.center,
-            boxCollider.bounds.extents,
-            boxCollider.transform.rotation,
-            LayerMask.GetMask("Player"));  // Use Player layer instead of playerMask
-
-        foreach (Collider collider in colliders)
-        {
-            RL_Player player = collider.GetComponent<RL_Player>();
-            if (player != null && player.CurrentHealth > 0f)
-            {
-                player.DamagePlayer(enemyData.enemyAttack);
-                if (AudioManager.instance != null)
-                {
-                    AudioManager.instance.PlayEnemyAttackSound(enemyType);
-                }
-                else
-                {
-                    Debug.LogWarning("[RL_EnemyController] RL_Player.Instance is null. Cannot damage the player.");
-                }
-                break;
-            }
-        }
-        animator.SetBool("isIdle", true);
-        MoveBetweenWaypoints();
-    }
-
-    IEnumerator knockback()
-    {
-        Vector3 knockbackDirection = (transform.position - RL_Player.Instance.transform.position).normalized;
-        float knockbackForce = 10f;
-        float knockbackDuration = 0.5f;
-
-        float elapsedTime1 = 0f;
-        while (elapsedTime1 < knockbackDuration)
-        {
-            transform.position += knockbackDirection * knockbackForce * Time.deltaTime;
-            elapsedTime1 += Time.deltaTime;
-            yield return null;
-        }
-    }
-
-
+    public bool IsCaughtPlayer => false; // Simplified for clean code
 
     #endregion
 }
+
+#region State Classes
+
+public class PlayerTrackingState
+{
+    public Vector3 PlayerPosition { get; private set; }
+    public Transform PlayerTransform { get; private set; }
+    public bool IsInRange { get; private set; }
+    public bool IsPlayerAlive { get; private set; } = true;
+
+    public void SetTarget(Transform target)
+    {
+        PlayerTransform = target;
+        IsInRange = true;
+        PlayerPosition = target.position;
+    }
+
+    public void SetInRange(bool inRange)
+    {
+        IsInRange = inRange;
+    }
+
+    public void SetPlayerPosition(Vector3 position)
+    {
+        PlayerPosition = position;
+    }
+
+    public void ClearTarget()
+    {
+        IsInRange = false;
+        PlayerTransform = null;
+    }
+
+    public void HandlePlayerDestroyed()
+    {
+        IsInRange = false;
+        IsPlayerAlive = false;
+        PlayerTransform = null;
+    }
+}
+
+public class WaypointNavigationState
+{
+    private Transform[] waypoints;
+    private int currentWaypointIndex;
+    private float startWaitTime;
+    
+    public bool IsPatrolling { get; private set; }
+    public float WaitTime { get; private set; }
+
+    public WaypointNavigationState(Transform[] waypoints, float waitTime)
+    {
+        this.waypoints = waypoints;
+        this.startWaitTime = waitTime;
+        this.currentWaypointIndex = Random.Range(0, waypoints?.Length ?? 0);
+        this.IsPatrolling = false;
+        this.WaitTime = 0f;
+    }
+
+    public void SetPatrolling(bool patrolling)
+    {
+        IsPatrolling = patrolling;
+    }
+
+    public void MoveToNextWaypoint()
+    {
+        if (waypoints != null && waypoints.Length > 0)
+        {
+            currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
+            IsPatrolling = true;
+            WaitTime = startWaitTime;
+        }
+    }
+
+    public Vector3 GetCurrentWaypointPosition()
+    {
+        if (waypoints != null && waypoints.Length > 0 && currentWaypointIndex < waypoints.Length)
+        {
+            return waypoints[currentWaypointIndex].position;
+        }
+        return Vector3.zero;
+    }
+
+    public void DecrementWaitTime()
+    {
+        WaitTime -= Time.deltaTime;
+    }
+
+    public float GetDistanceToCurrentWaypoint(Vector3 currentPosition)
+    {
+        if (waypoints == null || waypoints.Length == 0) return -1f;
+        return Vector3.Distance(currentPosition, GetCurrentWaypointPosition());
+    }
+
+    public Vector3 GetDirectionToCurrentWaypoint(Vector3 currentPosition)
+    {
+        if (waypoints == null || waypoints.Length == 0) return Vector3.zero;
+        return (GetCurrentWaypointPosition() - currentPosition).normalized;
+    }
+}
+
+public class CombatState
+{
+    public bool IsAttacking { get; private set; }
+    public bool CanAttack { get; private set; } = true;
+
+    public void SetAttacking(bool attacking)
+    {
+        IsAttacking = attacking;
+    }
+
+    public void SetCanAttack(bool canAttack)
+    {
+        CanAttack = canAttack;
+    }
+}
+
+public class HealthState
+{
+    public bool IsDead { get; private set; }
+
+    public void SetDead(bool dead)
+    {
+        IsDead = dead;
+    }
+}
+
+#endregion

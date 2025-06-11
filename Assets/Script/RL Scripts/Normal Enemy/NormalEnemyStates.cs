@@ -2,88 +2,94 @@ using UnityEngine;
 
 public class NormalEnemyStates
 {
-    // ───── PUBLIC STATE FIELDS ────────────────────────────────────────────────
-    public Vector3 AgentPosition;       // Current (x,z) position in world
-    public float HealthFraction;        // currentHealth / maxHealth
+    public Vector3 AgentPosition { get; private set; }
+    public float HealthFraction { get; private set; }
+    public Vector3 PlayerPosition { get; private set; }
+    public bool CanSeePlayer { get; private set; }
+    public Vector3 NextPatrolPointDirection { get; set; }
+    public float DistanceToNearestObstacle { get; private set; }
 
-    public Vector3 PlayerPosition;      // (x,z) of player
-    public bool CanSeePlayer;           // True if LOS to player within detectDistance
+    public bool IsPatrolling { get; set; }
+    public bool IsChasing { get; set; }
+    public bool IsDetecting { get; set; }
+    public bool IsAttacking { get; set; }
+    public bool IsDead { get; set; }
+    public bool IsIdle { get; set; }
 
-    public Vector3 NextPatrolPointDir;  // Direction (normalized) to next patrol waypoint
-    public float DistToNearestObstacle; // Distance to nearest obstacle ahead (0..10)
+    private const float RAYCAST_HEIGHT_OFFSET = 0.5f;
+    private const float OBSTACLE_DETECTION_RADIUS = 0.5f;
+    private const float MAX_OBSTACLE_DETECTION_DISTANCE = 10f;
 
-    // High‐level modes:
-    public bool IsPatrolling;
-    public bool IsChasing;
-    public bool IsDetecting;
-    public bool IsAttacking;
-    public bool IsDead;
-    public bool IsIdle;
-
-    // ───── CONSTRUCTOR ─────────────────────────────────────────────────────────
     public NormalEnemyStates(
         Transform agentTransform,
         float currentHealth,
         float maxHealth,
         Transform playerTransform,
         float detectDistance,
-        LayerMask obstacleMask
-    )
+        LayerMask obstacleMask)
     {
-        // 1) Agent’s world position:
+        InitializePositions(agentTransform, playerTransform);
+        CalculateHealthFraction(currentHealth, maxHealth);
+        DeterminePlayerVisibility(agentTransform, playerTransform, detectDistance);
+        CalculateObstacleDistance(agentTransform, obstacleMask);
+        InitializeStateFlags();
+        
+        NextPatrolPointDirection = Vector3.zero;
+    }
+
+    private void InitializePositions(Transform agentTransform, Transform playerTransform)
+    {
         AgentPosition = agentTransform.position;
-
-        // 2) Health fraction:
-        HealthFraction = currentHealth / maxHealth;
-
-        // 3) Player’s world position:
         PlayerPosition = playerTransform.position;
+    }
 
-        // 4) Can see player? (raycast from agent → player)
-        Vector3 dirToPlayer = (PlayerPosition - AgentPosition).normalized;
-        RaycastHit hit;
-        if (Physics.Raycast(
-                origin: AgentPosition + Vector3.up * 0.5f,
-                direction: dirToPlayer,
-                out hit,
-                maxDistance: detectDistance
-            ))
+    private void CalculateHealthFraction(float currentHealth, float maxHealth)
+    {
+        HealthFraction = currentHealth / maxHealth;
+    }
+
+    private void DeterminePlayerVisibility(Transform agentTransform, Transform playerTransform, float detectDistance)
+    {
+        Vector3 directionToPlayer = (PlayerPosition - AgentPosition).normalized;
+        Vector3 raycastOrigin = AgentPosition + Vector3.up * RAYCAST_HEIGHT_OFFSET;
+
+        if (Physics.Raycast(raycastOrigin, directionToPlayer, out RaycastHit hit, detectDistance))
         {
-            CanSeePlayer = (hit.transform == playerTransform);
+            CanSeePlayer = hit.transform == playerTransform;
         }
         else
         {
             CanSeePlayer = false;
         }
+    }
 
-        // 5) NextPatrolPointDir: 
-        // NOTE: The Agent script overwrote this via CollectObservations, so here we default to zero.
-        NextPatrolPointDir = Vector3.zero;
+    private void CalculateObstacleDistance(Transform agentTransform, LayerMask obstacleMask)
+    {
+        Vector3 sphereCastOrigin = AgentPosition + Vector3.up * RAYCAST_HEIGHT_OFFSET;
 
-        // 6) Dist to nearest obstacle (spherecast):
-        RaycastHit obsHit;
         if (Physics.SphereCast(
-                origin: AgentPosition + Vector3.up * 0.5f,
-                radius: 0.5f,
-                direction: agentTransform.forward,
-                out obsHit,
-                maxDistance: 10f,
-                layerMask: obstacleMask
-            ))
+            sphereCastOrigin,
+            OBSTACLE_DETECTION_RADIUS,
+            agentTransform.forward,
+            out RaycastHit obstacleHit,
+            MAX_OBSTACLE_DETECTION_DISTANCE,
+            obstacleMask))
         {
-            DistToNearestObstacle = obsHit.distance;
+            DistanceToNearestObstacle = obstacleHit.distance;
         }
         else
         {
-            DistToNearestObstacle = 10f;
+            DistanceToNearestObstacle = MAX_OBSTACLE_DETECTION_DISTANCE;
         }
+    }
 
-        // 7) Initialize all booleans to false (will be overridden by CollectObservations):
+    private void InitializeStateFlags()
+    {
         IsPatrolling = false;
-        IsChasing    = false;
-        IsDetecting  = false;
-        IsAttacking  = false;
-        IsDead       = false;
-        IsIdle       = false;
+        IsChasing = false;
+        IsDetecting = false;
+        IsAttacking = false;
+        IsDead = false;
+        IsIdle = false;
     }
 }

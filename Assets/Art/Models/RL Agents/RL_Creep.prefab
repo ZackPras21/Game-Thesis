@@ -1761,10 +1761,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_PlayerPosition: {x: 0, y: 0, z: 0}
-  playerLastPosition: {x: 0, y: 0, z: 0}
-  m_WaitTime: 0
-  m_TimeToRotate: 0
   rotationSpeed: 5
   moveSpeed: 3
   waypointThreshold: 0.5
@@ -1774,23 +1770,19 @@ MonoBehaviour:
     m_Bits: 136
   enemyHP: 0
   healthBar: {fileID: 1552570349913411215}
-  boxCollider: {fileID: 2364513733960898035}
+  attackCollider: {fileID: 2364513733960898035}
   startWaitTime: 4
   timeToRotate: 2
-  m_PlayerInRange: 0
-  m_PlayerNear: 0
-  m_IsPatrol: 0
-  m_IsAttacking: 0
-  nonBossEnemyState: 3
-  animator: {fileID: 1525368558665590809}
-  lootManager: {fileID: 6967424327214272843}
-  vfxManager: {fileID: 5201797498111052518}
-  positionParticles: {fileID: 571224362856628930}
-  enemyType: 0
   separationRadius: 2
   enemyMask:
     serializedVersion: 2
     m_Bits: 2048
+  animator: {fileID: 1525368558665590809}
+  lootManager: {fileID: 6967424327214272843}
+  vfxManager: {fileID: 5201797498111052518}
+  particlePosition: {fileID: 571224362856628930}
+  enemyType: 0
+  enemyState: 0
 --- !u!114 &6967424327214272843
 MonoBehaviour:
   m_ObjectHideFlags: 0

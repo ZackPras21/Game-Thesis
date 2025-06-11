@@ -1674,10 +1674,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_PlayerPosition: {x: 0, y: 0, z: 0}
-  playerLastPosition: {x: 0, y: 0, z: 0}
-  m_WaitTime: 0
-  m_TimeToRotate: 0
   rotationSpeed: 5
   moveSpeed: 3
   waypointThreshold: 0.5
@@ -1687,23 +1683,19 @@ MonoBehaviour:
     m_Bits: 136
   enemyHP: 0
   healthBar: {fileID: 8359980924510194894}
-  boxCollider: {fileID: 7083142781546743490}
+  attackCollider: {fileID: 7083142781546743490}
   startWaitTime: 4
   timeToRotate: 2
-  m_PlayerInRange: 0
-  m_PlayerNear: 0
-  m_IsPatrol: 0
-  m_IsAttacking: 0
-  nonBossEnemyState: 3
-  animator: {fileID: 2030732665317957927}
-  lootManager: {fileID: 4215898573996737307}
-  vfxManager: {fileID: -3980627480044796084}
-  positionParticles: {fileID: 4424110341604512507}
-  enemyType: 1
   separationRadius: 2
   enemyMask:
     serializedVersion: 2
     m_Bits: 2048
+  animator: {fileID: 2030732665317957927}
+  lootManager: {fileID: 4215898573996737307}
+  vfxManager: {fileID: -3980627480044796084}
+  particlePosition: {fileID: 4424110341604512507}
+  enemyType: 1
+  enemyState: 0
 --- !u!114 &4215898573996737307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1886,7 +1878,7 @@ MonoBehaviour:
   detectThreshold: 0.5
   maxHealth: 100
   attackDamage: 80
-  HP_FleeThreshold: 0.2
+  fleeHealthThreshold: 0.2
   rewardConfig: {fileID: 7144006557691622317}
   animator: {fileID: 2030732665317957927}
   navAgent: {fileID: 8707273861137654613}
@@ -1895,7 +1887,7 @@ MonoBehaviour:
     m_Bits: 648
   patrolPointTag: Patrol Point
   showDebugInfo: 1
-  debugTextOffset: {x: 10, y: 60}
+  debugTextOffset: {x: 10, y: 80}
   debugTextColor: {r: 1, g: 0.60103625, b: 0, a: 1}
   debugFontSize: 14
 --- !u!114 &5817866243050837834

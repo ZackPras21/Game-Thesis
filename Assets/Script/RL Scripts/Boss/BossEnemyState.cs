@@ -2,15 +2,23 @@ using UnityEngine;
 
 public class BossEnemyState : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Start()
     {
-        
+        InitializeState();
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
-        
+        HandleStateUpdate();
+    }
+
+    private void InitializeState()
+    {
+        // Set initial state or configuration for the boss enemy
+    }
+
+    private void HandleStateUpdate()
+    {
+        // Update state logic each frame if required
     }
 }

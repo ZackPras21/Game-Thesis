@@ -5,318 +5,587 @@ using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
 
-
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(RayPerceptionSensorComponent3D))]
 public class NormalEnemyAgent : Agent
 {
-    // ───── PUBLIC INSPECTOR FIELDS ───────────────
     [Header("Movement / Combat Parameters")]
     public float moveSpeed = 3f;
     public float turnSpeed = 120f;
     public float attackRange = 2f;
-    public float detectThreshold = 0.5f; 
-    // (If RayPerceptionSensor returns a normalized distance < detectThreshold for "Player" tag, we say “I see the player”.)
+    public float detectThreshold = 0.5f;
 
     [Header("Health / Damage")]
     public float maxHealth = 100f;
     public float attackDamage = 10f;
-    public float HP_FleeThreshold = 0.2f; 
-    // (If current health / maxHealth < HP_FleeThreshold, we switch to “Flee” or “LowHP” policy.)
+    public float fleeHealthThreshold = 0.2f;
 
     [Header("Rewards Config")]
-    public NormalEnemyRewards rewardConfig;   // (Reference your existing reward config ScriptableObject)
-    public NormalEnemyStates stateConfig;     // (Reference your existing state machine/enum)
+    public NormalEnemyRewards rewardConfig;
+    public NormalEnemyStates stateConfig;
 
     [Header("References")]
     public Animator animator;
     public NavMeshAgent navAgent;
     public LayerMask obstacleMask;
 
-    // ───── PRIVATE FIELDS ─────────────────────────
-    private float currentHealth;
-    private Transform playerTransform;
-    private bool hasEverSeenPlayer = false;
-    private float prevDistanceToPlayer = Mathf.Infinity;
-    private Vector3 lastPosition;
-    private int stepsSinceLastMove = 0;
-    private float timeSinceLastMove = 0f;
-    private Vector3 lastKnownPlayerPosition;
-    private float lastSeenTime = 0f;
-
-    // Ray sensor component reference (set automatically in Initialize())
-    private RayPerceptionSensorComponent3D raySensor;
-
-    // RL-driven behavior only
-    private bool playerVisible = false; // For observation only
-
-    // Cached reward‐state references
-    private float detectPhaseTimer = 0f;
-    private const float detectPhaseDuration = 0.5f;
-
-    // Patrol state
     [Header("Patrol Settings")]
     [Tooltip("Tag name for patrol points in the scene")]
     public string patrolPointTag = "PatrolPoint";
-    private Transform[] patrolPoints;
-    private int currentPatrolIndex = 0;
-    private int patrolLoopsCompleted = 0;
-    
+
     [Header("Debug Visualization")]
     public bool showDebugInfo = true;
     public static bool TrainingActive = true;
     public Vector2 debugTextOffset = new Vector2(10, 10);
     public Color debugTextColor = Color.white;
     public int debugFontSize = 14;
-    private float cumulativeReward = 0f;
-    private int episodeSteps = 0;
-    private int successfulKills = 0;
 
-    // ───── UNITY / ML‑AGENTS CALLBACKS ────────────────
+    private AgentHealth agentHealth;
+    private PlayerDetection playerDetection;
+    private PatrolSystem patrolSystem;
+    private AgentMovement agentMovement;
+    private DebugDisplay debugDisplay;
+    private RewardSystem rewardSystem;
+
+    private const float HEALTH_NORMALIZATION_FACTOR = 20f;
+    private const float ATTACK_THRESHOLD = 0.5f;
 
     public override void Initialize()
     {
-        navAgent = GetComponent<NavMeshAgent>();
-        raySensor = GetComponent<RayPerceptionSensorComponent3D>();
-        navAgent.speed = moveSpeed;
-        navAgent.angularSpeed = turnSpeed;
-        navAgent.stoppingDistance = 0.1f;
-
-        currentHealth = maxHealth;
-        playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
-        patrolPoints = GameObject.FindGameObjectsWithTag("Patrol Point").Select(o => o.transform).ToArray();
-        ResetState();
-    }
-
-    private void ResetState()
-    {
-        playerVisible = false;
-        currentPatrolIndex = 0;
-        patrolLoopsCompleted = 0;
-        cumulativeReward = 0f;
-        episodeSteps = 0;
-        lastPosition = transform.position;
-        stepsSinceLastMove = 0;
-        timeSinceLastMove = 0f;
-    }
-    
-    // Unity's OnGUI method is called every frame when rendering GUI elements.
-    void OnGUI()
-    {
-        if (showDebugInfo)
-        {
-            // Set up the label style with the color, font size, etc.
-            GUIStyle labelStyle = new GUIStyle();
-            labelStyle.fontSize = debugFontSize;
-            labelStyle.normal.textColor = debugTextColor;
-            
-            // Display the agent state and other debug info at the top-left corner
-            string debugText =
-            $"{gameObject.name}:" +
-            $"State: {(playerVisible ? "Player Visible" : "Patroling")}\n" +
-            $"Steps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
-            
-            // Draw main text
-            GUI.Label(new Rect(debugTextOffset.x, debugTextOffset.y, 300, 100), debugText, labelStyle);
-        }
+        InitializeComponents();
+        InitializeSystems();
+        ResetAgentState();
     }
 
     public override void OnEpisodeBegin()
     {
-        ResetState();
-        currentHealth = maxHealth;
-        // warp to random patrol point
-        int idx = Random.Range(0, patrolPoints.Length);
-        navAgent.Warp(patrolPoints[idx].position);
-        RL_TrainingTargetSpawner sp = FindObjectOfType<RL_TrainingTargetSpawner>();
-        if (sp != null) sp.ResetArena();
+        ResetAgentState();
+        agentHealth.ResetHealth();
+        WarpToRandomPatrolPoint();
+        ResetTrainingArena();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        // Health
-        sensor.AddObservation(currentHealth / maxHealth);
+        AddHealthObservation(sensor);
+        AddPlayerDistanceObservation(sensor);
+        AddVelocityObservations(sensor);
+    }
 
-        // Distance to player
-        if (playerTransform != null)
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        debugDisplay.IncrementSteps();
+        
+        if (!playerDetection.IsPlayerAvailable()) return;
+
+        ProcessMovementActions(actions);
+        ProcessAttackAction(actions);
+        UpdateDetectionAndBehavior();
+    }
+
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var continuousActions = actionsOut.ContinuousActions;
+        continuousActions.Clear();
+        
+        SetHeuristicMovement(continuousActions);
+        SetHeuristicAttack(continuousActions);
+    }
+
+    void OnGUI()
+    {
+        if (showDebugInfo)
         {
-            float distToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-            sensor.AddObservation(distToPlayer / 20f);
+            debugDisplay.DisplayDebugInfo(gameObject.name, playerDetection.IsPlayerVisible, debugTextOffset, debugTextColor, debugFontSize);
+        }
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (IsObstacleCollision(collision))
+        {
+            rewardSystem.AddObstaclePunishment();
+        }
+    }
+
+    public void TakeDamage(float damage)
+    {
+        agentHealth.TakeDamage(damage);
+        
+        if (agentHealth.IsDead)
+        {
+            HandleDeath();
+        }
+        else
+        {
+            HandleDamage();
+        }
+    }
+
+    public void SetPatrolPoints(Transform[] points)
+    {
+        patrolSystem.SetPatrolPoints(points);
+    }
+
+    public float CurrentHealth => agentHealth.CurrentHealth;
+
+    private void InitializeComponents()
+    {
+        navAgent = GetComponent<NavMeshAgent>();
+        var raySensor = GetComponent<RayPerceptionSensorComponent3D>();
+        
+        ConfigureNavMeshAgent();
+        
+        playerDetection = new PlayerDetection(raySensor, obstacleMask);
+    }
+
+    private void InitializeSystems()
+    {
+        agentHealth = new AgentHealth(maxHealth);
+        patrolSystem = new PatrolSystem(FindPatrolPoints());
+        agentMovement = new AgentMovement(navAgent, transform, moveSpeed, turnSpeed, attackRange);
+        debugDisplay = new DebugDisplay();
+        rewardSystem = new RewardSystem(this, rewardConfig);
+    }
+
+    private void ConfigureNavMeshAgent()
+    {
+        navAgent.speed = moveSpeed;
+        navAgent.angularSpeed = turnSpeed;
+        navAgent.stoppingDistance = 0.1f;
+    }
+
+    private Transform[] FindPatrolPoints()
+    {
+        return GameObject.FindGameObjectsWithTag("Patrol Point")
+            .Select(obj => obj.transform)
+            .ToArray();
+    }
+
+    private void ResetAgentState()
+    {
+        playerDetection?.Reset();
+        patrolSystem?.Reset();
+        debugDisplay?.Reset();
+        agentMovement?.Reset();
+    }
+
+    private void WarpToRandomPatrolPoint()
+    {
+        var patrolPoints = patrolSystem.GetPatrolPoints();
+        if (patrolPoints.Length > 0)
+        {
+            int randomIndex = Random.Range(0, patrolPoints.Length);
+            navAgent.Warp(patrolPoints[randomIndex].position);
+        }
+    }
+
+    private void ResetTrainingArena()
+    {
+        var spawner = FindObjectOfType<RL_TrainingTargetSpawner>();
+        spawner?.ResetArena();
+    }
+
+    private void AddHealthObservation(VectorSensor sensor)
+    {
+        sensor.AddObservation(agentHealth.HealthFraction);
+    }
+
+    private void AddPlayerDistanceObservation(VectorSensor sensor)
+    {
+        if (playerDetection.IsPlayerAvailable())
+        {
+            float normalizedDistance = playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR;
+            sensor.AddObservation(normalizedDistance);
         }
         else
         {
             sensor.AddObservation(0f);
         }
-
-        // Velocity
-        Vector3 v = transform.InverseTransformDirection(navAgent.velocity);
-        sensor.AddObservation(v.x / moveSpeed);
-        sensor.AddObservation(v.z / moveSpeed);
     }
 
-    
-    private void UpdateDetection()
+    private void AddVelocityObservations(VectorSensor sensor)
     {
-        playerVisible = false;
-        if (playerTransform == null)
-        {
-            playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-            if (playerTransform == null) return;
-        }
+        Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
+        sensor.AddObservation(localVelocity.x / moveSpeed);
+        sensor.AddObservation(localVelocity.z / moveSpeed);
+    }
 
-        float d = Vector3.Distance(transform.position, playerTransform.position);
-        if (d <= raySensor.RayLength)
-        {
-            // Use ray sensor's built-in detection (non-batched)
-            var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-            foreach (var ray in rayOutputs.RayOutputs)
-            {
-                if (ray.HasHit && ray.HitGameObject.CompareTag("Player"))
-                {
-                    playerVisible = true;
-                    break;
-                }
-            }
+    private void ProcessMovementActions(ActionBuffers actions)
+    {
+        Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
+        float rotation = actions.ContinuousActions[2];
+        
+        agentMovement.ProcessMovement(movement, rotation);
+    }
 
-            // Additional check for obstacles
-            if (playerVisible)
-            {
-                Vector3 dir = (playerTransform.position - transform.position).normalized;
-                if (Physics.Raycast(transform.position, dir, out RaycastHit hit, d, obstacleMask))
-                {
-                    if (!hit.collider.CompareTag("Player"))
-                    {
-                        playerVisible = false;
-                    }
-                }
-            }
+    private void ProcessAttackAction(ActionBuffers actions)
+    {
+        bool shouldAttack = actions.ContinuousActions[3] > ATTACK_THRESHOLD;
+        
+        if (shouldAttack && agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition()))
+        {
+            rewardSystem.AddAttackReward();
         }
     }
 
-    private void UpdateBehavior()
+    private void UpdateDetectionAndBehavior()
     {
-        // Let RL decide all actions through policy
-        if (playerVisible)
+        playerDetection.UpdatePlayerDetection(transform.position);
+        
+        if (playerDetection.IsPlayerVisible)
         {
-            AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
+            rewardSystem.AddDetectionReward();
         }
         
-        if (patrolPoints.Length == 0) return;
-        Vector3 target = patrolPoints[currentPatrolIndex].position;
-        if (Vector3.Distance(transform.position, target) < 0.5f)
-        {
-            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-            if (currentPatrolIndex == 0) patrolLoopsCompleted++;
-            AddReward(rewardConfig.PatrolCompleteReward);
-        }
+        patrolSystem.UpdatePatrol(transform.position, rewardSystem);
     }
 
-    public override void OnActionReceived(ActionBuffers actions)
+    private void SetHeuristicMovement(ActionSegment<float> continuousActions)
     {
-	    episodeSteps++;
-        // Handle movement directly from actions
-        Vector3 move = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
-        navAgent.Move(move * moveSpeed * Time.deltaTime);
-
-        // Handle rotation
-        float turn = actions.ContinuousActions[2];
-        transform.Rotate(0, turn * turnSpeed * Time.deltaTime, 0);
-
-        // Only proceed if player exists
-        if (playerTransform == null)
-        {
-            playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-            if (playerTransform == null) return;
-        }
-
-        // Handle attack if in range
-        if (Vector3.Distance(transform.position, playerTransform.position) <= attackRange)
-        {
-            if (actions.ContinuousActions[3] > 0.5f)
-            {
-                AddReward(rewardConfig.AttackPlayerReward);
-                // Perform attack
-            }
-        }
-
-        // Update detection and rewards
-        UpdateDetection();
-        UpdateBehavior();
-    }
-
-    void OnCollisionEnter(Collision col)
-    {
-        if (((1 << col.gameObject.layer) & obstacleMask) != 0)
-        {
-            AddReward(rewardConfig.ObstaclePunishment);
-        }
-    }
-
-    public override void Heuristic(in ActionBuffers actionsOut)
-    {
-
-        // Optional: define human input for debugging (e.g. arrow keys to move, space to attack)
-        var continuousActions = actionsOut.ContinuousActions;
-        continuousActions.Clear();
         continuousActions[0] = Input.GetAxis("Horizontal");
         continuousActions[1] = Input.GetAxis("Vertical");
-        continuousActions[2] = Input.GetKey(KeyCode.Q) ? -1f : (Input.GetKey(KeyCode.E) ? 1f : 0f);
+        continuousActions[2] = GetRotationInput();
+    }
+
+    private void SetHeuristicAttack(ActionSegment<float> continuousActions)
+    {
         continuousActions[3] = Input.GetKey(KeyCode.Space) ? 1f : 0f;
     }
 
-    public void OnEpisodeEnd()
+    private float GetRotationInput()
     {
-        // Reset to default state
-        currentHealth = maxHealth;
-        hasEverSeenPlayer = false;
-        prevDistanceToPlayer = Mathf.Infinity;
-        currentPatrolIndex = 0;
+        if (Input.GetKey(KeyCode.Q)) return -1f;
+        if (Input.GetKey(KeyCode.E)) return 1f;
+        return 0f;
+    }
+
+    private bool IsObstacleCollision(Collision collision)
+    {
+        return ((1 << collision.gameObject.layer) & obstacleMask) != 0;
+    }
+
+    private void HandleDeath()
+    {
+        TriggerDeathAnimation();
+        rewardSystem.AddDeathPunishment();
+        RespawnPlayer();
+        EndEpisode();
+    }
+
+    private void HandleDamage()
+    {
+        TriggerHitAnimation();
+        rewardSystem.AddDamagePunishment();
+    }
+
+    private void TriggerDeathAnimation()
+    {
+        if (animator != null)
+        {
+            Debug.Log("Setting death animation");
+            animator.SetTrigger("isDead");
+        }
+    }
+
+    private void TriggerHitAnimation()
+    {
+        animator?.SetTrigger("getHit");
+    }
+
+    private void RespawnPlayer()
+    {
+        var spawner = FindObjectOfType<RL_TrainingEnemySpawner>();
+        var playerTransform = playerDetection.GetPlayerTransform();
         
-        // Reset NavMeshAgent
-        navAgent.Warp(transform.position);
-        navAgent.velocity = Vector3.zero;
-        navAgent.isStopped = true;
-    }
-    
-    public void SetPatrolPoints(Transform[] points)
-    {
-        patrolPoints = points;
-        currentPatrolIndex = 0;
-    }
-
-    // ───── PUBLIC “Damage” API ────────────────
-    public void TakeDamage(float amount)
-    {
-        currentHealth = Mathf.Max(currentHealth - amount, 0f);
-        if (currentHealth <= 0f)
+        if (spawner != null && playerTransform != null)
         {
-            // Play death animation, spawn loot, etc.
-            if (animator != null)
-            {
-                Debug.Log("Setting death animation");
-                animator.SetTrigger("isDead");
-            }
-            AddReward(rewardConfig.DiedByPlayerPunishment);
-
-            // Find spawner and respawn player
-            RL_TrainingEnemySpawner spawner = FindObjectOfType<RL_TrainingEnemySpawner>();
-            if (spawner != null && playerTransform != null)
-            {
-                spawner.RespawnPlayer(playerTransform.gameObject);
-            }
-
-            EndEpisode();
+            spawner.RespawnPlayer(playerTransform.gameObject);
         }
-        else
-        {
-            // Play “hit” feedback
-            if (animator != null)
-            {
-                animator.SetTrigger("getHit");
-            }
-            AddReward(rewardConfig.HitByPlayerPunishment);
-        }
+    }
+}
+
+// Helper classes 
+public class AgentHealth
+{
+    private float maxHealth;
+    private float currentHealth;
+
+    public AgentHealth(float maxHealth)
+    {
+        this.maxHealth = maxHealth;
+        ResetHealth();
+    }
+
+    public void ResetHealth()
+    {
+        currentHealth = maxHealth;
+    }
+
+    public void TakeDamage(float damage)
+    {
+        currentHealth = Mathf.Max(currentHealth - damage, 0f);
     }
 
     public float CurrentHealth => currentHealth;
+    public float HealthFraction => currentHealth / maxHealth;
+    public bool IsDead => currentHealth <= 0f;
+}
+
+public class PlayerDetection
+{
+    private RayPerceptionSensorComponent3D raySensor;
+    private LayerMask obstacleMask;
+    private Transform playerTransform;
+    private bool isPlayerVisible;
+
+    public PlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
+    {
+        this.raySensor = raySensor;
+        this.obstacleMask = obstacleMask;
+        FindPlayerTransform();
+    }
+
+    public void Reset()
+    {
+        isPlayerVisible = false;
+        FindPlayerTransform();
+    }
+
+    public void UpdatePlayerDetection(Vector3 agentPosition)
+    {
+        isPlayerVisible = false;
+        
+        if (!IsPlayerAvailable()) return;
+
+        float distanceToPlayer = GetDistanceToPlayer(agentPosition);
+        
+        if (distanceToPlayer <= raySensor.RayLength)
+        {
+            CheckRayPerceptionVisibility();
+            if (isPlayerVisible)
+            {
+                VerifyLineOfSight(agentPosition, distanceToPlayer);
+            }
+        }
+    }
+
+    private void FindPlayerTransform()
+    {
+        var playerObject = GameObject.FindGameObjectWithTag("Player");
+        playerTransform = playerObject?.transform;
+    }
+
+    private void CheckRayPerceptionVisibility()
+    {
+        var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
+        foreach (var ray in rayOutputs.RayOutputs)
+        {
+            if (ray.HasHit && ray.HitGameObject.CompareTag("Player"))
+            {
+                isPlayerVisible = true;
+                break;
+            }
+        }
+    }
+
+    private void VerifyLineOfSight(Vector3 agentPosition, float distanceToPlayer)
+    {
+        Vector3 directionToPlayer = (playerTransform.position - agentPosition).normalized;
+        
+        if (Physics.Raycast(agentPosition, directionToPlayer, out RaycastHit hit, distanceToPlayer, obstacleMask))
+        {
+            if (!hit.collider.CompareTag("Player"))
+            {
+                isPlayerVisible = false;
+            }
+        }
+    }
+
+    public bool IsPlayerAvailable() => playerTransform != null;
+    public bool IsPlayerVisible => isPlayerVisible;
+    public Vector3 GetPlayerPosition() => playerTransform?.position ?? Vector3.zero;
+    public Transform GetPlayerTransform() => playerTransform;
+    public float GetDistanceToPlayer(Vector3 agentPosition) => 
+        IsPlayerAvailable() ? Vector3.Distance(agentPosition, playerTransform.position) : float.MaxValue;
+}
+
+public class PatrolSystem
+{
+    private Transform[] patrolPoints;
+    private int currentPatrolIndex;
+    private int patrolLoopsCompleted;
+
+    private const float PATROL_WAYPOINT_TOLERANCE = 0.5f;
+
+    public PatrolSystem(Transform[] patrolPoints)
+    {
+        this.patrolPoints = patrolPoints;
+        Reset();
+    }
+
+    public void Reset()
+    {
+        currentPatrolIndex = 0;
+        patrolLoopsCompleted = 0;
+    }
+
+    public void UpdatePatrol(Vector3 agentPosition, RewardSystem rewardSystem)
+    {
+        if (patrolPoints.Length == 0) return;
+
+        Vector3 targetWaypoint = patrolPoints[currentPatrolIndex].position;
+        
+        if (Vector3.Distance(agentPosition, targetWaypoint) < PATROL_WAYPOINT_TOLERANCE)
+        {
+            AdvanceToNextWaypoint();
+            rewardSystem.AddPatrolReward();
+        }
+    }
+
+    private void AdvanceToNextWaypoint()
+    {
+        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+        if (currentPatrolIndex == 0)
+        {
+            patrolLoopsCompleted++;
+        }
+    }
+
+    public void SetPatrolPoints(Transform[] points)
+    {
+        patrolPoints = points;
+        Reset();
+    }
+
+    public Transform[] GetPatrolPoints() => patrolPoints;
+    public int PatrolLoopsCompleted => patrolLoopsCompleted;
+}
+
+public class AgentMovement
+{
+    private NavMeshAgent navAgent;
+    private Transform agentTransform;
+    private float moveSpeed;
+    private float turnSpeed;
+    private float attackRange;
+
+    public AgentMovement(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, float turnSpeed, float attackRange)
+    {
+        this.navAgent = navAgent;
+        this.agentTransform = agentTransform;
+        this.moveSpeed = moveSpeed;
+        this.turnSpeed = turnSpeed;
+        this.attackRange = attackRange;
+    }
+
+    public void Reset()
+    {
+        navAgent.velocity = Vector3.zero;
+        navAgent.isStopped = true;
+    }
+
+    public void ProcessMovement(Vector3 movement, float rotation)
+    {
+        ApplyMovement(movement);
+        ApplyRotation(rotation);
+    }
+
+    private void ApplyMovement(Vector3 movement)
+    {
+        navAgent.Move(movement * moveSpeed * Time.deltaTime);
+    }
+
+    private void ApplyRotation(float rotation)
+    {
+        agentTransform.Rotate(0, rotation * turnSpeed * Time.deltaTime, 0);
+    }
+
+    public bool IsPlayerInAttackRange(Vector3 playerPosition)
+    {
+        return Vector3.Distance(agentTransform.position, playerPosition) <= attackRange;
+    }
+}
+
+public class DebugDisplay
+{
+    private float cumulativeReward;
+    private int episodeSteps;
+    private int patrolLoopsCompleted;
+
+    public void Reset()
+    {
+        cumulativeReward = 0f;
+        episodeSteps = 0;
+    }
+
+    public void IncrementSteps()
+    {
+        episodeSteps++;
+    }
+
+    public void DisplayDebugInfo(string agentName, bool playerVisible, Vector2 offset, Color textColor, int fontSize)
+    {
+        GUIStyle labelStyle = CreateLabelStyle(textColor, fontSize);
+        string debugText = FormatDebugText(agentName, playerVisible);
+        
+        GUI.Label(new Rect(offset.x, offset.y, 300, 100), debugText, labelStyle);
+    }
+
+    private GUIStyle CreateLabelStyle(Color textColor, int fontSize)
+    {
+        return new GUIStyle
+        {
+            fontSize = fontSize,
+            normal = { textColor = textColor }
+        };
+    }
+
+    private string FormatDebugText(string agentName, bool playerVisible)
+    {
+        string state = playerVisible ? "Player Visible" : "Patroling";
+        return $"{agentName}:\nState: {state}\nSteps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
+    }
+}
+
+public class RewardSystem
+{
+    private Agent agent;
+    private NormalEnemyRewards rewardConfig;
+
+    public RewardSystem(Agent agent, NormalEnemyRewards rewardConfig)
+    {
+        this.agent = agent;
+        this.rewardConfig = rewardConfig;
+    }
+
+    public void AddDetectionReward()
+    {
+        agent.AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
+    }
+
+    public void AddPatrolReward()
+    {
+        agent.AddReward(rewardConfig.PatrolCompleteReward);
+    }
+
+    public void AddAttackReward()
+    {
+        agent.AddReward(rewardConfig.AttackPlayerReward);
+    }
+
+    public void AddObstaclePunishment()
+    {
+        agent.AddReward(rewardConfig.ObstaclePunishment);
+    }
+
+    public void AddDeathPunishment()
+    {
+        agent.AddReward(rewardConfig.DiedByPlayerPunishment);
+    }
+
+    public void AddDamagePunishment()
+    {
+        agent.AddReward(rewardConfig.HitByPlayerPunishment);
+    }
 }
