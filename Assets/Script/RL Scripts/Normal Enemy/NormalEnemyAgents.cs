@@ -48,7 +48,7 @@ public class NormalEnemyAgent : Agent
     private RewardSystem rewardSystem;
 
     private const float HEALTH_NORMALIZATION_FACTOR = 20f;
-    private const float ATTACK_THRESHOLD = 0.5f;
+    // Removed constant since we're using inline value now
 
     public override void Initialize()
     {
@@ -216,19 +216,73 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessMovementActions(ActionBuffers actions)
     {
-        Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
-        float rotation = actions.ContinuousActions[2];
-        
-        agentMovement.ProcessMovement(movement, rotation);
+        // Only process movement if not in combat range
+        if (!playerDetection.IsPlayerAvailable() ||
+            !agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition()))
+        {
+            Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
+            float rotation = actions.ContinuousActions[2];
+            
+            agentMovement.ProcessMovement(movement, rotation);
+        }
     }
 
     private void ProcessAttackAction(ActionBuffers actions)
     {
-        bool shouldAttack = actions.ContinuousActions[3] > ATTACK_THRESHOLD;
+        bool shouldAttack = actions.ContinuousActions[3] > 0.3f; // Lowered threshold
+        bool playerInRange = agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
         
-        if (shouldAttack && agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition()))
+        if (shouldAttack && playerInRange)
         {
             rewardSystem.AddAttackReward();
+            TriggerAttackAnimation();
+            
+            // Damage the player using correct method name
+            var player = playerDetection.GetPlayerTransform()?.GetComponent<RL_Player>();
+            if (player != null)
+            {
+                player.DamagePlayer(attackDamage);
+            }
+            else
+            {
+                // Fallback to check if player component is on parent object
+                var fallbackPlayer = playerDetection.GetPlayerTransform()?.GetComponentInParent<RL_Player>();
+                fallbackPlayer?.DamagePlayer(attackDamage);
+            }
+            
+            // Also try getting the player component without namespace
+            if (player == null)
+            {
+                var fallbackPlayer = playerDetection.GetPlayerTransform()?.GetComponent<RL_Player>();
+                fallbackPlayer?.DamagePlayer(attackDamage);
+            }
+        }
+        
+        // Update animation states
+        if (playerInRange)
+        {
+            animator?.SetBool("inCombat", true);
+            // Stop walking animation when in combat range
+            animator?.SetBool("isWalking", false);
+            
+            // Stop movement when in attack range to prepare for attack
+            navAgent.isStopped = true;
+        }
+        else
+        {
+            animator?.SetBool("inCombat", false);
+            animator?.SetBool("isWalking", navAgent.velocity.magnitude > 0.1f);
+            navAgent.isStopped = false;
+        }
+    }
+
+    private void TriggerAttackAnimation()
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger("attack");
+            animator.SetBool("isWalking", false);
+            animator.SetBool("inCombat", true);
         }
     }
 
@@ -303,7 +357,7 @@ public class NormalEnemyAgent : Agent
         
         if (spawner != null && playerTransform != null)
         {
-            spawner.RespawnPlayer();
+            spawner.IsSpawningEnabled();
         }
     }
 }

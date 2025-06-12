@@ -557,7 +557,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trainingTargetPrefab: {fileID: 2819751379245008023, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
-  playerPrefab: {fileID: 2819751379245008023, guid: ce94a5b0e259ccc429c71b9c34bdab3a, type: 3}
   arenas:
   - corner1: {fileID: 47029520}
     corner2: {fileID: 47029519}
@@ -573,14 +572,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 31999
   enableContinuousSpawning: 1
-  minSpawnDistance: 2
+  minimumSpawnDistance: 2
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
-  episodeEndPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
   activeColor: {r: 0, g: 1, b: 0, a: 1}
   inactiveColor: {r: 1, g: 0, b: 0, a: 1}
-  debugSpawning: 1
+  debugSpawning: 0
 --- !u!114 &47029522
 MonoBehaviour:
   m_ObjectHideFlags: 0
