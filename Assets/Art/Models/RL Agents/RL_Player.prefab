@@ -718,7 +718,7 @@ MonoBehaviour:
   isRL_TrainingTarget: 1
   maxHealth: 25
   turnSpeed: 4
-  attackEnabled: 0
+  attackEnabled: 1
   attackInterval: 10
   attackDamage: 30
   attackRange: 1.5

@@ -213,7 +213,10 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (arena.maxTargets <= 0) return;
 
         int spawnedCount = 0;
-        for (int i = 0; i < arena.maxTargets; i++)
+        // Ensure we don't spawn more targets than the arena allows
+        int targetsToSpawn = Mathf.Min(arena.maxTargets, arena.customSpawnPoints?.Length ?? arena.maxTargets);
+        
+        for (int i = 0; i < targetsToSpawn; i++)
         {
             if (SpawnSingleTargetInArena(arenaIndex))
             {
@@ -221,12 +224,12 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
             }
             else
             {
-                LogSpawnFailure(arenaIndex, i + 1, arena.maxTargets);
+                LogSpawnFailure(arenaIndex, i + 1, targetsToSpawn);
                 break;
             }
         }
 
-        LogArenaSpawnResults(arenaIndex, spawnedCount, arena.maxTargets);
+        LogArenaSpawnResults(arenaIndex, spawnedCount, targetsToSpawn);
     }
 
     private bool SpawnSingleTargetInArena(int arenaIndex)

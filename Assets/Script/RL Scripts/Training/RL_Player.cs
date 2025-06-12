@@ -49,13 +49,16 @@ public class RL_Player : MonoBehaviour
     private void Start()
     {
         SetupInitialState();
+        // Enable attack for RL training targets
+        attackEnabled = true;
         StartAttackRoutineIfEnabled();
         ValidateComponents();
     }
 
-    public void DamagePlayer(float damageAmount)
+
+    public bool DamagePlayer(float damageAmount)
     {
-        if (!CanTakeDamage()) return;
+        if (!CanTakeDamage()) return false;
 
         ApplyDamage(damageAmount);
         UpdateHealthBar();
@@ -63,10 +66,12 @@ public class RL_Player : MonoBehaviour
         if (IsPlayerAlive())
         {
             HandleNonFatalDamage();
+            return false; // Player survived
         }
         else
         {
             Die();
+            return true; // Player died
         }
     }
 
@@ -172,7 +177,7 @@ public class RL_Player : MonoBehaviour
         }
     }
 
-    private void Die()
+    public void Die()
     {
         isAlive = false;
         PlayDeathAnimation();
@@ -298,6 +303,12 @@ public class RL_Player : MonoBehaviour
         if (enemyAgent != null)
         {
             enemyAgent.TakeDamage(attackDamage);
+            
+            // Add hit reaction if not dead
+            if (!enemyAgent.IsDead)
+            {
+                enemyAgent.TriggerHitAnimation();
+            }
         }
         else if (enemyController != null)
         {

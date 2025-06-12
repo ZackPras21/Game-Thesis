@@ -20,6 +20,9 @@ public class NormalEnemyAgent : Agent
     public float attackDamage = 10f;
     public float fleeHealthThreshold = 0.2f;
 
+    [Header("Health Bar")]
+    public HealthBar healthBar; 
+
     [Header("Rewards Config")]
     public NormalEnemyRewards rewardConfig;
     public NormalEnemyStates stateConfig;
@@ -48,13 +51,22 @@ public class NormalEnemyAgent : Agent
     private RewardSystem rewardSystem;
 
     private const float HEALTH_NORMALIZATION_FACTOR = 20f;
-    // Removed constant since we're using inline value now
+    private int currentStepCount = 0;
+    private Vector3 initialPosition;
+    private bool isDead = false;
 
     public override void Initialize()
     {
         InitializeComponents();
         InitializeSystems();
+        initialPosition = transform.position;
         ResetAgentState();
+        
+        // Initialize health bar - FIX: Cast to int
+        if (healthBar != null)
+        {
+            healthBar.SetMaxHealth((int)maxHealth);
+        }
     }
 
     public override void OnEpisodeBegin()
@@ -63,6 +75,18 @@ public class NormalEnemyAgent : Agent
         agentHealth.ResetHealth();
         WarpToRandomPatrolPoint();
         ResetTrainingArena();
+        currentStepCount = 0;
+        isDead = false;
+        
+        // Ensure agent is active and can move
+        gameObject.SetActive(true);
+        if (navAgent != null)
+        {
+            navAgent.enabled = true;
+            navAgent.isStopped = false;
+        }
+        
+        Debug.Log($"{gameObject.name} episode began - Health: {agentHealth.CurrentHealth}");
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -74,16 +98,24 @@ public class NormalEnemyAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (isDead) return;
+
+        currentStepCount++;
         debugDisplay.IncrementSteps();
         
-        if (!playerDetection.IsPlayerAvailable()) return;
-
         ProcessMovementActions(actions);
         ProcessAttackAction(actions);
         UpdateDetectionAndBehavior();
         
-        // FIX 1: Update debug display with current cumulative reward
         debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
+        
+        // Check if max steps reached
+        if (currentStepCount >= MaxStep)
+        {
+            Debug.Log($"{gameObject.name} reached max steps ({MaxStep}), ending episode");
+            ResetTrainingArena();
+            EndEpisode();
+        }
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -111,17 +143,37 @@ public class NormalEnemyAgent : Agent
         }
     }
 
+    // PUBLIC METHOD: This needs to be called by external damage sources
     public void TakeDamage(float damage)
     {
+        if (isDead) return;
+        
+        Debug.Log($"{gameObject.name} taking {damage} damage. Current health: {agentHealth.CurrentHealth}");
         agentHealth.TakeDamage(damage);
         
+        // FIX: Cast to int for health bar
+        if (healthBar != null)
+        {
+            healthBar.SetHealth((int)agentHealth.CurrentHealth);
+        }
         if (agentHealth.IsDead)
         {
+            Debug.Log($"{gameObject.name} died!");
             HandleDeath();
         }
         else
         {
+            Debug.Log($"{gameObject.name} health after damage: {agentHealth.CurrentHealth}");
             HandleDamage();
+        }
+    }
+
+    // FIX: Make TriggerHitAnimation public so RL_Player can call it
+    public void TriggerHitAnimation()
+    {
+        if (animator != null && HasAnimatorParameter("getHit"))
+        {
+            animator.SetTrigger("getHit");
         }
     }
 
@@ -131,6 +183,7 @@ public class NormalEnemyAgent : Agent
     }
 
     public float CurrentHealth => agentHealth.CurrentHealth;
+    public bool IsDead => isDead;
 
     private void InitializeComponents()
     {
@@ -156,13 +209,34 @@ public class NormalEnemyAgent : Agent
         navAgent.speed = moveSpeed;
         navAgent.angularSpeed = turnSpeed;
         navAgent.stoppingDistance = 0.1f;
+        navAgent.isStopped = false;
     }
 
     private Transform[] FindPatrolPoints()
     {
-        return GameObject.FindGameObjectsWithTag("Patrol Point")
-            .Select(obj => obj.transform)
-            .ToArray();
+        // Find patrol points near this enemy's arena
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 20f);
+        var points = colliders
+            .Where(c => c.CompareTag("Patrol Point"))
+            .Select(c => c.transform)
+            .ToList();
+        
+        // Filter out points too close to other enemies
+        var nearbyEnemies = Physics.OverlapSphere(transform.position, 10f)
+            .Where(c => c.CompareTag("Enemy") && c.gameObject != gameObject)
+            .Select(c => c.transform.position)
+            .ToList();
+            
+        var validPoints = points
+            .Where(p => !nearbyEnemies.Any(e => Vector3.Distance(p.position, e) < 2f))
+            .ToList();
+            
+        // If no valid points, fall back to all points
+        if (validPoints.Count == 0) validPoints = points;
+        
+        // Shuffle points
+        System.Random rand = new System.Random();
+        return validPoints.OrderBy(x => rand.Next()).ToArray();
     }
 
     private void ResetAgentState()
@@ -171,6 +245,12 @@ public class NormalEnemyAgent : Agent
         patrolSystem?.Reset();
         debugDisplay?.Reset();
         agentMovement?.Reset();
+        
+        if (navAgent != null)
+        {
+            navAgent.isStopped = false;
+            navAgent.enabled = true;
+        }
     }
 
     private void WarpToRandomPatrolPoint()
@@ -180,6 +260,11 @@ public class NormalEnemyAgent : Agent
         {
             int randomIndex = Random.Range(0, patrolPoints.Length);
             navAgent.Warp(patrolPoints[randomIndex].position);
+        }
+        else
+        {
+            // Fallback to initial position if no patrol points
+            navAgent.Warp(initialPosition);
         }
     }
 
@@ -216,73 +301,128 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessMovementActions(ActionBuffers actions)
     {
-        // Only process movement if not in combat range
-        if (!playerDetection.IsPlayerAvailable() ||
-            !agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition()))
+        Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
+        float rotation = actions.ContinuousActions[2];
+        
+        // If player is available and in attack range, prioritize facing the player
+        if (playerDetection.IsPlayerAvailable() && 
+            agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition()))
         {
-            Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
-            float rotation = actions.ContinuousActions[2];
-            
-            agentMovement.ProcessMovement(movement, rotation);
+            // Face player but still allow some movement
+            agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
+            // Reduce movement when in combat
+            movement *= 0.3f;
         }
+        
+        agentMovement.ProcessMovement(movement, rotation);
     }
+
+    private float lastAttackTime;
+    private float attackCooldown = 1.0f;
 
     private void ProcessAttackAction(ActionBuffers actions)
     {
-        bool shouldAttack = actions.ContinuousActions[3] > 0.3f; // Lowered threshold
-        bool playerInRange = agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
+        bool shouldAttack = actions.ContinuousActions[3] > 0.05f;
+        bool playerInRange = playerDetection.IsPlayerAvailable() && 
+                            agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
+        bool canAttack = Time.time - lastAttackTime > attackCooldown;
         
-        if (shouldAttack && playerInRange)
+        // Face player when in attack range
+        if (playerInRange)
         {
+            agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
+        }
+        
+        // Attack when in range, attack condition met, and cooldown expired
+        if (playerInRange && shouldAttack && canAttack)
+        {
+            lastAttackTime = Time.time;
             rewardSystem.AddAttackReward();
             TriggerAttackAnimation();
             
-            // Damage the player using correct method name
-            var player = playerDetection.GetPlayerTransform()?.GetComponent<RL_Player>();
-            if (player != null)
-            {
-                player.DamagePlayer(attackDamage);
-            }
-            else
-            {
-                // Fallback to check if player component is on parent object
-                var fallbackPlayer = playerDetection.GetPlayerTransform()?.GetComponentInParent<RL_Player>();
-                fallbackPlayer?.DamagePlayer(attackDamage);
-            }
+            Debug.Log($"{gameObject.name} attacking player!");
             
-            // Also try getting the player component without namespace
-            if (player == null)
+            // Damage the player - FIXED: Better player detection and damage application
+            var playerTransform = playerDetection.GetPlayerTransform();
+            if (playerTransform != null)
             {
-                var fallbackPlayer = playerDetection.GetPlayerTransform()?.GetComponent<RL_Player>();
-                fallbackPlayer?.DamagePlayer(attackDamage);
+                // Try different ways to find the player component
+                var player = playerTransform.GetComponent<RL_Player>();
+                if (player == null)
+                {
+                    player = playerTransform.GetComponentInParent<RL_Player>();
+                }
+                if (player == null)
+                {
+                    player = playerTransform.GetComponentInChildren<RL_Player>();
+                }
+                
+                if (player != null)
+                {
+                    Debug.Log($"Dealing {attackDamage} damage to player");
+                    bool playerDied = player.DamagePlayer(attackDamage);
+
+                    if (playerDied)
+                    {
+                        Debug.Log("Player died! Ending episode.");
+                        rewardSystem.AddKillPlayerReward(); // Add reward for killing player
+                        ResetTrainingArena();
+                        EndEpisode();
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"Could not find RL_Player component on {playerTransform.name}");
+                }
             }
         }
         
-        // Update animation states
+        // Update animation states - FIXED: Check if animator parameters exist
+        if (animator != null)
+        {
+            // Only set parameters that exist in the animator
+            if (HasAnimatorParameter("isAttacking"))
+            {
+                animator.SetBool("isAttacking", playerInRange);
+            }
+            if (HasAnimatorParameter("isWalking"))
+            {
+                animator.SetBool("isWalking", !playerInRange && navAgent.velocity.magnitude > 0.1f);
+            }
+        }
+        
+        // Adjust movement speed based on combat state
         if (playerInRange)
         {
-            animator?.SetBool("inCombat", true);
-            // Stop walking animation when in combat range
-            animator?.SetBool("isWalking", false);
-            
-            // Stop movement when in attack range to prepare for attack
-            navAgent.isStopped = true;
+            navAgent.speed = moveSpeed * 0.3f;
         }
         else
         {
-            animator?.SetBool("inCombat", false);
-            animator?.SetBool("isWalking", navAgent.velocity.magnitude > 0.1f);
-            navAgent.isStopped = false;
+            navAgent.speed = moveSpeed;
         }
+    }
+
+    private bool HasAnimatorParameter(string parameterName)
+    {
+        if (animator == null) return false;
+        
+        foreach (AnimatorControllerParameter param in animator.parameters)
+        {
+            if (param.name == parameterName)
+                return true;
+        }
+        return false;
     }
 
     private void TriggerAttackAnimation()
     {
-        if (animator != null)
+        if (animator != null && HasAnimatorParameter("attack"))
         {
             animator.SetTrigger("attack");
-            animator.SetBool("isWalking", false);
-            animator.SetBool("inCombat", true);
+            if (HasAnimatorParameter("isWalking"))
+                animator.SetBool("isWalking", false);
+            if (HasAnimatorParameter("isAttacking"))
+                animator.SetBool("isAttacking", true);
         }
     }
 
@@ -324,9 +464,14 @@ public class NormalEnemyAgent : Agent
 
     private void HandleDeath()
     {
+        isDead = true;
         TriggerDeathAnimation();
         rewardSystem.AddDeathPunishment();
-        RespawnPlayer();
+        
+        Debug.Log($"{gameObject.name} handling death, resetting arena and ending episode");
+        
+        // Reset arena and end episode
+        ResetTrainingArena();
         EndEpisode();
     }
 
@@ -338,31 +483,14 @@ public class NormalEnemyAgent : Agent
 
     private void TriggerDeathAnimation()
     {
-        if (animator != null)
+        if (animator != null && HasAnimatorParameter("isDead"))
         {
-            Debug.Log("Setting death animation");
-            animator.SetTrigger("isDead");
-        }
-    }
-
-    private void TriggerHitAnimation()
-    {
-        animator?.SetTrigger("getHit");
-    }
-
-    private void RespawnPlayer()
-    {
-        var spawner = FindFirstObjectByType<RL_TrainingTargetSpawner>();
-        var playerTransform = playerDetection.GetPlayerTransform();
-        
-        if (spawner != null && playerTransform != null)
-        {
-            spawner.IsSpawningEnabled();
+            animator.SetBool("isDead", true);
         }
     }
 }
 
-// Helper classes 
+// Helper classes with fixes
 public class AgentHealth
 {
     private float maxHealth;
@@ -413,7 +541,11 @@ public class PlayerDetection
     {
         isPlayerVisible = false;
         
-        if (!IsPlayerAvailable()) return;
+        if (!IsPlayerAvailable()) 
+        {
+            FindPlayerTransform(); // Try to find player again if lost
+            return;
+        }
 
         float distanceToPlayer = GetDistanceToPlayer(agentPosition);
         
@@ -429,8 +561,36 @@ public class PlayerDetection
 
     private void FindPlayerTransform()
     {
+        // First try finding by tag
         var playerObject = GameObject.FindGameObjectWithTag("Player");
-        playerTransform = playerObject?.transform;
+        if (playerObject != null) {
+            playerTransform = playerObject.transform;
+            return;
+        }
+        
+        // If not found, try finding by component
+        var player = Object.FindFirstObjectByType<RL_Player>();
+        if (player != null) {
+            playerTransform = player.transform;
+            return;
+        }
+        
+        // If still not found, try finding any object with "Player" in name
+        var playerByName = GameObject.Find("Player");
+        if (playerByName != null) {
+            playerTransform = playerByName.transform;
+            return;
+        }
+        
+        // Last resort: find any RL_Player component in the scene
+        // FIX: Use FindObjectsByType instead of deprecated FindObjectsOfType
+        var allPlayers = Object.FindObjectsByType<RL_Player>(FindObjectsSortMode.None);
+        if (allPlayers.Length > 0) {
+            playerTransform = allPlayers[0].transform;
+            return;
+        }
+        
+        playerTransform = null;
     }
 
     private void CheckRayPerceptionVisibility()
@@ -538,8 +698,11 @@ public class AgentMovement
 
     public void Reset()
     {
-        navAgent.velocity = Vector3.zero;
-        navAgent.isStopped = true;
+        if (navAgent != null)
+        {
+            navAgent.velocity = Vector3.zero;
+            navAgent.isStopped = false;
+        }
     }
 
     public void ProcessMovement(Vector3 movement, float rotation)
@@ -550,7 +713,10 @@ public class AgentMovement
 
     private void ApplyMovement(Vector3 movement)
     {
-        navAgent.Move(movement * moveSpeed * Time.deltaTime);
+        if (navAgent != null && navAgent.enabled)
+        {
+            navAgent.Move(movement * moveSpeed * Time.deltaTime);
+        }
     }
 
     private void ApplyRotation(float rotation)
@@ -562,9 +728,23 @@ public class AgentMovement
     {
         return Vector3.Distance(agentTransform.position, playerPosition) <= attackRange;
     }
+    
+    public void FaceTarget(Vector3 targetPosition)
+    {
+        Vector3 direction = (targetPosition - agentTransform.position).normalized;
+        direction.y = 0; // Keep rotation only on y-axis
+        if (direction != Vector3.zero)
+        {
+            Quaternion lookRotation = Quaternion.LookRotation(direction);
+            agentTransform.rotation = Quaternion.Slerp(
+                agentTransform.rotation,
+                lookRotation,
+                Time.deltaTime * turnSpeed / 100f
+            );
+        }
+    }
 }
 
-// FIX 1: Updated DebugDisplay to properly track and display cumulative reward
 public class DebugDisplay
 {
     private float cumulativeReward;
@@ -582,7 +762,6 @@ public class DebugDisplay
         episodeSteps++;
     }
 
-    // FIX 1: Added method to update cumulative reward from agent
     public void UpdateCumulativeReward(float reward)
     {
         cumulativeReward = reward;
@@ -636,6 +815,11 @@ public class RewardSystem
     public void AddAttackReward()
     {
         agent.AddReward(rewardConfig.AttackPlayerReward);
+    }
+
+    public void AddKillPlayerReward()
+    {
+        agent.AddReward(rewardConfig.KillPlayerReward);
     }
 
     public void AddObstaclePunishment()

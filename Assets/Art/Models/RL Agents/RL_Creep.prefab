@@ -655,7 +655,7 @@ GameObject:
   - component: {fileID: 664776458898644892}
   - component: {fileID: 9021765090586879101}
   m_Layer: 0
-  m_Name: Canvas
+  m_Name: Health Bar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1928,7 +1928,7 @@ MonoBehaviour:
   separationRadius: 2
   enemyMask:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 2112
   animator: {fileID: 1525368558665590809}
   lootManager: {fileID: 6967424327214272843}
   vfxManager: {fileID: 5201797498111052518}
@@ -2134,6 +2134,7 @@ MonoBehaviour:
   maxHealth: 100
   attackDamage: 100
   fleeHealthThreshold: 0.2
+  healthBar: {fileID: 1552570349913411215}
   rewardConfig: {fileID: 3247270290517839601}
   animator: {fileID: 1525368558665590809}
   navAgent: {fileID: 4662399911735061079}

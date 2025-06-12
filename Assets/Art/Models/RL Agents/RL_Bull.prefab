@@ -1403,7 +1403,7 @@ MonoBehaviour:
   separationRadius: 2
   enemyMask:
     serializedVersion: 2
-    m_Bits: 2048
+    m_Bits: 2112
   animator: {fileID: 208499107586539375}
   lootManager: {fileID: 8553900194276483005}
   vfxManager: {fileID: 2212133294256333331}
@@ -1593,6 +1593,7 @@ MonoBehaviour:
   maxHealth: 100
   attackDamage: 80
   fleeHealthThreshold: 0.2
+  healthBar: {fileID: 162162460577697592}
   rewardConfig: {fileID: 2042449206248845779}
   animator: {fileID: 208499107586539375}
   navAgent: {fileID: -5401494195924976978}
