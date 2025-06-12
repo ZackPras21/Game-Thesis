@@ -298,7 +298,7 @@ Rigidbody:
   m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 8
-  m_CollisionDetection: 0
+  m_CollisionDetection: 2
 --- !u!1 &3050130835805167226
 GameObject:
   m_ObjectHideFlags: 0
@@ -1198,7 +1198,7 @@ MonoBehaviour:
   waypoints: []
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 136
+    m_Bits: 648
   enemyHP: 0
   healthBar: {fileID: 162162460577697592}
   attackCollider: {fileID: 3584714595767020088}
@@ -1405,7 +1405,7 @@ MonoBehaviour:
     m_Bits: 648
   patrolPointTag: Patrol Point
   showDebugInfo: 1
-  debugTextOffset: {x: 10, y: 150}
+  debugTextOffset: {x: 10, y: 180}
   debugTextColor: {r: 0.07984875, g: 0.050943315, b: 1, a: 1}
   debugFontSize: 15
 --- !u!114 &6444236893863942488

@@ -81,6 +81,9 @@ public class NormalEnemyAgent : Agent
         ProcessMovementActions(actions);
         ProcessAttackAction(actions);
         UpdateDetectionAndBehavior();
+        
+        // FIX 1: Update debug display with current cumulative reward
+        debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -507,6 +510,7 @@ public class AgentMovement
     }
 }
 
+// FIX 1: Updated DebugDisplay to properly track and display cumulative reward
 public class DebugDisplay
 {
     private float cumulativeReward;
@@ -524,12 +528,18 @@ public class DebugDisplay
         episodeSteps++;
     }
 
+    // FIX 1: Added method to update cumulative reward from agent
+    public void UpdateCumulativeReward(float reward)
+    {
+        cumulativeReward = reward;
+    }
+
     public void DisplayDebugInfo(string agentName, bool playerVisible, Vector2 offset, Color textColor, int fontSize)
     {
         GUIStyle labelStyle = CreateLabelStyle(textColor, fontSize);
         string debugText = FormatDebugText(agentName, playerVisible);
         
-        GUI.Label(new Rect(offset.x, offset.y, 300, 100), debugText, labelStyle);
+        GUI.Label(new Rect(offset.x, offset.y, 300, 120), debugText, labelStyle);
     }
 
     private GUIStyle CreateLabelStyle(Color textColor, int fontSize)
@@ -544,7 +554,7 @@ public class DebugDisplay
     private string FormatDebugText(string agentName, bool playerVisible)
     {
         string state = playerVisible ? "Player Visible" : "Patroling";
-        return $"{agentName}:\nState: {state}\nSteps: {episodeSteps} | Reward: {cumulativeReward:F2} | Patrol Loops: {patrolLoopsCompleted}";
+        return $"{agentName}:\nState: {state}\nSteps: {episodeSteps}\nCumulative Reward: {cumulativeReward:F3}\nPatrol Loops: {patrolLoopsCompleted}";
     }
 }
 

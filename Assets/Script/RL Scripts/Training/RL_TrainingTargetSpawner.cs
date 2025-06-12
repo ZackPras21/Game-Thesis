@@ -27,6 +27,9 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     private bool episodeActive;
     private bool isActiveInstance;
 
+    // Events for reward tracking
+    public static System.Action<float> OnRewardAdded;
+
     private void Start()
     {
         InitializeSpawner();
@@ -56,7 +59,13 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         
         RemoveTargetFromTracking(target);
         UpdateArenaVisuals();
-        TrySpawnReplacementTarget();
+        
+        // Fixed: Only spawn replacement if we're below max and episode is active
+        if (activeTargets.Count < maxTargets && episodeActive)
+        {
+            TrySpawnReplacementTarget();
+        }
+        
         CheckForEpisodeEnd();
     }
 
@@ -64,7 +73,12 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     {
         activeTargets.Remove(target);
         UpdateArenaVisuals();
-        SpawnUpToMaximum();
+        
+        // Fixed: Only spawn if below max targets
+        if (activeTargets.Count < maxTargets)
+        {
+            SpawnUpToMaximum();
+        }
     }
 
     private void InitializeSpawner()
@@ -78,7 +92,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     private void HandleContinuousSpawning()
     {
         if (!episodeActive) return;
-        if (activeTargets.Count >= maxTargets) return;
+        if (activeTargets.Count >= maxTargets) return; // Fixed: Strict check
         if (Time.time < lastSpawnTime + spawnInterval) return;
 
         SpawnSingleTarget();
@@ -87,12 +101,15 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
     private void DestroyAllTargets()
     {
-        foreach (GameObject target in activeTargets)
+        // Create a copy of the list to avoid modification during iteration
+        var targetsToDestroy = new List<GameObject>(activeTargets);
+        activeTargets.Clear();
+        
+        foreach (GameObject target in targetsToDestroy)
         {
             if (target != null)
                 Destroy(target);
         }
-        activeTargets.Clear();
     }
 
     private void PlayEpisodeStartEffect()
@@ -114,8 +131,10 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     {
         for (int i = 0; i < maxTargets; i++)
         {
-            SpawnSingleTarget();
-            lastSpawnTime = Time.time;
+            if (SpawnSingleTarget())
+            {
+                lastSpawnTime = Time.time;
+            }
         }
     }
 
@@ -130,21 +149,28 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         }
     }
 
-    private void SpawnSingleTarget()
+    private bool SpawnSingleTarget()
     {
         if (trainingTargetPrefab == null)
         {
             Debug.LogWarning("Training target prefab is not assigned!");
-            return;
+            return false;
+        }
+
+        // Fixed: Strict check to prevent over-spawning
+        if (activeTargets.Count >= maxTargets)
+        {
+            return false;
         }
 
         Vector3 spawnPosition = GetValidSpawnPosition();
-        if (spawnPosition == Vector3.zero) return;
+        if (spawnPosition == Vector3.zero) return false;
 
         GameObject newTarget = CreateTargetAtPosition(spawnPosition);
         ConfigureNewTarget(newTarget);
         PlaySpawnEffect(spawnPosition);
         UpdateArenaVisuals();
+        return true;
     }
 
     private GameObject CreateTargetAtPosition(Vector3 position)
@@ -163,7 +189,11 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
             playerComponent.spawner = this;
         }
 
-        var lifeTracker = target.AddComponent<RL_TrainingTarget>();
+        var lifeTracker = target.GetComponent<RL_TrainingTarget>();
+        if (lifeTracker == null)
+        {
+            lifeTracker = target.AddComponent<RL_TrainingTarget>();
+        }
         lifeTracker.Initialize(this);
     }
 
@@ -291,6 +321,28 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (arenaLight != null)
         {
             arenaLight.color = (activeTargets.Count > 0) ? activeColor : inactiveColor;
+        }
+    }
+
+    // Public method to add reward (call this from your agents)
+    public static void AddReward(float reward)
+    {
+        OnRewardAdded?.Invoke(reward);
+    }
+
+    // Debug info
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, spawnRadius);
+        
+        Gizmos.color = Color.green;
+        foreach (var target in activeTargets)
+        {
+            if (target != null)
+            {
+                Gizmos.DrawLine(transform.position, target.transform.position);
+            }
         }
     }
 }
