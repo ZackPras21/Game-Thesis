@@ -2,49 +2,22 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 499992,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-499992.onnx",
-                "reward": 15.666666666666666,
-                "creation_time": 1749358801.917317,
-                "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-499992.pt"
-                ]
-            },
-            {
-                "steps": 999984,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-999984.onnx",
+                "steps": 178880,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-178880.onnx",
                 "reward": null,
-                "creation_time": 1749359357.0418937,
+                "creation_time": 1749697649.1429267,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-999984.pt"
-                ]
-            },
-            {
-                "steps": 1499992,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-1499992.onnx",
-                "reward": 16.5,
-                "creation_time": 1749359915.4711747,
-                "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-1499992.pt"
-                ]
-            },
-            {
-                "steps": 1506144,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-1506144.onnx",
-                "reward": 15.333333333333334,
-                "creation_time": 1749360041.7633355,
-                "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-1506144.pt"
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-178880.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 1506144,
+            "steps": 178880,
             "file_path": "results\\NormalEnemyRun1\\NormalEnemy.onnx",
-            "reward": 15.333333333333334,
-            "creation_time": 1749360041.7633355,
+            "reward": null,
+            "creation_time": 1749697649.1429267,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-1506144.pt"
+                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-178880.pt"
             ]
         }
     },

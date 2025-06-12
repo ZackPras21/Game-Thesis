@@ -31,9 +31,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     [SerializeField] private GameObject humanoidPrefab;
     [SerializeField] private GameObject bullPrefab;
 
-    [Header("Player Configuration")]
-    [SerializeField] private GameObject playerPrefab;
-
     [Header("Arena Setup")]
     [SerializeField] private ArenaConfiguration[] arenas;
 
@@ -47,7 +44,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
     // Fixed: Separate lists for each arena to prevent cross-arena interference
     private Dictionary<int, List<GameObject>> arenaEnemies = new Dictionary<int, List<GameObject>>();
-    private Dictionary<int, List<GameObject>> arenaPlayers = new Dictionary<int, List<GameObject>>();
 
     private void Start()
     {
@@ -60,7 +56,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         for (int i = 0; i < arenas.Length; i++)
         {
             arenaEnemies[i] = new List<GameObject>();
-            arenaPlayers[i] = new List<GameObject>();
         }
     }
 
@@ -68,7 +63,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     {
         for (int i = 0; i < arenas.Length; i++)
         {
-            SpawnPlayerInArena(arenas[i], i);
             yield return StartCoroutine(SpawnEnemiesInArena(arenas[i], i));
             yield return new WaitForSeconds(0.1f); // Small delay between arenas
         }
@@ -82,7 +76,7 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     public void RespawnAllArenas()
     {
         StopAllCoroutines();
-        DestroyAllSpawnedObjects();
+        DestroyAllEnemies();
         StartCoroutine(InitializeAllArenasSequentially());
     }
 
@@ -90,32 +84,8 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     {
         if (arenaIndex < 0 || arenaIndex >= arenas.Length) return;
 
-        DestroyArenaObjects(arenaIndex);
-        SpawnPlayerInArena(arenas[arenaIndex], arenaIndex);
+        DestroyArenaEnemies(arenaIndex);
         StartCoroutine(SpawnEnemiesInArena(arenas[arenaIndex], arenaIndex));
-    }
-
-    public void RespawnPlayer(GameObject playerToRespawn)
-    {
-        if (playerToRespawn == null) return;
-
-        int arenaIndex = FindPlayerArenaIndex(playerToRespawn);
-        if (arenaIndex >= 0)
-        {
-            RespawnPlayerInArena(playerToRespawn, arenas[arenaIndex]);
-        }
-    }
-
-    private void SpawnPlayerInArena(ArenaConfiguration arena, int arenaIndex)
-    {
-        Vector3 centerPosition = CalculateArenaCenter(arena);
-        GameObject player = Instantiate(playerPrefab, centerPosition, Quaternion.identity);
-        arenaPlayers[arenaIndex].Add(player);
-        
-        if (debugSpawning)
-        {
-            Debug.Log($"Spawned player in Arena {arenaIndex} at {centerPosition}");
-        }
     }
 
     private IEnumerator SpawnEnemiesInArena(ArenaConfiguration arena, int arenaIndex)
@@ -370,18 +340,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             }
         }
 
-        // Check distance from players in this arena
-        if (arenaPlayers.ContainsKey(arenaIndex))
-        {
-            foreach (GameObject player in arenaPlayers[arenaIndex])
-            {
-                if (player != null && Vector3.Distance(position, player.transform.position) < minSpawnDistance * 2f)
-                {
-                    return false;
-                }
-            }
-        }
-
         return true;
     }
 
@@ -401,29 +359,19 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         return (arena.corner1.position + arena.corner2.position + arena.corner3.position + arena.corner4.position) / 4f;
     }
 
-    private void DestroyAllSpawnedObjects()
+    private void DestroyAllEnemies()
     {
         foreach (var kvp in arenaEnemies)
         {
             DestroyObjectList(kvp.Value);
         }
-        
-        foreach (var kvp in arenaPlayers)
-        {
-            DestroyObjectList(kvp.Value);
-        }
     }
 
-    private void DestroyArenaObjects(int arenaIndex)
+    private void DestroyArenaEnemies(int arenaIndex)
     {
         if (arenaEnemies.ContainsKey(arenaIndex))
         {
             DestroyObjectList(arenaEnemies[arenaIndex]);
-        }
-        
-        if (arenaPlayers.ContainsKey(arenaIndex))
-        {
-            DestroyObjectList(arenaPlayers[arenaIndex]);
         }
     }
 
@@ -436,46 +384,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         objects.Clear();
     }
 
-    private int FindPlayerArenaIndex(GameObject player)
-    {
-        for (int i = 0; i < arenas.Length; i++)
-        {
-            if (arenaPlayers.ContainsKey(i) && arenaPlayers[i].Contains(player))
-            {
-                return i;
-            }
-        }
-        
-        // Fallback: find closest arena
-        float closestDistance = float.MaxValue;
-        int closestArena = 0;
-        
-        for (int i = 0; i < arenas.Length; i++)
-        {
-            Vector3 center = CalculateArenaCenter(arenas[i]);
-            float distance = Vector3.Distance(player.transform.position, center);
-            if (distance < closestDistance)
-            {
-                closestDistance = distance;
-                closestArena = i;
-            }
-        }
-        
-        return closestArena;
-    }
-
-    private void RespawnPlayerInArena(GameObject player, ArenaConfiguration arena)
-    {
-        Vector3 center = CalculateArenaCenter(arena);
-        player.transform.position = center;
-        player.SetActive(true);
-        
-        var playerComponent = player.GetComponent<RL_Player>();
-        if (playerComponent != null)
-        {
-            playerComponent.gameObject.SetActive(true);
-        }
-    }
 
     private void LogSpawningResults()
     {

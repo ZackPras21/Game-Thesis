@@ -298,12 +298,12 @@ public class NormalEnemyAgent : Agent
 
     private void RespawnPlayer()
     {
-        var spawner = FindFirstObjectByType<RL_TrainingEnemySpawner>();
+        var spawner = FindFirstObjectByType<RL_TrainingTargetSpawner>();
         var playerTransform = playerDetection.GetPlayerTransform();
         
         if (spawner != null && playerTransform != null)
         {
-            spawner.RespawnPlayer(playerTransform.gameObject);
+            spawner.RespawnPlayer();
         }
     }
 }

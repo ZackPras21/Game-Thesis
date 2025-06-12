@@ -5,23 +5,25 @@ public class RL_TrainingTarget : MonoBehaviour
     private RL_TrainingTargetSpawner spawner;
     private bool isBeingDestroyed = false;
 
-    public void Initialize(RL_TrainingTargetSpawner newSpawner)
+    public void Initialize(RL_TrainingTargetSpawner targetSpawner)
     {
-        if (newSpawner != null)
-        {
-            spawner = newSpawner;
-        }
+        spawner = targetSpawner;
     }
 
     public void ForceNotifyDestruction()
     {
         if (!isBeingDestroyed)
         {
-            OnDestroy();
+            HandleDestruction();
         }
     }
 
     private void OnDestroy()
+    {
+        HandleDestruction();
+    }
+
+    private void HandleDestruction()
     {
         if (isBeingDestroyed) return;
         
