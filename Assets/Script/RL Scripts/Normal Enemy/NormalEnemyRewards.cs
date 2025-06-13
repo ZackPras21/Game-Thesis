@@ -22,6 +22,7 @@ public class NormalEnemyRewards : MonoBehaviour
     public float NoMovementPunishment = -0.01f;
     public float ApproachPlayerReward = +0.01f;
     public float StayFarFromPlayerPunishment = -0.05f;
+    public float AttackIncentive = +0.01f;  // Added to encourage attacking when in range
     public float AttackMissedPunishment = -0.1f;
 
     private const float STUCK_POSITION_THRESHOLD = 0.01f;

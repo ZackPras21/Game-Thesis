@@ -65,7 +65,8 @@ public class RL_Player : MonoBehaviour
 
         if (IsPlayerAlive())
         {
-            HandleNonFatalDamage();
+            // Always trigger hit effects when taking damage
+            HandleNonFatalDamage(damageAmount);
             return false; // Player survived
         }
         else
@@ -154,11 +155,14 @@ public class RL_Player : MonoBehaviour
         return currentHealth > 0f;
     }
 
-    private void HandleNonFatalDamage()
+    private void HandleNonFatalDamage(float damageAmount)
     {
         PlayHurtAnimation();
         PlayHurtEffect();
         StartCoroutine(InvincibilityRoutine());
+        
+        // Debug log to verify damage handling
+        Debug.Log($"Player took {damageAmount} damage. Current health: {currentHealth}");
     }
 
     private void PlayHurtAnimation()
@@ -173,7 +177,13 @@ public class RL_Player : MonoBehaviour
     {
         if (hurtParticle != null)
         {
+            // Ensure particle system is properly reset before playing
+            hurtParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             hurtParticle.Play();
+        }
+        else
+        {
+            Debug.LogWarning("Hurt particle system is missing!");
         }
     }
 
@@ -291,7 +301,7 @@ public class RL_Player : MonoBehaviour
     {
         if (animator != null)
         {
-            animator.SetTrigger("AttackTrigger");
+            animator.SetBool("AttackTrigger", true);
         }
     }
 
@@ -369,7 +379,7 @@ public class RL_Player : MonoBehaviour
         {
             animator.SetBool("isIdle", true);
             animator.SetBool("isWalking", false);
-            animator.ResetTrigger("AttackTrigger");
+            animator.SetBool("AttackTrigger", false);
             animator.ResetTrigger("getHit");
             animator.SetBool("isDead", false);
         }

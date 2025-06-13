@@ -954,6 +954,7 @@ MonoBehaviour:
   NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
+  AttackIncentive: 0.01
   AttackMissedPunishment: -0.1
 --- !u!1 &7554904805282469337
 GameObject:
@@ -1888,7 +1889,7 @@ MonoBehaviour:
     m_Bits: 648
   patrolPointTag: Patrol Point
   showDebugInfo: 1
-  debugTextOffset: {x: 10, y: 100}
+  debugTextOffset: {x: 10, y: 120}
   debugTextColor: {r: 1, g: 0.60103625, b: 0, a: 1}
   debugFontSize: 14
 --- !u!114 &5817866243050837834

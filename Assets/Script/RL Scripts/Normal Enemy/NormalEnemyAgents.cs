@@ -4,6 +4,7 @@ using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
+using System.Collections;
 
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(RayPerceptionSensorComponent3D))]
@@ -54,6 +55,8 @@ public class NormalEnemyAgent : Agent
     private int currentStepCount = 0;
     private Vector3 initialPosition;
     private bool isDead = false;
+    private string currentState = "Idle";
+    private string currentAction = "Idle";
 
     public override void Initialize()
     {
@@ -77,6 +80,8 @@ public class NormalEnemyAgent : Agent
         ResetTrainingArena();
         currentStepCount = 0;
         isDead = false;
+        currentState = "Idle";
+        currentAction = "Idle";
         
         // Ensure agent is active and can move
         gameObject.SetActive(true);
@@ -131,7 +136,7 @@ public class NormalEnemyAgent : Agent
     {
         if (showDebugInfo)
         {
-            debugDisplay.DisplayDebugInfo(gameObject.name, playerDetection.IsPlayerVisible, debugTextOffset, debugTextColor, debugFontSize);
+            debugDisplay.DisplayDebugInfo(gameObject.name, currentState, currentAction, debugTextOffset, debugTextColor, debugFontSize);
         }
     }
 
@@ -318,12 +323,12 @@ public class NormalEnemyAgent : Agent
     }
 
     private float lastAttackTime;
-    private float attackCooldown = 1.0f;
+    private float attackCooldown = 0.5f; // Reduced from 1.0f to allow more frequent attacks
 
     private void ProcessAttackAction(ActionBuffers actions)
     {
-        bool shouldAttack = actions.ContinuousActions[3] > 0.05f;
-        bool playerInRange = playerDetection.IsPlayerAvailable() && 
+        bool shouldAttack = actions.ContinuousActions[3] > 0.001f; // Lower threshold to ensure attacks trigger
+        bool playerInRange = playerDetection.IsPlayerAvailable() &&
                             agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
         bool canAttack = Time.time - lastAttackTime > attackCooldown;
         
@@ -333,12 +338,21 @@ public class NormalEnemyAgent : Agent
             agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
         }
         
+        // Log attack decision parameters for debugging
+        if (playerInRange)
+        {
+            Debug.Log($"{gameObject.name} attack params - shouldAttack: {shouldAttack} ({actions.ContinuousActions[3]}), " +
+                      $"canAttack: {canAttack} ({Time.time - lastAttackTime}/{attackCooldown})");
+        }
+        
         // Attack when in range, attack condition met, and cooldown expired
         if (playerInRange && shouldAttack && canAttack)
         {
             lastAttackTime = Time.time;
             rewardSystem.AddAttackReward();
             TriggerAttackAnimation();
+            currentState = "Attacking";
+            currentAction = "Attacking";
             
             Debug.Log($"{gameObject.name} attacking player!");
             
@@ -376,17 +390,34 @@ public class NormalEnemyAgent : Agent
                 }
             }
         }
+        else if (playerInRange)
+        {
+            // Always show chasing when player is in range but not attacking
+            currentAction = "Chasing";
+            
+            // Face player even when not attacking
+            agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
+        }
+        else if (playerInRange && !canAttack)
+        {
+            Debug.Log($"{gameObject.name} can't attack yet (cooldown: {Time.time - lastAttackTime}/{attackCooldown}s)");
+        }
+        else if (playerInRange && !shouldAttack)
+        {
+            Debug.Log($"{gameObject.name} in range but attack input not detected (value: {actions.ContinuousActions[3]})");
+        }
         
-        // Update animation states - FIXED: Check if animator parameters exist
+        // Update animation states - FIXED: Ensure proper animation transitions
         if (animator != null)
         {
             // Only set parameters that exist in the animator
             if (HasAnimatorParameter("isAttacking"))
             {
-                animator.SetBool("isAttacking", playerInRange);
+                animator.SetBool("isAttacking", playerInRange && canAttack);
             }
             if (HasAnimatorParameter("isWalking"))
             {
+                // Only walk when not attacking and moving
                 animator.SetBool("isWalking", !playerInRange && navAgent.velocity.magnitude > 0.1f);
             }
         }
@@ -418,11 +449,29 @@ public class NormalEnemyAgent : Agent
     {
         if (animator != null && HasAnimatorParameter("attack"))
         {
-            animator.SetTrigger("attack");
+            // Ensure walking is stopped before attacking
             if (HasAnimatorParameter("isWalking"))
                 animator.SetBool("isWalking", false);
+                
+            animator.SetTrigger("attack");
+            
+            // Set attacking state
             if (HasAnimatorParameter("isAttacking"))
                 animator.SetBool("isAttacking", true);
+                
+            // Reset attack state after animation completes
+            StartCoroutine(ResetAttackState());
+        }
+    }
+    
+    private IEnumerator ResetAttackState()
+    {
+        // Wait for attack animation duration
+        yield return new WaitForSeconds(0.5f);
+        
+        if (animator != null && HasAnimatorParameter("isAttacking"))
+        {
+            animator.SetBool("isAttacking", false);
         }
     }
 
@@ -433,6 +482,33 @@ public class NormalEnemyAgent : Agent
         if (playerDetection.IsPlayerVisible)
         {
             rewardSystem.AddDetectionReward();
+            currentState = "Detecting";
+            currentAction = "Detecting";
+        }
+        else
+        {
+            string nearestPoint = patrolSystem.GetNearestPointName(transform.position);
+            
+            // Always show Patroling action when moving
+            bool isMoving = navAgent.velocity.magnitude > 0.1f;
+            currentAction = isMoving ? "Patroling" : "Idle";
+            
+            // Update state based on movement and pathfinding
+            if (isMoving)
+            {
+                if (navAgent.hasPath && navAgent.remainingDistance > navAgent.stoppingDistance)
+                {
+                    currentState = "Pathfinding to " + nearestPoint;
+                }
+                else
+                {
+                    currentState = "Patroling near " + nearestPoint;
+                }
+            }
+            else
+            {
+                currentState = "Position in Arena: " + nearestPoint;
+            }
         }
         
         patrolSystem.UpdatePatrol(transform.position, rewardSystem);
@@ -467,6 +543,8 @@ public class NormalEnemyAgent : Agent
         isDead = true;
         TriggerDeathAnimation();
         rewardSystem.AddDeathPunishment();
+        currentState = "Dead";
+        currentAction = "Dead";
         
         Debug.Log($"{gameObject.name} handling death, resetting arena and ending episode");
         
@@ -565,6 +643,7 @@ public class PlayerDetection
         var playerObject = GameObject.FindGameObjectWithTag("Player");
         if (playerObject != null) {
             playerTransform = playerObject.transform;
+            Debug.Log("Found player by tag");
             return;
         }
         
@@ -572,6 +651,7 @@ public class PlayerDetection
         var player = Object.FindFirstObjectByType<RL_Player>();
         if (player != null) {
             playerTransform = player.transform;
+            Debug.Log("Found player by RL_Player component");
             return;
         }
         
@@ -579,17 +659,19 @@ public class PlayerDetection
         var playerByName = GameObject.Find("Player");
         if (playerByName != null) {
             playerTransform = playerByName.transform;
+            Debug.Log("Found player by name");
             return;
         }
         
         // Last resort: find any RL_Player component in the scene
-        // FIX: Use FindObjectsByType instead of deprecated FindObjectsOfType
         var allPlayers = Object.FindObjectsByType<RL_Player>(FindObjectsSortMode.None);
         if (allPlayers.Length > 0) {
             playerTransform = allPlayers[0].transform;
+            Debug.Log("Found player from all RL_Player instances");
             return;
         }
         
+        Debug.LogWarning("Player not found!");
         playerTransform = null;
     }
 
@@ -634,6 +716,7 @@ public class PatrolSystem
     private int patrolLoopsCompleted;
 
     private const float PATROL_WAYPOINT_TOLERANCE = 0.5f;
+    private const float NEAR_POINT_DISTANCE = 3f;
 
     public PatrolSystem(Transform[] patrolPoints)
     {
@@ -658,6 +741,36 @@ public class PatrolSystem
             AdvanceToNextWaypoint();
             rewardSystem.AddPatrolReward();
         }
+    }
+
+    public string GetNearestPointName(Vector3 agentPosition)
+    {
+        if (patrolPoints.Length == 0) return "None";
+        
+        float minDistance = float.MaxValue;
+        int nearestIndex = -1;
+        
+        for (int i = 0; i < patrolPoints.Length; i++)
+        {
+            float distance = Vector3.Distance(agentPosition, patrolPoints[i].position);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                nearestIndex = i;
+            }
+        }
+        
+        if (minDistance < NEAR_POINT_DISTANCE)
+        {
+            // Use the actual GameObject name or generate a default name
+            string pointName = patrolPoints[nearestIndex].gameObject.name;
+            if (string.IsNullOrEmpty(pointName))
+            {
+                return "Point " + (nearestIndex + 1);
+            }
+            return pointName;
+        }
+        return "None";
     }
 
     private void AdvanceToNextWaypoint()
@@ -750,6 +863,8 @@ public class DebugDisplay
     private float cumulativeReward;
     private int episodeSteps;
     private int patrolLoopsCompleted;
+    private string agentState = "Idle";
+    private string agentAction = "Idle";
 
     public void Reset()
     {
@@ -767,12 +882,12 @@ public class DebugDisplay
         cumulativeReward = reward;
     }
 
-    public void DisplayDebugInfo(string agentName, bool playerVisible, Vector2 offset, Color textColor, int fontSize)
+    public void DisplayDebugInfo(string agentName, string currentState, string currentAction, Vector2 offset, Color textColor, int fontSize)
     {
         GUIStyle labelStyle = CreateLabelStyle(textColor, fontSize);
-        string debugText = FormatDebugText(agentName, playerVisible);
+        string debugText = FormatDebugText(agentName, currentState, currentAction);
         
-        GUI.Label(new Rect(offset.x, offset.y, 300, 120), debugText, labelStyle);
+        GUI.Label(new Rect(offset.x, offset.y, 300, 150), debugText, labelStyle);
     }
 
     private GUIStyle CreateLabelStyle(Color textColor, int fontSize)
@@ -784,10 +899,9 @@ public class DebugDisplay
         };
     }
 
-    private string FormatDebugText(string agentName, bool playerVisible)
+    private string FormatDebugText(string agentName, string currentState, string currentAction)
     {
-        string state = playerVisible ? "Player Visible" : "Patroling";
-        return $"{agentName}:\nState: {state}\nSteps: {episodeSteps}\nCumulative Reward: {cumulativeReward:F3}\nPatrol Loops: {patrolLoopsCompleted}";
+        return $"{agentName}:\nState: {currentState}\nAction: {currentAction}\nSteps: {episodeSteps}\nCumulative Reward: {cumulativeReward:F3}\nPatrol Loops: {patrolLoopsCompleted}";
     }
 }
 
@@ -835,5 +949,10 @@ public class RewardSystem
     public void AddDamagePunishment()
     {
         agent.AddReward(rewardConfig.HitByPlayerPunishment);
+    }
+    
+    public void AddExtraAttackIncentive()
+    {
+        agent.AddReward(rewardConfig.AttackIncentive);
     }
 }
