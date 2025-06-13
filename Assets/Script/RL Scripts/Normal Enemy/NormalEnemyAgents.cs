@@ -104,16 +104,21 @@ public class NormalEnemyAgent : Agent
     public override void OnActionReceived(ActionBuffers actions)
     {
         if (isDead) return;
-
         currentStepCount++;
         debugDisplay.IncrementSteps();
         
         ProcessMovementActions(actions);
         ProcessAttackAction(actions);
         UpdateDetectionAndBehavior();
-        
+
+        if (currentAction == "Chasing")
+            rewardSystem.AddChaseStepReward();
+        else if (currentAction.StartsWith("Patrol"))
+            rewardSystem.AddPatrolStepReward();
+        else if (currentAction == "Idle")
+            rewardSystem.AddIdlePunishment();
+
         debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
-        
         // Check if max steps reached
         if (currentStepCount >= MaxStep)
         {
@@ -327,10 +332,12 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessAttackAction(ActionBuffers actions)
     {
-        bool shouldAttack = actions.ContinuousActions[3] > 0.001f; // Lower threshold to ensure attacks trigger
+        int branch = actions.DiscreteActions[0];
+        bool shouldAttack = actions.DiscreteActions[0] == (int)EnemyHighLevelAction.Attack;
         bool playerInRange = playerDetection.IsPlayerAvailable() &&
-                            agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
-        bool canAttack = Time.time - lastAttackTime > attackCooldown;
+        agentMovement.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
+
+        bool canAttack = Time.time - lastAttackTime >= attackCooldown;
         
         // Face player when in attack range
         if (playerInRange)
@@ -341,8 +348,8 @@ public class NormalEnemyAgent : Agent
         // Log attack decision parameters for debugging
         if (playerInRange)
         {
-            Debug.Log($"{gameObject.name} attack params - shouldAttack: {shouldAttack} ({actions.ContinuousActions[3]}), " +
-                      $"canAttack: {canAttack} ({Time.time - lastAttackTime}/{attackCooldown})");
+            Debug.Log($"{gameObject.name} attack params – shouldAttack: {shouldAttack} (branch:{branch}), " +
+            $"canAttack: {canAttack} ({Time.time - lastAttackTime:0.00}/{attackCooldown})");
         }
         
         // Attack when in range, attack condition met, and cooldown expired
@@ -400,11 +407,11 @@ public class NormalEnemyAgent : Agent
         }
         else if (playerInRange && !canAttack)
         {
-            Debug.Log($"{gameObject.name} can't attack yet (cooldown: {Time.time - lastAttackTime}/{attackCooldown}s)");
+            Debug.Log($"{gameObject.name} can't attack yet (cooldown: {Time.time - lastAttackTime:0.00}/{attackCooldown}s)");
         }
         else if (playerInRange && !shouldAttack)
         {
-            Debug.Log($"{gameObject.name} in range but attack input not detected (value: {actions.ContinuousActions[3]})");
+            Debug.Log($"{gameObject.name} in range but Attack branch not selected (branch:{branch})");
         }
         
         // Update animation states - FIXED: Ensure proper animation transitions
@@ -907,7 +914,7 @@ public class DebugDisplay
 
 public class RewardSystem
 {
-    private Agent agent;
+    public Agent agent;
     private NormalEnemyRewards rewardConfig;
 
     public RewardSystem(Agent agent, NormalEnemyRewards rewardConfig)
@@ -919,6 +926,11 @@ public class RewardSystem
     public void AddDetectionReward()
     {
         agent.AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
+    }
+
+    public void AddIdlePunishment()
+    {
+        agent.AddReward(rewardConfig.IdlePunishment * Time.deltaTime);
     }
 
     public void AddPatrolReward()
@@ -954,5 +966,15 @@ public class RewardSystem
     public void AddExtraAttackIncentive()
     {
         agent.AddReward(rewardConfig.AttackIncentive);
+    }
+
+    public void AddChaseStepReward()
+    {
+        agent.AddReward(rewardConfig.ChaseStepReward);
+    }
+
+    public void AddPatrolStepReward()
+    {
+        agent.AddReward(rewardConfig.PatrolStepReward);
     }
 }

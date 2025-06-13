@@ -186,6 +186,7 @@ MonoBehaviour:
   NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
+  AttackIncentive: 0.01
   AttackMissedPunishment: -0.1
 --- !u!1 &2756545049020899991
 GameObject:
@@ -2097,8 +2098,8 @@ MonoBehaviour:
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 4
-      BranchSizes: 
-    VectorActionSize: 04000000
+      BranchSizes: 04000000
+    VectorActionSize: 
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
