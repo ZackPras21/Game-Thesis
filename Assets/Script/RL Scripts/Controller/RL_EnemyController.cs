@@ -4,17 +4,21 @@ using UnityEngine;
 
 public class RL_EnemyController : MonoBehaviour
 {
-    [Header("Movement Configuration")]
-    [SerializeField] private float rotationSpeed = 5f;
-    [SerializeField] private float moveSpeed = 3f;
-    [SerializeField] private float waypointThreshold = 0.5f;
-    [SerializeField] private Transform[] waypoints;
-    [SerializeField] private LayerMask obstacleMask;
-
     [Header("Combat Configuration")]
     [SerializeField] public int enemyHP;
+    [SerializeField] public float attackDamage = 10f;
+    [SerializeField] public float attackRange = 2f;
+    [SerializeField] public float detectThreshold = 0.5f;
+    [SerializeField] public float fleeHealthThreshold = 0.2f;
     [SerializeField] private HealthBar healthBar;
     [SerializeField] private BoxCollider attackCollider;
+    
+    [Header("Movement Configuration")]
+    [SerializeField] public float rotationSpeed = 5f;
+    [SerializeField] public float moveSpeed = 3f;
+    [SerializeField] public float waypointThreshold = 0.5f;
+    [SerializeField] private Transform[] waypoints;
+    [SerializeField] private LayerMask obstacleMask;
 
     [Header("AI Behavior")]
     [SerializeField] private float startWaitTime = 4f;

@@ -1914,6 +1914,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  enemyHP: 100
+  attackDamage: 60
+  attackRange: 2
+  detectThreshold: 0.5
+  fleeHealthThreshold: 0.2
+  healthBar: {fileID: 1552570349913411215}
+  attackCollider: {fileID: 2364513733960898035}
   rotationSpeed: 5
   moveSpeed: 3
   waypointThreshold: 0.5
@@ -1921,9 +1928,6 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 640
-  enemyHP: 0
-  healthBar: {fileID: 1552570349913411215}
-  attackCollider: {fileID: 2364513733960898035}
   startWaitTime: 4
   timeToRotate: 2
   separationRadius: 2
@@ -2128,13 +2132,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
-  moveSpeed: 2.5
-  turnSpeed: 120
-  attackRange: 2
-  detectThreshold: 0.5
-  maxHealth: 100
-  attackDamage: 100
-  fleeHealthThreshold: 0.2
+  rl_EnemyController: {fileID: 3413073641965294540}
   healthBar: {fileID: 1552570349913411215}
   rewardConfig: {fileID: 3247270290517839601}
   animator: {fileID: 1525368558665590809}

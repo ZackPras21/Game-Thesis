@@ -10,25 +10,11 @@ using System.Collections;
 [RequireComponent(typeof(RayPerceptionSensorComponent3D))]
 public class NormalEnemyAgent : Agent
 {
-    [Header("Movement / Combat Parameters")]
-    public float moveSpeed = 3f;
-    public float turnSpeed = 120f;
-    public float attackRange = 2f;
-    public float detectThreshold = 0.5f;
-
-    [Header("Health / Damage")]
-    public float maxHealth = 100f;
-    public float attackDamage = 10f;
-    public float fleeHealthThreshold = 0.2f;
-
-    [Header("Health Bar")]
-    public HealthBar healthBar; 
-
-    [Header("Rewards Config")]
+    [Header("References")]
+    public RL_EnemyController rl_EnemyController;
+    public HealthBar healthBar;
     public NormalEnemyRewards rewardConfig;
     public NormalEnemyStates stateConfig;
-
-    [Header("References")]
     public Animator animator;
     public NavMeshAgent navAgent;
     public LayerMask obstacleMask;
@@ -51,7 +37,7 @@ public class NormalEnemyAgent : Agent
     private DebugDisplay debugDisplay;
     private RewardSystem rewardSystem;
 
-    private const float HEALTH_NORMALIZATION_FACTOR = 20f;
+    private const float HEALTH_NORMALIZATION_FACTOR = 100f;
     private int currentStepCount = 0;
     private Vector3 initialPosition;
     private bool isDead = false;
@@ -68,7 +54,7 @@ public class NormalEnemyAgent : Agent
         // Initialize health bar - FIX: Cast to int
         if (healthBar != null)
         {
-            healthBar.SetMaxHealth((int)maxHealth);
+            healthBar.SetMaxHealth((int)rl_EnemyController.enemyHP);
         }
     }
 
@@ -207,17 +193,17 @@ public class NormalEnemyAgent : Agent
 
     private void InitializeSystems()
     {
-        agentHealth = new AgentHealth(maxHealth);
+        agentHealth = new AgentHealth(rl_EnemyController.enemyHP);
         patrolSystem = new PatrolSystem(FindPatrolPoints());
-        agentMovement = new AgentMovement(navAgent, transform, moveSpeed, turnSpeed, attackRange);
+        agentMovement = new AgentMovement(navAgent, transform, rl_EnemyController.moveSpeed, rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange);
         debugDisplay = new DebugDisplay();
         rewardSystem = new RewardSystem(this, rewardConfig);
     }
 
     private void ConfigureNavMeshAgent()
     {
-        navAgent.speed = moveSpeed;
-        navAgent.angularSpeed = turnSpeed;
+        navAgent.speed = rl_EnemyController.moveSpeed;
+        navAgent.angularSpeed = rl_EnemyController.rotationSpeed;
         navAgent.stoppingDistance = 0.1f;
         navAgent.isStopped = false;
     }
@@ -305,8 +291,8 @@ public class NormalEnemyAgent : Agent
     private void AddVelocityObservations(VectorSensor sensor)
     {
         Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
-        sensor.AddObservation(localVelocity.x / moveSpeed);
-        sensor.AddObservation(localVelocity.z / moveSpeed);
+        sensor.AddObservation(localVelocity.x / rl_EnemyController.moveSpeed);
+        sensor.AddObservation(localVelocity.z / rl_EnemyController.moveSpeed);
     }
 
     private void ProcessMovementActions(ActionBuffers actions)
@@ -380,8 +366,8 @@ public class NormalEnemyAgent : Agent
                 
                 if (player != null)
                 {
-                    Debug.Log($"Dealing {attackDamage} damage to player");
-                    bool playerDied = player.DamagePlayer(attackDamage);
+                    Debug.Log($"Dealing {rl_EnemyController.attackDamage} damage to player");
+                    bool playerDied = player.DamagePlayer(rl_EnemyController.attackDamage);
 
                     if (playerDied)
                     {
@@ -432,11 +418,11 @@ public class NormalEnemyAgent : Agent
         // Adjust movement speed based on combat state
         if (playerInRange)
         {
-            navAgent.speed = moveSpeed * 0.3f;
+            navAgent.speed = rl_EnemyController.moveSpeed * 0.2f;
         }
         else
         {
-            navAgent.speed = moveSpeed;
+            navAgent.speed = rl_EnemyController.moveSpeed;
         }
     }
 
