@@ -123,7 +123,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0.00537}
-  m_LocalScale: {x: 1.9253, y: 2.0670505, z: 1.6481}
+  m_LocalScale: {x: 1.9253, y: 1.0449353, z: 1.6481}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -942,7 +942,6 @@ MonoBehaviour:
   KillPlayerReward: 1
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
-  FinishDetectReward: 0.5
   PatrolCompleteReward: 1
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
@@ -954,6 +953,7 @@ MonoBehaviour:
   NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
+  DoesntChasePlayerPunishment: -0.05
   AttackIncentive: 0.01
   AttackMissedPunishment: -0.1
 --- !u!1 &7554904805282469337
@@ -1885,7 +1885,6 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 648
-  patrolPointTag: Patrol Point
   showDebugInfo: 1
   debugTextOffset: {x: 10, y: 120}
   debugTextColor: {r: 1, g: 0.60103625, b: 0, a: 1}
