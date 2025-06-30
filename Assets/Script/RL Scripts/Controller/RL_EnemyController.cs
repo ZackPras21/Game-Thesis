@@ -349,10 +349,10 @@ public class RL_EnemyController : MonoBehaviour
 
     private Vector3 ApplyObstacleAvoidance(Vector3 direction)
     {
-        if (Physics.SphereCast(transform.position, 0.5f, direction, out RaycastHit hit, 2f, obstacleMask))
+        if (Physics.SphereCast(transform.position, 0.7f, direction, out RaycastHit hit, 2f, obstacleMask))
         {
             Vector3 avoidanceDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
-            return (direction + avoidanceDirection * 0.5f).normalized;
+            return (direction + avoidanceDirection * 0.7f).normalized;
         }
         return direction;
     }

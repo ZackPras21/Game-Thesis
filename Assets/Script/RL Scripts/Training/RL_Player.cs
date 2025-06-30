@@ -34,7 +34,6 @@ public class RL_Player : MonoBehaviour
     public RL_TrainingTargetSpawner spawner;
 
     private float currentHealth;
-    private bool canDash = true;
     private bool isInvincible = false;
     private bool isAlive = true;
     private Vector3 initialPosition;

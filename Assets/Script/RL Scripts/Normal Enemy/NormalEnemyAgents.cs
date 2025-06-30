@@ -21,7 +21,6 @@ public class NormalEnemyAgent : Agent
 
     [Header("Patrol Settings")]
     [Tooltip("Tag name for patrol points in the scene")]
-    public string patrolPointTag = "PatrolPoint";
 
     [Header("Debug Visualization")]
     public bool showDebugInfo = true;
@@ -43,6 +42,7 @@ public class NormalEnemyAgent : Agent
     private bool isDead = false;
     private string currentState = "Idle";
     private string currentAction = "Idle";
+    private float previousDistanceToPlayer = float.MaxValue;
 
     public override void Initialize()
     {
@@ -98,11 +98,47 @@ public class NormalEnemyAgent : Agent
         UpdateDetectionAndBehavior();
 
         if (currentAction == "Chasing")
+        {
             rewardSystem.AddChaseStepReward();
+            
+            // Add reward for approaching player
+            if (playerDetection.IsPlayerAvailable())
+            {
+                float currentDistance = playerDetection.GetDistanceToPlayer(transform.position);
+                if (currentDistance < previousDistanceToPlayer)
+                {
+                    rewardSystem.AddApproachPlayerReward();
+                }
+                previousDistanceToPlayer = currentDistance;
+            }
+        }
         else if (currentAction.StartsWith("Patrol"))
+        {
             rewardSystem.AddPatrolStepReward();
+            
+            // Add punishment for not moving when should be patrolling
+            if (navAgent.velocity.magnitude < 0.1f)
+            {
+                rewardSystem.AddNoMovementPunishment();
+            }
+        }
         else if (currentAction == "Idle")
+        {
             rewardSystem.AddIdlePunishment();
+        }
+        
+        // Add punishment for not chasing when player is visible
+        if (playerDetection.IsPlayerVisible && !currentAction.Contains("Chasing"))
+        {
+            rewardSystem.AddDoesntChasePlayerPunishment();
+        }
+        
+        // Add punishment for staying too far from player
+        if (playerDetection.IsPlayerAvailable() &&
+            playerDetection.GetDistanceToPlayer(transform.position) > 10f)
+        {
+            rewardSystem.AddStayFarFromPlayerPunishment();
+        }
 
         debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
         // Check if max steps reached
@@ -343,6 +379,13 @@ public class NormalEnemyAgent : Agent
         {
             lastAttackTime = Time.time;
             rewardSystem.AddAttackReward();
+            
+            // Add chase completion reward when transitioning to attack
+            if (currentAction == "Chasing")
+            {
+                rewardSystem.AddChasePlayerReward();
+            }
+            
             TriggerAttackAnimation();
             currentState = "Attacking";
             currentAction = "Attacking";
@@ -351,6 +394,7 @@ public class NormalEnemyAgent : Agent
             
             // Damage the player - FIXED: Better player detection and damage application
             var playerTransform = playerDetection.GetPlayerTransform();
+            bool hitPlayer = false;
             if (playerTransform != null)
             {
                 // Try different ways to find the player component
@@ -368,6 +412,7 @@ public class NormalEnemyAgent : Agent
                 {
                     Debug.Log($"Dealing {rl_EnemyController.attackDamage} damage to player");
                     bool playerDied = player.DamagePlayer(rl_EnemyController.attackDamage);
+                    hitPlayer = true;
 
                     if (playerDied)
                     {
@@ -381,6 +426,12 @@ public class NormalEnemyAgent : Agent
                 {
                     Debug.LogWarning($"Could not find RL_Player component on {playerTransform.name}");
                 }
+            }
+            
+            // Add punishment for missed attack
+            if (!hitPlayer)
+            {
+                rewardSystem.AddAttackMissedPunishment();
             }
         }
         else if (playerInRange)
@@ -909,58 +960,54 @@ public class RewardSystem
         this.rewardConfig = rewardConfig;
     }
 
-    public void AddDetectionReward()
-    {
+    public void AddDetectionReward() =>
         agent.AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
-    }
 
-    public void AddIdlePunishment()
-    {
+    public void AddIdlePunishment() =>
         agent.AddReward(rewardConfig.IdlePunishment * Time.deltaTime);
-    }
 
-    public void AddPatrolReward()
-    {
+    public void AddPatrolReward() =>
         agent.AddReward(rewardConfig.PatrolCompleteReward);
-    }
 
-    public void AddAttackReward()
-    {
+    public void AddAttackReward() =>
         agent.AddReward(rewardConfig.AttackPlayerReward);
-    }
 
-    public void AddKillPlayerReward()
-    {
+    public void AddKillPlayerReward() =>
         agent.AddReward(rewardConfig.KillPlayerReward);
-    }
 
-    public void AddObstaclePunishment()
-    {
+    public void AddObstaclePunishment() =>
         agent.AddReward(rewardConfig.ObstaclePunishment);
-    }
 
-    public void AddDeathPunishment()
-    {
+    public void AddDeathPunishment() =>
         agent.AddReward(rewardConfig.DiedByPlayerPunishment);
-    }
 
-    public void AddDamagePunishment()
-    {
+    public void AddDamagePunishment() =>
         agent.AddReward(rewardConfig.HitByPlayerPunishment);
-    }
     
-    public void AddExtraAttackIncentive()
-    {
+    public void AddExtraAttackIncentive() =>
         agent.AddReward(rewardConfig.AttackIncentive);
-    }
+        
+    public void AddNoMovementPunishment() =>
+        agent.AddReward(rewardConfig.NoMovementPunishment);
+        
+    public void AddApproachPlayerReward() =>
+        agent.AddReward(rewardConfig.ApproachPlayerReward);
+        
+    public void AddStayFarFromPlayerPunishment() =>
+        agent.AddReward(rewardConfig.StayFarFromPlayerPunishment);
+        
+    public void AddDoesntChasePlayerPunishment() =>
+        agent.AddReward(rewardConfig.DoesntChasePlayerPunishment);
+        
+    public void AddAttackMissedPunishment() =>
+        agent.AddReward(rewardConfig.AttackMissedPunishment);
 
-    public void AddChaseStepReward()
-    {
+    public void AddChasePlayerReward() =>
+        agent.AddReward(rewardConfig.ChasePlayerReward);
+        
+    public void AddChaseStepReward() =>
         agent.AddReward(rewardConfig.ChaseStepReward);
-    }
 
-    public void AddPatrolStepReward()
-    {
+    public void AddPatrolStepReward() =>
         agent.AddReward(rewardConfig.PatrolStepReward);
-    }
 }
