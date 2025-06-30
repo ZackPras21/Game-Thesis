@@ -610,6 +610,20 @@ public class NormalEnemyAgent : Agent
             animator.SetBool("isDead", true);
         }
     }
+
+    private const float STUCK_POSITION_THRESHOLD = 0.01f;
+    private const int STUCK_STEP_LIMIT = 50;
+    private const float STUCK_TIME_LIMIT = 2f;
+
+    public bool IsStuckBySteps(float positionDelta, int stepsSinceLastMove)
+    {
+        return positionDelta < STUCK_POSITION_THRESHOLD && stepsSinceLastMove > STUCK_STEP_LIMIT;
+    }
+
+    public bool IsStuckByTime(float positionDelta, float timeSinceLastMove)
+    {
+        return positionDelta < STUCK_POSITION_THRESHOLD && timeSinceLastMove > STUCK_TIME_LIMIT;
+    }
 }
 
 // Helper classes with fixes

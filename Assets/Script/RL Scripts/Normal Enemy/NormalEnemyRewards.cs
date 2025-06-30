@@ -24,19 +24,5 @@ public class NormalEnemyRewards : MonoBehaviour
     public float DoesntChasePlayerPunishment = -0.05f;
     public float AttackIncentive = -0.01f;
     public float AttackMissedPunishment = -0.1f;
-
-    private const float STUCK_POSITION_THRESHOLD = 0.01f;
-    private const int STUCK_STEP_LIMIT = 50;
-    private const float STUCK_TIME_LIMIT = 2f;
-
-    private bool IsStuckBySteps(float positionDelta, int stepsSinceLastMove)
-    {
-        return positionDelta < STUCK_POSITION_THRESHOLD && stepsSinceLastMove > STUCK_STEP_LIMIT;
-    }
-
-    private bool IsStuckByTime(float positionDelta, float timeSinceLastMove)
-    {
-        return positionDelta < STUCK_POSITION_THRESHOLD && timeSinceLastMove > STUCK_TIME_LIMIT;
-    }
 }
 
