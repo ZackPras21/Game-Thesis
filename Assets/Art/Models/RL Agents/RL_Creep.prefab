@@ -174,7 +174,6 @@ MonoBehaviour:
   KillPlayerReward: 1
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
-  FinishDetectReward: 0.5
   PatrolCompleteReward: 1
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
@@ -186,6 +185,7 @@ MonoBehaviour:
   NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
+  DoesntChasePlayerPunishment: -0.05
   AttackIncentive: 0.01
   AttackMissedPunishment: -0.1
 --- !u!1 &2756545049020899991
@@ -2140,7 +2140,6 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 648
-  patrolPointTag: Patrol Point
   showDebugInfo: 1
   debugTextOffset: {x: 10, y: 10}
   debugTextColor: {r: 0.79622644, g: 0, b: 0.740533, a: 1}

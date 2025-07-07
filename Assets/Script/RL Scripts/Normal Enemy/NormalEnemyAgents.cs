@@ -32,6 +32,8 @@ public class NormalEnemyAgent : Agent
     private AgentMovement agentMovement;
     private DebugDisplay debugDisplay;
     private RewardSystem rewardSystem;
+    private AnimationClip attackAnimation;
+    private float dynamicAttackCooldown = 0.5f;
 
     private const float HEALTH_NORMALIZATION_FACTOR = 100f;
     private const float ATTACK_COOLDOWN = 0.5f;
@@ -189,6 +191,7 @@ public class NormalEnemyAgent : Agent
         isDead = false;
         currentState = "Idle";
         currentAction = "Idle";
+        lastAttackTime = Time.fixedTime - dynamicAttackCooldown; // Reset cooldown on new episode
         
         // Reset patrol loop counter at start of new episode
         if (patrolSystem != null)
@@ -260,7 +263,7 @@ public class NormalEnemyAgent : Agent
     {
         bool shouldAttack = actions.DiscreteActions[0] == (int)EnemyHighLevelAction.Attack;
         bool playerInRange = IsPlayerInAttackRange();
-        bool canAttack = Time.time - lastAttackTime >= ATTACK_COOLDOWN;
+        bool canAttack = Time.fixedTime - lastAttackTime >= dynamicAttackCooldown;
         
         if (playerInRange)
             agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
@@ -276,7 +279,18 @@ public class NormalEnemyAgent : Agent
 
     private void ExecuteAttack()
     {
-        lastAttackTime = Time.time;
+        // Get attack animation length if available
+        if (animator != null && attackAnimation == null)
+        {
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            if (stateInfo.IsName("Attack"))
+            {
+                attackAnimation = animator.GetCurrentAnimatorClipInfo(0)[0].clip;
+                dynamicAttackCooldown = attackAnimation.length;
+            }
+        }
+
+        lastAttackTime = Time.fixedTime; // Use fixedTime for training stability
         rewardSystem.AddAttackReward();
         
         if (currentAction == "Chasing")
@@ -339,54 +353,54 @@ public class NormalEnemyAgent : Agent
     private void UpdateBehaviorAndRewards()
     {
         UpdateDetectionAndBehavior();
-        ProcessRewards();
+        ProcessRewards(Time.deltaTime);
         debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
     }
 
-    private void ProcessRewards()
+    private void ProcessRewards(float deltaTime)
     {
         if (currentAction == "Chasing")
         {
-            rewardSystem.AddChaseStepReward();
-            ProcessChaseRewards();
+            rewardSystem.AddChaseStepReward(deltaTime);
+            ProcessChaseRewards(deltaTime);
         }
         else if (currentAction.StartsWith("Patrol"))
         {
-            rewardSystem.AddPatrolStepReward();
+            rewardSystem.AddPatrolStepReward(deltaTime);
             if (navAgent.velocity.magnitude < 0.1f)
-                rewardSystem.AddNoMovementPunishment();
+                rewardSystem.AddNoMovementPunishment(deltaTime);
         }
         else if (currentAction == "Idle")
         {
-            rewardSystem.AddIdlePunishment();
+            rewardSystem.AddIdlePunishment(deltaTime);
         }
         
-        ProcessPlayerVisibilityRewards();
-        ProcessDistanceRewards();
+        ProcessPlayerVisibilityRewards(deltaTime);
+        ProcessDistanceRewards(deltaTime);
     }
 
-    private void ProcessChaseRewards()
+    private void ProcessChaseRewards(float deltaTime)
     {
         if (playerDetection.IsPlayerAvailable())
         {
             float currentDistance = playerDetection.GetDistanceToPlayer(transform.position);
             if (currentDistance < previousDistanceToPlayer)
-                rewardSystem.AddApproachPlayerReward();
+                rewardSystem.AddApproachPlayerReward(deltaTime);
             previousDistanceToPlayer = currentDistance;
         }
     }
 
-    private void ProcessPlayerVisibilityRewards()
+    private void ProcessPlayerVisibilityRewards(float deltaTime)
     {
         if (playerDetection.IsPlayerVisible && !currentAction.Contains("Chasing"))
-            rewardSystem.AddDoesntChasePlayerPunishment();
+            rewardSystem.AddDoesntChasePlayerPunishment(deltaTime);
     }
 
-    private void ProcessDistanceRewards()
+    private void ProcessDistanceRewards(float deltaTime)
     {
-        if (playerDetection.IsPlayerAvailable() && 
+        if (playerDetection.IsPlayerAvailable() &&
             playerDetection.GetDistanceToPlayer(transform.position) > 10f)
-            rewardSystem.AddStayFarFromPlayerPunishment();
+            rewardSystem.AddStayFarFromPlayerPunishment(deltaTime);
     }
 
     private void UpdateDetectionAndBehavior()
@@ -452,7 +466,15 @@ public class NormalEnemyAgent : Agent
     
     private IEnumerator ResetAttackState()
     {
-        yield return new WaitForSeconds(0.5f);
+        if (attackAnimation != null)
+        {
+            yield return new WaitForSeconds(attackAnimation.length);
+        }
+        else
+        {
+            Debug.LogWarning("Using fallback attack cooldown");
+            yield return new WaitForSeconds(0.5f);
+        }
         
         if (HasAnimatorParameter("isAttacking"))
             animator.SetBool("isAttacking", false);
@@ -547,24 +569,44 @@ public class PlayerDetection
     {
         isPlayerVisible = false;
         
-        if (!IsPlayerAvailable()) 
+        if (!IsPlayerAvailable() || !playerTransform.gameObject.activeInHierarchy)
         {
             FindPlayerTransform();
-            return;
+            if (!IsPlayerAvailable())
+            {
+                return;
+            }
         }
 
-        float distanceToPlayer = GetDistanceToPlayer(agentPosition);
-        
-        if (distanceToPlayer <= raySensor.RayLength)
+        try
         {
-            CheckRayPerceptionVisibility();
-            if (isPlayerVisible)
-                VerifyLineOfSight(agentPosition, distanceToPlayer);
+            float distanceToPlayer = GetDistanceToPlayer(agentPosition);
+            
+            if (distanceToPlayer <= raySensor.RayLength)
+            {
+                CheckRayPerceptionVisibility();
+                if (isPlayerVisible)
+                    VerifyLineOfSight(agentPosition, distanceToPlayer);
+            }
+        }
+        catch (MissingReferenceException)
+        {
+            // Player object was destroyed, initiate recovery
+            playerTransform = null;
+            FindPlayerTransform();
         }
     }
 
+    private float lastCheckTime;
+    private float retryInterval = 5f;
+    private int maxRetries = 3;
+    private int currentRetries;
+
     private void FindPlayerTransform()
     {
+        if (Time.time - lastCheckTime < retryInterval && currentRetries >= maxRetries)
+            return;
+
         var methods = new System.Func<Transform>[]
         {
             () => GameObject.FindGameObjectWithTag("Player")?.transform,
@@ -573,13 +615,24 @@ public class PlayerDetection
             () => Object.FindObjectsByType<RL_Player>(FindObjectsSortMode.None).FirstOrDefault()?.transform
         };
 
+        currentRetries = 0;
         foreach (var method in methods)
         {
             playerTransform = method();
-            if (playerTransform != null) return;
+            if (playerTransform != null)
+            {
+                currentRetries = 0;
+                lastCheckTime = Time.time;
+                return;
+            }
+            currentRetries++;
         }
         
-        Debug.LogWarning("Player not found!");
+        if (currentRetries >= maxRetries)
+        {
+            Debug.LogError($"Failed to find player after {maxRetries} attempts. Retrying in {retryInterval} seconds.");
+            lastCheckTime = Time.time;
+        }
     }
 
     private void CheckRayPerceptionVisibility()
@@ -784,19 +837,20 @@ public class RewardSystem
     }
 
     public void AddDetectionReward() => agent.AddReward(rewardConfig.DetectPlayerReward * Time.deltaTime);
-    public void AddIdlePunishment() => agent.AddReward(rewardConfig.IdlePunishment * Time.deltaTime);
+    public void AddIdlePunishment(float deltaTime) => agent.AddReward(rewardConfig.IdlePunishment * deltaTime);
     public void AddPatrolReward() => agent.AddReward(rewardConfig.PatrolCompleteReward);
     public void AddAttackReward() => agent.AddReward(rewardConfig.AttackPlayerReward);
     public void AddKillPlayerReward() => agent.AddReward(rewardConfig.KillPlayerReward);
     public void AddObstaclePunishment() => agent.AddReward(rewardConfig.ObstaclePunishment);
     public void AddDeathPunishment() => agent.AddReward(rewardConfig.DiedByPlayerPunishment);
     public void AddDamagePunishment() => agent.AddReward(rewardConfig.HitByPlayerPunishment);
-    public void AddNoMovementPunishment() => agent.AddReward(rewardConfig.NoMovementPunishment);
-    public void AddApproachPlayerReward() => agent.AddReward(rewardConfig.ApproachPlayerReward);
-    public void AddStayFarFromPlayerPunishment() => agent.AddReward(rewardConfig.StayFarFromPlayerPunishment);
-    public void AddDoesntChasePlayerPunishment() => agent.AddReward(rewardConfig.DoesntChasePlayerPunishment);
+    public void AddNoMovementPunishment(float deltaTime) => agent.AddReward(rewardConfig.NoMovementPunishment * deltaTime);
+    public void AddApproachPlayerReward(float deltaTime) => agent.AddReward(rewardConfig.ApproachPlayerReward * deltaTime);
+    public void AddStayFarFromPlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.StayFarFromPlayerPunishment * deltaTime);
+    public void AddDoesntChasePlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.DoesntChasePlayerPunishment * deltaTime);
     public void AddAttackMissedPunishment() => agent.AddReward(rewardConfig.AttackMissedPunishment);
     public void AddChasePlayerReward() => agent.AddReward(rewardConfig.ChasePlayerReward);
-    public void AddChaseStepReward() => agent.AddReward(rewardConfig.ChaseStepReward);
-    public void AddPatrolStepReward() => agent.AddReward(rewardConfig.PatrolStepReward);
+    public void AddChaseStepReward(float deltaTime) => agent.AddReward(rewardConfig.ChaseStepReward * deltaTime);
+    public void AddPatrolStepReward(float deltaTime) => agent.AddReward(rewardConfig.PatrolStepReward * deltaTime);
+    public void AddAttackIncentive(float deltaTime) => agent.AddReward(rewardConfig.AttackIncentive * deltaTime);
 }
