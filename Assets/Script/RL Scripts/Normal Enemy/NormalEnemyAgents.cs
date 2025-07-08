@@ -57,7 +57,7 @@ public class NormalEnemyAgent : Agent
         ResetAgentState();
         
         if (healthBar != null)
-            healthBar.SetMaxHealth((int)rl_EnemyController.enemyHP);
+            healthBar.SetHealth((int)rl_EnemyController.enemyHP);
     }
 
     public override void OnEpisodeBegin()
@@ -125,7 +125,7 @@ public class NormalEnemyAgent : Agent
             healthBar.SetHealth((int)agentHealth.CurrentHealth);
             
         if (agentHealth.IsDead)
-            HandleDeath();
+            HandleEnemyDeath();
         else
             HandleDamage();
     }
@@ -334,13 +334,32 @@ public class NormalEnemyAgent : Agent
 
     private void UpdateAnimationStates(bool playerInRange, bool canAttack)
     {
-        if (animator == null) return;
-        
-        if (HasAnimatorParameter("isAttacking"))
-            animator.SetBool("isAttacking", playerInRange && canAttack);
-            
-        if (HasAnimatorParameter("isWalking"))
-            animator.SetBool("isWalking", !playerInRange && navAgent.velocity.magnitude > 0.1f);
+        if (animator == null || isDead || rl_EnemyController == null) return;
+
+        bool isMoving = navAgent.velocity.magnitude > 0.1f &&
+                      rl_EnemyController != null &&
+                      !rl_EnemyController.combatState.IsAttacking;
+        bool shouldAttack = playerInRange && canAttack;
+
+        animator.SetBool("isWalking", isMoving);
+        animator.SetBool("isAttacking", shouldAttack);
+        animator.SetBool("isIdle", !isMoving && !shouldAttack);
+
+        // Sync animation speed with movement
+        if (animator.GetBool("isWalking"))
+        {
+            animator.speed = Mathf.Clamp(navAgent.velocity.magnitude / rl_EnemyController.moveSpeed, 0.5f, 1.5f);
+        }
+        else
+        {
+            animator.speed = 1f;
+        }
+
+        // Force attack animation completion before state change
+        if (shouldAttack && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        {
+            animator.Play("Attack", 0, 0f);
+        }
     }
 
     private void AdjustMovementSpeed(bool playerInRange)
@@ -500,7 +519,7 @@ public class NormalEnemyAgent : Agent
         return animator.parameters.Any(param => param.name == parameterName);
     }
 
-    private void HandleDeath()
+    public void HandleEnemyDeath()
     {
         isDead = true;
         TriggerDeathAnimation();
@@ -525,7 +544,7 @@ public class NormalEnemyAgent : Agent
     }
 }
 
-// Helper Classes
+
 public class AgentHealth
 {
     private readonly float maxHealth;
@@ -626,12 +645,6 @@ public class PlayerDetection
                 return;
             }
             currentRetries++;
-        }
-        
-        if (currentRetries >= maxRetries)
-        {
-            Debug.LogError($"Failed to find player after {maxRetries} attempts. Retrying in {retryInterval} seconds.");
-            lastCheckTime = Time.time;
         }
     }
 

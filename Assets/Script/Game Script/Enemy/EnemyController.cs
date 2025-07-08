@@ -177,7 +177,7 @@ public class EnemyController : MonoBehaviour
         enemyHP = enemyData.enemyHealth;
         if (healthBar != null)
         {
-            healthBar.SetMaxHealth(enemyHP);
+            healthBar.SetHealth(enemyHP);
         }
     }
 

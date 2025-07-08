@@ -37,7 +37,7 @@ public class RL_EnemyController : MonoBehaviour
     // State tracking
     private PlayerTrackingState playerTracking;
     private WaypointNavigationState waypointNavigation;
-    private CombatState combatState;
+    public CombatState combatState;
     private HealthState healthState;
 
     // Component references
@@ -138,7 +138,7 @@ public class RL_EnemyController : MonoBehaviour
     {
         if (healthBar != null)
         {
-            healthBar.SetMaxHealth(enemyHP);
+            healthBar.SetHealth(enemyHP);
         }
     }
 
@@ -201,6 +201,10 @@ public class RL_EnemyController : MonoBehaviour
                 StartCoroutine(ExecuteAttackSequence());
             }
         }
+        else if (!combatState.IsAttacking)
+        {
+            SetAnimationState(idle: true, walking: false, attacking: false);
+        }
     }
 
     private void HandlePlayerEnterCombat()
@@ -217,13 +221,21 @@ public class RL_EnemyController : MonoBehaviour
     private IEnumerator ExecuteAttackSequence()
     {
         combatState.SetCanAttack(false);
+        combatState.SetAttacking(true);
+        
+        // Enable attack collider during attack animation
+        if (attackCollider != null) attackCollider.enabled = true;
         
         SetAnimationState(attacking: true, idle: false, walking: false);
         yield return new WaitForSeconds(ATTACK_DURATION);
         
+        // Disable attack collider after attack
+        if (attackCollider != null) attackCollider.enabled = false;
+        
         SetAnimationState(attacking: false, idle: true);
         yield return new WaitForSeconds(ATTACK_COOLDOWN);
         
+        combatState.SetAttacking(false);
         combatState.SetCanAttack(true);
     }
 
@@ -260,7 +272,7 @@ public class RL_EnemyController : MonoBehaviour
 
     public void TakeDamage(int damageAmount)
     {
-        enemyHP -= damageAmount;
+        enemyHP = Mathf.Max(enemyHP - damageAmount, 0);
         UpdateHealthBar();
 
         if (enemyHP > 0)
@@ -429,7 +441,7 @@ public class RL_EnemyController : MonoBehaviour
     private void HandleDeath()
     {
         healthState.SetDead(true);
-        SetAnimationState(dead: true);
+        SetAnimationState(dead: true, idle: false, walking: false, attacking: false);
         
         PlayDeathSound();
         DisableCollider();
@@ -437,7 +449,16 @@ public class RL_EnemyController : MonoBehaviour
         NotifyGameProgression();
         SpawnLoot();
         
-        Destroy(gameObject, DESTROY_DELAY);
+        // Notify agent system instead of destroying immediately
+        NormalEnemyAgent agent = GetComponent<NormalEnemyAgent>();
+        if (agent != null)
+        {
+            agent.HandleEnemyDeath();
+        }
+        else
+        {
+            Destroy(gameObject, DESTROY_DELAY);
+        }
     }
 
     private void DisableCollider()
