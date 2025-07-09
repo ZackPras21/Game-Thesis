@@ -279,7 +279,7 @@ public class EnemyController : MonoBehaviour
         {
             navMeshAgent.isStopped = false;
             navMeshAgent.speed = speed;
-            animator.SetBool("IsWalking", true);
+            animator.SetBool("isWalking", true);
         }
         else
         {
@@ -492,7 +492,7 @@ public class EnemyController : MonoBehaviour
 
     private void GetHit()
     {
-        animator.SetTrigger("GetHit");
+        animator.SetTrigger("getHit");
         if (AudioManager.instance != null)
         {
             AudioManager.instance.PlayEnemyGetHitSound(enemyType);
@@ -501,7 +501,7 @@ public class EnemyController : MonoBehaviour
 
     private void Die()
     {
-        animator.SetTrigger("Die");
+        animator.SetTrigger("isDead");
         if (AudioManager.instance != null)
         {
             AudioManager.instance.PlayEnemyDieSound(enemyType);
@@ -526,11 +526,11 @@ public class EnemyController : MonoBehaviour
     IEnumerator Attack()
     {
         canAttack = false;
-        animator.SetBool("IsAttacking", true);
+        animator.SetBool("isAttacking", true);
         StartCoroutine(StopNavMeshAgent());
         yield return new WaitForSeconds(1);
-        animator.SetBool("IsAttacking", false);
-        animator.SetBool("IsWalking", false);
+        animator.SetBool("isAttacking", false);
+        animator.SetBool("isWalking", false);
         yield return new WaitForSeconds(2);
         canAttack = true;
     }
@@ -575,7 +575,7 @@ public class EnemyController : MonoBehaviour
         if (navMeshAgent != null && navMeshAgent.isOnNavMesh)
         {
             navMeshAgent.isStopped = true;
-            animator.SetBool("IsWalking", false);
+            animator.SetBool("isWalking", false);
             nonBossEnemyState = NonBossEnemyState.Idle;
 
             yield return new WaitForSeconds(startWaitTime);
@@ -584,7 +584,7 @@ public class EnemyController : MonoBehaviour
             {
                 navMeshAgent.isStopped = false;
                 navMeshAgent.SetDestination(navMeshAgent.destination); // Resume navigation
-                animator.SetBool("IsWalking", true);
+                animator.SetBool("isWalking", true);
             }
             else
             {

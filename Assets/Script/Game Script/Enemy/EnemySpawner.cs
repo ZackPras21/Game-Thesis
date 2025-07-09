@@ -29,7 +29,7 @@ public class EnemySpawner : MonoBehaviour
             {
                 AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);
                 StartCoroutine(SpawnEnemy());
-                //Gate.GetComponent<GateInteraction>().CloseGate();
+                Gate.GetComponent<GateInteraction>().CloseGate();
                 spawnTriggered = true;
             }
         }
@@ -79,8 +79,7 @@ public class EnemySpawner : MonoBehaviour
     {
         if (corner1 == null || corner2 == null)
         {
-            // Debug.Log("One or both corners are not assigned.");
-            return Vector3.zero; // Or any default position you want to return in case of error.
+            return Vector3.zero; 
         }
         
         Vector3 minCorner = Vector3.Min(corner1.transform.position, corner2.transform.position);

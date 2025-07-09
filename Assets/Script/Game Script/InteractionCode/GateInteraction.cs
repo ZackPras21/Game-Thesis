@@ -13,7 +13,6 @@ public class GateInteraction : MonoBehaviour
         Instantiate(particleSystemGate, Gate.transform.position, Gate.transform.rotation, gameObject.transform);
         StartCoroutine(OpeningGate());
     }
-
     public void CloseGate()
     {
         StartCoroutine(ClosingGate());

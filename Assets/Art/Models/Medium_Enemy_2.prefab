@@ -273,6 +273,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyController: {fileID: 5796220708778874526}
+  RLenemyController: {fileID: 0}
 --- !u!54 &6311763275518985102
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -404,6 +405,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 8722743365875739573}
   fill: {fileID: 3114293093881987199}
+  smoothing: 5
 --- !u!1 &7987005776217593674
 GameObject:
   m_ObjectHideFlags: 0
@@ -1133,7 +1135,7 @@ MonoBehaviour:
     m_Bits: 64
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 640
   meshResolution: 1
   edgeInterations: 4
   edgeDistance: 0.5
@@ -1142,6 +1144,10 @@ MonoBehaviour:
   boxCollider: {fileID: -6663227510801783396}
   startWaitTime: 12
   timeToRotate: 4
+  m_PlayerInRange: 0
+  m_PlayerNear: 0
+  m_IsPatrol: 0
+  m_IsAttacking: 0
   nonBossEnemyState: 3
   animator: {fileID: 208499107586539375}
   lootManager: {fileID: 8553900194276483005}
@@ -1170,7 +1176,7 @@ MonoBehaviour:
   spawnInterval: 3
 --- !u!95 &208499107586539375
 Animator:
-  serializedVersion: 5
+  serializedVersion: 7
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1184,6 +1190,7 @@ Animator:
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
@@ -1215,7 +1222,7 @@ Rigidbody:
   m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 4
-  m_CollisionDetection: 0
+  m_CollisionDetection: 2
 --- !u!65 &-6663227510801783396
 BoxCollider:
   m_ObjectHideFlags: 0

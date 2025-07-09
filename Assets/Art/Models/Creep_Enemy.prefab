@@ -68,6 +68,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyController: {fileID: 1468944394863766001}
+  RLenemyController: {fileID: 0}
 --- !u!54 &7384286213365376556
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -274,6 +275,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 957302136853637217}
   fill: {fileID: 5305560314064108225}
+  smoothing: 5
 --- !u!1 &3682030217555669676
 GameObject:
   m_ObjectHideFlags: 0
@@ -1467,7 +1469,7 @@ MonoBehaviour:
     m_Bits: 64
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 640
   meshResolution: 1
   edgeInterations: 4
   edgeDistance: 0.5
@@ -1476,6 +1478,10 @@ MonoBehaviour:
   boxCollider: {fileID: 2364513733960898035}
   startWaitTime: 4
   timeToRotate: 2
+  m_PlayerInRange: 0
+  m_PlayerNear: 0
+  m_IsPatrol: 0
+  m_IsAttacking: 0
   nonBossEnemyState: 3
   animator: {fileID: 1525368558665590809}
   lootManager: {fileID: 6967424327214272843}
@@ -1528,7 +1534,7 @@ Rigidbody:
   m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 4
-  m_CollisionDetection: 0
+  m_CollisionDetection: 2
 --- !u!65 &1255941309751475032
 BoxCollider:
   m_ObjectHideFlags: 0
