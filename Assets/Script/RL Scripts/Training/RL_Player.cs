@@ -138,14 +138,14 @@ public class RL_Player : MonoBehaviour
 
     private void ApplyDamage(float damageAmount)
     {
-        currentHealth -= damageAmount;
+        currentHealth = Mathf.Clamp(currentHealth - damageAmount, 0f, maxHealth);
     }
 
     private void UpdateHealthBar()
     {
         if (healthBarSlider != null)
         {
-            healthBarSlider.value = Mathf.Max(currentHealth, 0f);
+            healthBarSlider.value = currentHealth;
         }
     }
 
@@ -292,7 +292,7 @@ public class RL_Player : MonoBehaviour
         if (directionToTarget.sqrMagnitude > 0.001f)
         {
             Quaternion lookRotation = Quaternion.LookRotation(directionToTarget);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * turnSpeed);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRotation, turnSpeed * 100 * Time.deltaTime);
         }
     }
 
@@ -300,7 +300,9 @@ public class RL_Player : MonoBehaviour
     {
         if (animator != null)
         {
-            animator.SetBool("AttackTrigger", true);
+            // Trigger attack animation with proper timing
+            animator.SetTrigger("AttackTrigger");
+            StartCoroutine(ResetAttackTriggerAfterFrame());
         }
     }
 
@@ -323,6 +325,12 @@ public class RL_Player : MonoBehaviour
         {
             enemyController.TakeDamage((int)attackDamage);
         }
+    }
+
+    private IEnumerator ResetAttackTriggerAfterFrame()
+    {
+        yield return null;
+        animator.ResetTrigger("AttackTrigger");
     }
 
     private IEnumerator InvincibilityRoutine()
@@ -367,8 +375,9 @@ public class RL_Player : MonoBehaviour
     {
         if (healthBarSlider != null)
         {
+            healthBarSlider.minValue = 0;
             healthBarSlider.maxValue = maxHealth;
-            healthBarSlider.value = currentHealth;
+            healthBarSlider.value = maxHealth;
         }
     }
 

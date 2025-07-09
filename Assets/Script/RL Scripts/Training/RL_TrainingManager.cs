@@ -14,6 +14,7 @@ public class RL_TrainingManager : MonoBehaviour
     private RL_TrainingTargetSpawner[] targetSpawners;
     private List<NormalEnemyAgent> allAgents;
     private bool isResetting = false;
+    private int activeEnemiesCount = 0;
 
     private void Awake()
     {
@@ -133,15 +134,26 @@ public class RL_TrainingManager : MonoBehaviour
         isResetting = true;
         LogEpisodeStart();
 
-        ConfigureAllTargetSpawners();
-        ResetAllTargetSpawners();
-        
-        yield return new WaitForSeconds(episodeResetDelay);
-        
-        ResetEnemySpawner();
-        yield return new WaitForSeconds(1f);
-        
+        // Refresh agent list to get current state
         RefreshAgentList();
+        
+        // Check if all agents are dead
+        bool allDead = allAgents.Count == 0 || allAgents.TrueForAll(agent => agent.IsDead);
+        
+        if (allDead)
+        {
+            // Only reset targets and enemies when all agents are dead
+            ConfigureAllTargetSpawners();
+            ResetAllTargetSpawners();
+            yield return new WaitForSeconds(episodeResetDelay);
+            ResetEnemySpawner();
+            yield return new WaitForSeconds(1f);
+            
+            // Refresh again after respawning
+            RefreshAgentList();
+        }
+        
+        // Reset living agents (or new ones after respawn)
         ResetAllAgents();
         
         LogEpisodeComplete();
@@ -152,16 +164,25 @@ public class RL_TrainingManager : MonoBehaviour
     {
         LogArenaReset(arenaIndex);
 
-        ConfigureSpecificTargetSpawner(arenaIndex);
-        ResetSpecificTargetSpawner(arenaIndex);
-        RespawnEnemiesInArena(arenaIndex);
-        
-        yield return new WaitForSeconds(0.5f);
-        
+        // Only reset arena if all enemies are dead
         RefreshAgentList();
-        ResetAgentsInArena(arenaIndex);
+        if (activeEnemiesCount <= 0)
+        {
+            ConfigureSpecificTargetSpawner(arenaIndex);
+            ResetSpecificTargetSpawner(arenaIndex);
+            RespawnEnemiesInArena(arenaIndex);
+            
+            yield return new WaitForSeconds(0.5f);
+            
+            RefreshAgentList();
+            ResetAgentsInArena(arenaIndex);
+        }
+        else if (debugTraining)
+        {
+            Debug.Log($"Skipping arena {arenaIndex} reset - Not all enemies are dead");
+        }
     }
-
+    
     #endregion
 
     #region Target Spawner Management
@@ -265,6 +286,7 @@ public class RL_TrainingManager : MonoBehaviour
     private void RefreshAgentList()
     {
         allAgents.Clear();
+        activeEnemiesCount = 0;
         
         NormalEnemyAgent[] foundAgents = FindObjectsByType<NormalEnemyAgent>(FindObjectsSortMode.None);
         
@@ -273,10 +295,23 @@ public class RL_TrainingManager : MonoBehaviour
             if (IsValidActiveAgent(agent))
             {
                 allAgents.Add(agent);
+                if (agent.gameObject.activeInHierarchy)
+                {
+                    activeEnemiesCount++;
+                }
             }
         }
         
         LogAgentRefresh();
+    }
+
+    public void HandleEnemyDeath()
+    {
+        activeEnemiesCount--;
+        if (activeEnemiesCount <= 0)
+        {
+            StartCoroutine(ResetEpisodeCoroutine());
+        }
     }
 
     private bool IsValidActiveAgent(NormalEnemyAgent agent)
