@@ -9,7 +9,7 @@ public class BoxHealth : MonoBehaviour
     private bool lootManagerSudahMuncul = false;
     private AudioManager audioManager;
 
-    public int hp = 5;
+    public int hp = 3;
 
     private void Start()
     {

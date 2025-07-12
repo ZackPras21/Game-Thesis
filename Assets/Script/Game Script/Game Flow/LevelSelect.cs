@@ -18,9 +18,12 @@ public class LevelSelect : MonoBehaviour
             // Debug.LogError("Please assign all UI components in the inspector.");
             return;
         }
-        if(GameManager.Instance.LoadGear() == 0){
+        if (GameManager.Instance.LoadGear() == 0)
+        {
             UpgradeButton.gameObject.SetActive(false);
-        } else {
+        }
+        else
+        {
             UpgradeButton.gameObject.SetActive(true);
         }
         // Periksa dan update interaktifitas tombol upgrade saat memulai
@@ -47,6 +50,13 @@ public class LevelSelect : MonoBehaviour
         StartCoroutine(LoadGameTransition());
     }
 
+    public void LoadReinforcementLearningGame()
+    {
+        // Load scene dengan nama "RL"
+        SceneNavigationManager.Instance.NextScene = "Test Reinforcement Learning";
+        StartCoroutine(LoadGameTransition());
+    }
+
     public void OnUpgrade()
     {
         // Aktifkan UpgradeCharacter dan nonaktifkan LevelSelectPanel
@@ -62,8 +72,9 @@ public class LevelSelect : MonoBehaviour
             img.color = new Color(img.color.r, img.color.g, img.color.b, Mathf.Lerp(img.color.a, 1, Time.deltaTime * 5f));
             yield return null;
         }
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.3f);
         SceneManager.LoadScene("Loading");
         yield return null;
     }
+    
 }

@@ -29,5 +29,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Level/Scenes/Game Stage/NewLevelOne.unity
     guid: 6bd4797f50ffd4244bc25bcf20056405
+  - enabled: 1
+    path: Assets/Level/Scenes/Game Stage/Test Reinforcement Learning.unity
+    guid: 5f813bd903b708f4185364bad992aa70
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

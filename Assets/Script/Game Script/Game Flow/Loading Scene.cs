@@ -23,7 +23,4 @@ public class LoadingScene : MonoBehaviour
         masukanLoadingbar.GetComponent<Image>().fillAmount = nilaiSekarang / 100;
 
     }
-
-
-
 }

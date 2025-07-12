@@ -21,12 +21,6 @@ public class EnemyController : MonoBehaviour
     float m_TimeToRotate;
     public float patrolRadius = 5f;
 
-    // Public accessors for RL state
-    public Vector3 PlayerLastPosition => playerLastPosition;
-    public float WaitTime => m_WaitTime;
-    public float TimeToRotate => m_TimeToRotate;
-    public bool IsCaughtPlayer => m_CaughtPlayer;
-
     // Detection
     [Header("Detection")]
     public float viewRadius = 15;
@@ -48,13 +42,11 @@ public class EnemyController : MonoBehaviour
     [Header("State")]
     public float startWaitTime = 4;
     public float timeToRotate = 2;
-    [Header("ML-Agents Access")]
-    public bool m_PlayerInRange;
-    public bool m_PlayerNear;
-    public bool m_IsPatrol;
+    bool m_PlayerInRange;
+    bool m_PlayerNear;
+    bool m_IsPatrol;
     bool m_CaughtPlayer;
-    public bool m_IsAttacking = false;
-    public Vector3 PlayerPosition => m_PlayerPosition;
+    bool m_IsAttacking = false;
     private bool isDead = false;
     public NonBossEnemyState nonBossEnemyState;
 
@@ -177,11 +169,11 @@ public class EnemyController : MonoBehaviour
         enemyHP = enemyData.enemyHealth;
         if (healthBar != null)
         {
-            healthBar.SetHealth(enemyHP);
+            healthBar.SetMaxHealth(enemyHP);
         }
     }
 
-    public void SetupInitialValues()
+    private void SetupInitialValues()
     {
         m_PlayerPosition = Vector3.zero;
         m_IsPatrol = true;
@@ -431,24 +423,6 @@ public class EnemyController : MonoBehaviour
     }
 
     #endregion
-
-    #region Public Methods
-    public float GetHealthPercentage()
-    {
-        return (float)enemyHP / enemyData.enemyHealth;
-    }
-
-    public bool IsHealthLow()
-    {
-        return enemyHP <= enemyData.enemyHealth * 0.2f;
-    }
-
-    public bool IsDead()
-    {
-        return isDead;
-    }
-    #endregion
-
 
     #region Combat Methods
 
