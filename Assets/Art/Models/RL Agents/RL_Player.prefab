@@ -720,7 +720,7 @@ MonoBehaviour:
   turnSpeed: 4
   attackEnabled: 1
   attackInterval: 10
-  attackDamage: 30
+  attackDamage: 80
   attackRange: 1.5
   invincibilityDuration: 0.2
   healthBarSlider: {fileID: 750789314923456546}
