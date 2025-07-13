@@ -24170,6 +24170,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4140215274835954593, guid: 061b01445cdab6e4f96e7c94b458e8ad, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4140215274835954593, guid: 061b01445cdab6e4f96e7c94b458e8ad, type: 3}
       propertyPath: Percentage
       value: 0
       objectReference: {fileID: 0}

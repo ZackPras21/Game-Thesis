@@ -722,7 +722,7 @@ MonoBehaviour:
   attackInterval: 10
   attackDamage: 30
   attackRange: 1.5
-  invincibilityDuration: 0.5
+  invincibilityDuration: 0.2
   healthBarSlider: {fileID: 750789314923456546}
   animator: {fileID: 8625117619887489572}
   hurtParticle: {fileID: 756378077354520267}
@@ -7116,7 +7116,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 750789314923456546}
   fill: {fileID: 8813103707283213046}
-  smoothing: 5
 --- !u!1 &7357420809819064528
 GameObject:
   m_ObjectHideFlags: 0

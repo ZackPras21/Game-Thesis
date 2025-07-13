@@ -34,9 +34,9 @@ public class UpgradeManager : MonoBehaviour
         ATK = Player.playerData.playerAttack;
         DEF = Player.playerData.playerDefense;
         GearTotal = 0;
-        priceATK = 5;
-        priceDEF = 3;
-        priceHP = 3;
+        priceATK = 2;
+        priceDEF = 1;
+        priceHP = 1;
     }
     private void Update()
     {

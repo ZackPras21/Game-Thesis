@@ -26,7 +26,6 @@ public class NormalEnemyAgent : Agent
 
     public static bool TrainingActive = true;
 
-    private AgentHealth agentHealth;
     private PlayerDetection playerDetection;
     private PatrolSystem patrolSystem;
     private AgentMovement agentMovement;
@@ -40,14 +39,14 @@ public class NormalEnemyAgent : Agent
     
     private int currentStepCount;
     private Vector3 initialPosition;
-    private bool isDead;
     private string currentState = "Idle";
     private string currentAction = "Idle";
     private float previousDistanceToPlayer = float.MaxValue;
     private float lastAttackTime;
 
-    public float CurrentHealth => agentHealth.CurrentHealth;
-    public bool IsDead => isDead;
+    public float CurrentHealth => rl_EnemyController.enemyHP;
+    public float MaxHealth => rl_EnemyController.enemyData.enemyHealth;
+    public bool IsDead => rl_EnemyController.healthState.IsDead;
 
     public override void Initialize()
     {
@@ -56,8 +55,11 @@ public class NormalEnemyAgent : Agent
         initialPosition = transform.position;
         ResetAgentState();
         
-        if (healthBar != null)
-            healthBar.SetHealth((int)rl_EnemyController.enemyHP);
+        // Initialize health bar through controller only
+        if (rl_EnemyController != null)
+        {
+            rl_EnemyController.InitializeHealthBar();
+        }
     }
 
     public override void OnEpisodeBegin()
@@ -65,12 +67,25 @@ public class NormalEnemyAgent : Agent
         ResetForNewEpisode();
         WarpToRandomPatrolPoint();
         ResetTrainingArena();
-        Debug.Log($"{gameObject.name} episode began - Health: {agentHealth.CurrentHealth}");
+        Debug.Log($"{gameObject.name} episode began - Health: {CurrentHealth}");
+        if (rl_EnemyController != null) rl_EnemyController.ShowHealthBar();
+
+        // Reset animator to a living state
+        if (animator != null)
+        {
+            animator.SetBool("isDead", false);
+            animator.SetBool("isAttacking", false);
+            animator.SetBool("isWalking", false);
+            animator.SetBool("isIdle", true);
+            animator.ResetTrigger("attack");
+            animator.ResetTrigger("getHit");
+        }
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        sensor.AddObservation(agentHealth.HealthFraction);
+        float healthFraction = CurrentHealth / MaxHealth;
+        sensor.AddObservation(healthFraction);
         
         float normalizedDistance = playerDetection.IsPlayerAvailable() 
             ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR 
@@ -84,7 +99,8 @@ public class NormalEnemyAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        if (isDead) return;
+        // Prevent action processing when agent is dead or disabled
+        if (IsDead || !isActiveAndEnabled) return;
         
         UpdateStepCount();
         ProcessActions(actions);
@@ -95,12 +111,37 @@ public class NormalEnemyAgent : Agent
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var continuousActions = actionsOut.ContinuousActions;
-        continuousActions.Clear();
+        var discreteActions = actionsOut.DiscreteActions;
         
-        continuousActions[0] = Input.GetAxis("Horizontal");
-        continuousActions[1] = Input.GetAxis("Vertical");
-        continuousActions[2] = GetRotationInput();
-        continuousActions[3] = Input.GetKey(KeyCode.Space) ? 1f : 0f;
+        // UP (W key)
+        continuousActions[0] = Input.GetKey(KeyCode.W) ? 1f : 0f;
+        // DOWN (S key)
+        continuousActions[1] = Input.GetKey(KeyCode.S) ? 1f : 0f;
+        // RIGHT (D key)
+        continuousActions[2] = Input.GetKey(KeyCode.D) ? 1f : 0f;
+        // LEFT (A key)
+        continuousActions[3] = Input.GetKey(KeyCode.A) ? 1f : 0f;
+        // ROTATE (Q/E keys)
+        continuousActions[4] = GetRotationInputHeuristic();
+
+        // Attack (Space)
+        discreteActions[0] = Input.GetKey(KeyCode.Space) ? 
+            (int)EnemyHighLevelAction.Attack : 
+            (int)EnemyHighLevelAction.NoAttack;
+    }
+
+    private float GetRotationInputHeuristic()
+    {
+        if (Input.GetKey(KeyCode.Q)) return -1f;
+        if (Input.GetKey(KeyCode.E)) return 1f;
+        return 0f;
+    }
+
+    private enum EnemyHighLevelAction
+    {
+        NoAttack = 0,
+        Attack = 1,
+        // Add other actions if needed
     }
 
     void OnGUI()
@@ -117,24 +158,16 @@ public class NormalEnemyAgent : Agent
 
     public void TakeDamage(float damage)
     {
-        if (isDead) return;
+        if (IsDead) return;
         
-        agentHealth.TakeDamage(damage);
-        
-        if (healthBar != null)
-            healthBar.SetHealth((int)agentHealth.CurrentHealth);
-            
-        if (agentHealth.IsDead)
-            HandleEnemyDeath();
-        else
-            HandleDamage();
+        rl_EnemyController.TakeDamage(Mathf.RoundToInt(damage));
     }
 
     public void TriggerHitAnimation()
     {
         if (HasAnimatorParameter("getHit"))
             animator.SetTrigger("getHit");
-    }
+    } 
 
     public void SetPatrolPoints(Transform[] points) => patrolSystem.SetPatrolPoints(points);
 
@@ -148,7 +181,6 @@ public class NormalEnemyAgent : Agent
 
     private void InitializeSystems()
     {
-        agentHealth = new AgentHealth(rl_EnemyController.enemyHP);
         patrolSystem = new PatrolSystem(FindPatrolPoints());
         agentMovement = new AgentMovement(navAgent, transform, rl_EnemyController.moveSpeed, rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange);
         debugDisplay = new DebugDisplay();
@@ -185,13 +217,23 @@ public class NormalEnemyAgent : Agent
 
     private void ResetForNewEpisode()
     {
-        ResetAgentState();
-        agentHealth.ResetHealth();
+        ResetAgentState();        
+        // Move enemyData access inside null check
+        if (rl_EnemyController != null)
+        {
+            rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
+            rl_EnemyController.healthState.SetDead(false);
+            rl_EnemyController.InitializeHealthBar();
+        }
+        else
+        {
+            Debug.LogError("rl_EnemyController is null in ResetForNewEpisode");
+        }
+
         currentStepCount = 0;
-        isDead = false;
         currentState = "Idle";
         currentAction = "Idle";
-        lastAttackTime = Time.fixedTime - dynamicAttackCooldown; // Reset cooldown on new episode
+        lastAttackTime = Time.fixedTime - dynamicAttackCooldown;
         
         // Reset patrol loop counter at start of new episode
         if (patrolSystem != null)
@@ -247,8 +289,12 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessMovementActions(ActionBuffers actions)
     {
-        Vector3 movement = new Vector3(actions.ContinuousActions[0], 0, actions.ContinuousActions[1]);
-        float rotation = actions.ContinuousActions[2];
+        // Combine UP/DOWN and LEFT/RIGHT into movement vectors
+        float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1]; // UP - DOWN
+        float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3]; // RIGHT - LEFT
+        float rotation = actions.ContinuousActions[4]; // ROTATE
+        
+        Vector3 movement = new Vector3(horizontal, 0, vertical);
         
         if (IsPlayerInAttackRange())
         {
@@ -290,19 +336,20 @@ public class NormalEnemyAgent : Agent
             }
         }
 
-        lastAttackTime = Time.fixedTime; // Use fixedTime for training stability
+        lastAttackTime = Time.fixedTime;
         rewardSystem.AddAttackReward();
         
         if (currentAction == "Chasing")
             rewardSystem.AddChasePlayerReward();
         
-        TriggerAttackAnimation();
+        // Trigger attack via the controller
+        if (rl_EnemyController != null)
+        {
+            rl_EnemyController.AgentAttack();
+        }
+        
         currentState = "Attacking";
         currentAction = "Attacking";
-        
-        bool hitPlayer = DamagePlayer();
-        if (!hitPlayer)
-            rewardSystem.AddAttackMissedPunishment();
     }
 
     private bool DamagePlayer()
@@ -334,7 +381,7 @@ public class NormalEnemyAgent : Agent
 
     private void UpdateAnimationStates(bool playerInRange, bool canAttack)
     {
-        if (animator == null || isDead || rl_EnemyController == null) return;
+        if (animator == null || IsDead || rl_EnemyController == null) return;
 
         bool isMoving = navAgent.velocity.magnitude > 0.1f &&
                       rl_EnemyController != null &&
@@ -521,12 +568,9 @@ public class NormalEnemyAgent : Agent
 
     public void HandleEnemyDeath()
     {
-        isDead = true;
-        TriggerDeathAnimation();
         rewardSystem.AddDeathPunishment();
         currentState = "Dead";
         currentAction = "Dead";
-        
         ResetTrainingArena();
         EndEpisode();
     }

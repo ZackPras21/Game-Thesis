@@ -1952,8 +1952,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lootDataPrefab: {fileID: 8562824243544606926, guid: bc869285f04b6a04e963e6eb7d0b9e79, type: 3}
-  lootGearPrefab: {fileID: 8562824243544606926, guid: eadaf3935cd3f0244a150efd54099c65, type: 3}
+  lootDataPrefab: {fileID: 0}
+  lootGearPrefab: {fileID: 0}
   lootHealthPrefab: {fileID: 0}
   spawnInterval: 3
 --- !u!54 &3895491713408048707
@@ -2101,7 +2101,7 @@ MonoBehaviour:
     VectorObservationSize: 4
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 4
+      m_NumContinuousActions: 5
       BranchSizes: 04000000
     VectorActionSize: 
     VectorActionDescriptions: []

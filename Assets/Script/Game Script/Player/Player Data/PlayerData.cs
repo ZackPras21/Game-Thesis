@@ -27,10 +27,10 @@ public class PlayerManData : PlayerData
     public static PlayerManData playerManData = new PlayerManData();
     public PlayerManData()
     {
-        playerHealth = 120;
-        playerAttack = 25;
+        playerHealth = 150;
+        playerAttack = 30;
         playerDefense = 25;
-        playerDashSpeed = 15f;
+        playerDashSpeed = 20f;
         playerDashTime = 0.3f;
         isMan = true;
     }
@@ -41,8 +41,8 @@ public class PlayerWomanData : PlayerData
     public static PlayerWomanData playerWomanData = new PlayerWomanData();
     public PlayerWomanData()
     {
-        playerHealth = 100;
-        playerAttack = 22;
+        playerHealth = 125;
+        playerAttack = 26;
         playerDefense = 28;
         playerDashSpeed = 25f;
         playerDashTime = 0.2f;

@@ -8285,7 +8285,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4976020134731569598, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7995372790159885636, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_LocalPosition.x
@@ -12898,7 +12898,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8495270706266721866, guid: 061b01445cdab6e4f96e7c94b458e8ad, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -13810,6 +13810,10 @@ PrefabInstance:
     - target: {fileID: 8495270706266721866, guid: 061b01445cdab6e4f96e7c94b458e8ad, type: 3}
       propertyPath: m_Name
       value: Game Progression (Test)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8495270706266721866, guid: 061b01445cdab6e4f96e7c94b458e8ad, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -16441,7 +16445,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4976020134731569598, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7995372790159885636, guid: 04f99ea9d08425a419ca5a53d0702c18, type: 3}
       propertyPath: m_LocalPosition.x

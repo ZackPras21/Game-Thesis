@@ -36,9 +36,9 @@ public class UpgradeMenuManager : MonoBehaviour
         ATK = 0;
         DEF = 0;
         gearRequired = 0;
-        priceATK = 5;
-        priceDEF = 3;
-        priceHP = 3;
+        priceATK = 3;
+        priceDEF = 1;
+        priceHP = 1;
     }
 
     void Update()

@@ -450,7 +450,6 @@ MonoBehaviour:
   KillPlayerReward: 1
   DiedByPlayerPunishment: -1
   DetectPlayerReward: 0.8
-  FinishDetectReward: 0.5
   PatrolCompleteReward: 1
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
@@ -462,6 +461,7 @@ MonoBehaviour:
   NoMovementPunishment: -0.01
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
+  DoesntChasePlayerPunishment: -0.05
   AttackIncentive: 0.01
   AttackMissedPunishment: -0.1
 --- !u!1 &7987005776217593674
@@ -1427,8 +1427,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lootDataPrefab: {fileID: 8562824243544606926, guid: bc869285f04b6a04e963e6eb7d0b9e79, type: 3}
-  lootGearPrefab: {fileID: 8562824243544606926, guid: eadaf3935cd3f0244a150efd54099c65, type: 3}
+  lootDataPrefab: {fileID: 0}
+  lootGearPrefab: {fileID: 0}
   lootHealthPrefab: {fileID: 0}
   spawnInterval: 3
 --- !u!54 &-8896010834828871572
@@ -1560,7 +1560,7 @@ MonoBehaviour:
     VectorObservationSize: 4
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 4
+      m_NumContinuousActions: 5
       BranchSizes: 04000000
     VectorActionSize: 
     VectorActionDescriptions: []
@@ -1599,7 +1599,6 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 648
-  patrolPointTag: Patrol Point
   showDebugInfo: 1
   debugTextOffset: {x: 10, y: 230}
   debugTextColor: {r: 0.07984875, g: 0.050943315, b: 1, a: 1}

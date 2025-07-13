@@ -10,7 +10,7 @@ public class RL_EnemyController : MonoBehaviour
     [SerializeField] public float attackRange = 2f;
     [SerializeField] public float detectThreshold = 0.5f;
     [SerializeField] public float fleeHealthThreshold = 0.2f;
-    [SerializeField] private HealthBar healthBar;
+    [SerializeField] public HealthBar healthBar;
     [SerializeField] private BoxCollider attackCollider;
     
     [Header("Movement Configuration")]
@@ -38,10 +38,10 @@ public class RL_EnemyController : MonoBehaviour
     private PlayerTrackingState playerTracking;
     private WaypointNavigationState waypointNavigation;
     public CombatState combatState;
-    private HealthState healthState;
+    public HealthState healthState;
 
     // Component references
-    private EnemyData enemyData;
+    public EnemyData enemyData;
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
 
@@ -125,20 +125,30 @@ public class RL_EnemyController : MonoBehaviour
 
     private EnemyData GetEnemyDataByType()
     {
-        return enemyType switch
+        switch (enemyType)
         {
-            EnemyType.Creep => CreepEnemyData.Instance,
-            EnemyType.Medium1 => Medium1EnemyData.medium1EnemyData,
-            EnemyType.Medium2 => Medium2EnemyData.medium2EnemyData,
-            _ => CreepEnemyData.Instance
-        };
+            case EnemyType.Creep:
+                return CreepEnemyData.Instance;
+            case EnemyType.Medium1:
+                return Medium1EnemyData.medium1EnemyData;
+            case EnemyType.Medium2:
+                return Medium2EnemyData.medium2EnemyData;
+            default:
+                Debug.LogError($"Unknown enemy type: {enemyType}");
+                return null;
+        }
     }
 
-    private void InitializeHealthBar()
+    public void InitializeHealthBar()
     {
-        if (healthBar != null)
+        if (healthBar != null && enemyData != null)
         {
+            healthBar.SetMaxHealth(enemyData.enemyHealth);
             healthBar.SetHealth(enemyHP);
+        }
+        else if (enemyData == null)
+        {
+            Debug.LogWarning("EnemyData is null in InitializeHealthBar");
         }
     }
 
@@ -237,6 +247,14 @@ public class RL_EnemyController : MonoBehaviour
         
         combatState.SetAttacking(false);
         combatState.SetCanAttack(true);
+    }
+
+    public void AgentAttack()
+    {
+        if (combatState.CanAttack)
+        {
+            StartCoroutine(ExecuteAttackSequence());
+        }
     }
 
     public void AttackEnd()
@@ -441,8 +459,7 @@ public class RL_EnemyController : MonoBehaviour
     private void HandleDeath()
     {
         healthState.SetDead(true);
-        SetAnimationState(dead: true, idle: false, walking: false, attacking: false);
-        
+        SetAnimationState(dead: true);
         PlayDeathSound();
         DisableCollider();
         HideHealthBar();
@@ -471,6 +488,14 @@ public class RL_EnemyController : MonoBehaviour
         if (healthBar != null)
         {
             healthBar.gameObject.SetActive(false);
+        }
+    }
+    
+    public void ShowHealthBar()
+    {
+        if (healthBar != null)
+        {
+            healthBar.gameObject.SetActive(true);
         }
     }
 

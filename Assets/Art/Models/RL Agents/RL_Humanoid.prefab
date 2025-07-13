@@ -107,7 +107,7 @@ GameObject:
   - component: {fileID: 6252215259828653977}
   - component: {fileID: 7083142781546743490}
   m_Layer: 0
-  m_Name: GameObject
+  m_Name: Weapon
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -122,8 +122,8 @@ Transform:
   m_GameObject: {fileID: 2780053255438254653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.00537}
-  m_LocalScale: {x: 1.9253, y: 1.0449353, z: 1.6481}
+  m_LocalPosition: {x: 0.00375, y: -0.0014, z: 0.00723}
+  m_LocalScale: {x: 1.9253, y: 1.0822395, z: 1.1963558}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -1277,19 +1277,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalScale.y
-      value: 86.87433
+      value: 110.408585
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.0000000027109
+      value: 0.0000000046566
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.0000011873
+      value: -0.071
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.052004
+      value: 0.0010697
       objectReference: {fileID: 0}
     - target: {fileID: -2830495135425623846, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_Layer
@@ -1713,8 +1713,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lootDataPrefab: {fileID: 8562824243544606926, guid: bc869285f04b6a04e963e6eb7d0b9e79, type: 3}
-  lootGearPrefab: {fileID: 8562824243544606926, guid: eadaf3935cd3f0244a150efd54099c65, type: 3}
+  lootDataPrefab: {fileID: 0}
+  lootGearPrefab: {fileID: 0}
   lootHealthPrefab: {fileID: 0}
   spawnInterval: 3
 --- !u!54 &8622400069896116343
@@ -1846,7 +1846,7 @@ MonoBehaviour:
     VectorObservationSize: 4
     NumStackedVectorObservations: 1
     m_ActionSpec:
-      m_NumContinuousActions: 4
+      m_NumContinuousActions: 5
       BranchSizes: 04000000
     VectorActionSize: 
     VectorActionDescriptions: []
