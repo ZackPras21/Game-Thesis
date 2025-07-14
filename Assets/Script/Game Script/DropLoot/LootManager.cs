@@ -2,35 +2,52 @@ using UnityEngine;
 
 public class LootManager : MonoBehaviour
 {
-    public GameObject lootDataPrefab; // Prefab dari objek loot yang akan di-spawn
-    public GameObject lootGearPrefab; // Prefab dari objek loot yang akan di-spawn
+    [Header("Loot Prefabs")]
+    public GameObject lootDataPrefab; 
+    public GameObject lootGearPrefab; 
     public GameObject lootHealthPrefab;
-    public float spawnInterval = 3f; // Interval waktu antara setiap spawn
-    private float nextSpawnTime; // Waktu berikutnya untuk melakukan spawn
-
+    
+    [Header("Settings")]
+    public bool spawnGearLoot = true; // Toggle gear loot spawning
+    public float spawnInterval = 3f;
+    private float nextSpawnTime; 
     void Start()
     {
         nextSpawnTime = Time.time + spawnInterval; // Set waktu pertama untuk melakukan spawn
     }
 
-    void Update()
-    {
-      
-    }
-
     public void SpawnDataLoot(Transform spawnPoint)
     {
-        // Spawn objek loot di spawnPoint yang telah dipilih
-        Instantiate(lootDataPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        if (lootDataPrefab != null)
+        {
+            Instantiate(lootDataPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        }
+        else
+        {
+            Debug.LogWarning("SpawnDataLoot: lootDataPrefab is not assigned", this);
+        }
     }
     public void SpawnGearLoot(Transform spawnPoint)
     {
-        // Spawn objek loot di spawnPoint yang telah dipilih
-        Instantiate(lootGearPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        if (lootGearPrefab != null)
+        {
+            Instantiate(lootGearPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        }
+        else
+        {
+            Debug.LogWarning("SpawnGearLoot: lootGearPrefab is not assigned", this);
+        }
     }
     public void SpawnHealthLoot(Transform spawnPoint)
     {
-        Instantiate(lootHealthPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        if (lootHealthPrefab != null)
+        {
+            Instantiate(lootHealthPrefab, spawnPoint.position, spawnPoint.rotation, spawnPoint);
+        }
+        else
+        {
+            Debug.LogWarning("SpawnHealthLoot: lootHealthPrefab is not assigned", this);
+        }
     }
 
 }

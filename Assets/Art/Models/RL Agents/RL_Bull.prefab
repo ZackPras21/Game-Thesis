@@ -403,6 +403,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 8722743365875739573}
   fill: {fileID: 3114293093881987199}
+  smoothSpeed: 5
 --- !u!1 &3255069029429253446
 GameObject:
   m_ObjectHideFlags: 0
@@ -1422,7 +1423,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5392606700045520043}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
   m_Name: 

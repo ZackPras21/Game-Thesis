@@ -5,8 +5,9 @@ using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
 using System.Collections;
+using System.Collections.Generic;
 
-[RequireComponent(typeof(NavMeshAgent), typeof(RayPerceptionSensorComponent3D))]
+[RequireComponent(typeof(NavMeshAgent), typeof(RayPerceptionSensorComponent3D), typeof(RL_EnemyController))]
 public class NormalEnemyAgent : Agent
 {
     [Header("References")]
@@ -47,19 +48,46 @@ public class NormalEnemyAgent : Agent
     public float CurrentHealth => rl_EnemyController.enemyHP;
     public float MaxHealth => rl_EnemyController.enemyData.enemyHealth;
     public bool IsDead => rl_EnemyController.healthState.IsDead;
+    private bool isInitialized = false;
+
 
     public override void Initialize()
     {
+         // Ensure RL_EnemyController reference exists
+        if (rl_EnemyController == null)
+        {
+            rl_EnemyController = GetComponent<RL_EnemyController>();
+        }
+        
+        // Double-check after GetComponent
+        if (rl_EnemyController == null)
+        {
+            Debug.LogError("NormalEnemyAgent: RL_EnemyController component is missing!", gameObject);
+            enabled = false;
+            return;
+        }
+        
+        // Check if RL_EnemyController is initialized
+        if (!rl_EnemyController.IsInitialized)
+        {
+            rl_EnemyController.ForceInitialize();
+        }
+
+        // Check enemyData after initialization
+        if (rl_EnemyController.enemyData == null)
+        {
+            Debug.LogError("NormalEnemyAgent: enemyData is still null after initialization!", gameObject);
+            enabled = false;
+            return;
+        }
+
         InitializeComponents();
         InitializeSystems();
         initialPosition = transform.position;
         ResetAgentState();
         
-        // Initialize health bar through controller only
-        if (rl_EnemyController != null)
-        {
-            rl_EnemyController.InitializeHealthBar();
-        }
+        rl_EnemyController.InitializeHealthBar();
+        isInitialized = true;
     }
 
     public override void OnEpisodeBegin()
@@ -84,6 +112,7 @@ public class NormalEnemyAgent : Agent
 
     public override void CollectObservations(VectorSensor sensor)
     {
+        if (!isInitialized || rl_EnemyController == null) return;
         float healthFraction = CurrentHealth / MaxHealth;
         sensor.AddObservation(healthFraction);
         
@@ -99,6 +128,7 @@ public class NormalEnemyAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (!isInitialized || rl_EnemyController == null) return;
         // Prevent action processing when agent is dead or disabled
         if (IsDead || !isActiveAndEnabled) return;
         
@@ -217,18 +247,33 @@ public class NormalEnemyAgent : Agent
 
     private void ResetForNewEpisode()
     {
+        if (!isInitialized) return;
+        
         ResetAgentState();        
-        // Move enemyData access inside null check
-        if (rl_EnemyController != null)
+
+        // Check if RL_EnemyController needs reinitialization
+        if (rl_EnemyController == null || rl_EnemyController.enemyData == null)
         {
-            rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
-            rl_EnemyController.healthState.SetDead(false);
-            rl_EnemyController.InitializeHealthBar();
+            if (rl_EnemyController == null)
+            {
+                rl_EnemyController = GetComponent<RL_EnemyController>();
+            }
+            
+            if (rl_EnemyController != null && !rl_EnemyController.IsInitialized)
+            {
+                rl_EnemyController.ForceInitialize();
+            }
+            
+            if (rl_EnemyController == null || rl_EnemyController.enemyData == null)
+            {
+                Debug.LogError("rl_EnemyController or enemyData is null in ResetForNewEpisode - Skipping episode", gameObject);
+                return;
+            }
         }
-        else
-        {
-            Debug.LogError("rl_EnemyController is null in ResetForNewEpisode");
-        }
+
+        rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
+        rl_EnemyController.healthState.SetDead(false);
+        rl_EnemyController.InitializeHealthBar();
 
         currentStepCount = 0;
         currentState = "Idle";

@@ -122,7 +122,7 @@ Transform:
   m_GameObject: {fileID: 2780053255438254653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.00375, y: -0.0014, z: 0.00723}
+  m_LocalPosition: {x: 0.00375, y: -0.0014, z: 0.00992}
   m_LocalScale: {x: 1.9253, y: 1.0822395, z: 1.1963558}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -374,6 +374,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 7870542895617075944}
   fill: {fileID: 664249622891329199}
+  smoothSpeed: 6
 --- !u!1 &3873009960392911163
 GameObject:
   m_ObjectHideFlags: 0
@@ -1708,7 +1709,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 920880024737537450}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: be3f885fecb1bdb44ad8ae5db78b6946, type: 3}
   m_Name: 

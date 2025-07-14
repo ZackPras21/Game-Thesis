@@ -44,6 +44,7 @@ public class RL_EnemyController : MonoBehaviour
     public EnemyData enemyData;
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
+    public bool IsInitialized { get; private set; } = false;
 
     private const float ATTACK_DURATION = 1f;
     private const float ATTACK_COOLDOWN = 2f;
@@ -53,13 +54,22 @@ public class RL_EnemyController : MonoBehaviour
 
     #region Unity Lifecycle
 
-    private void Start()
+    private void Awake()
     {
+        ForceInitialize();
+    }
+    
+    public void ForceInitialize()
+    {
+        if (IsInitialized) return;
+
         InitializeComponents();
         InitializeStates();
         SetupEnemyData();
         ForceInitialAnimationState();
+        IsInitialized = true;
     }
+
 
     private void Update()
     {
@@ -118,7 +128,23 @@ public class RL_EnemyController : MonoBehaviour
 
     private void SetupEnemyData()
     {
-        enemyData = GetEnemyDataByType();
+        // Try to get enemyData if null
+        if (enemyData == null)
+        {
+            enemyData = GetEnemyDataByType();
+        }
+        
+        // Final null check
+        if (enemyData == null)
+        {
+            Debug.LogError($"Failed to get enemy data for type: {enemyType}", gameObject);
+            
+            // Attempt to use default data
+            enemyData = ScriptableObject.CreateInstance<EnemyData>();
+            enemyData.enemyHealth = 100;
+            enemyData.enemyAttack = 10;
+        }
+        
         enemyHP = enemyData.enemyHealth;
         InitializeHealthBar();
     }
@@ -136,6 +162,13 @@ public class RL_EnemyController : MonoBehaviour
             default:
                 Debug.LogError($"Unknown enemy type: {enemyType}");
                 return null;
+        }
+    }
+    public void ReinitializeData()
+    {
+        if (enemyData == null)
+        {
+            SetupEnemyData();
         }
     }
 
@@ -501,9 +534,15 @@ public class RL_EnemyController : MonoBehaviour
 
     private void SpawnLoot()
     {
+        // Add null check for lootManager
         if (lootManager != null)
         {
+            // Only spawn gear if enabled
             lootManager.SpawnGearLoot(transform);
+        }
+        else
+        {
+            Debug.LogWarning("SpawnLoot: lootManager reference is null", this);
         }
     }
 

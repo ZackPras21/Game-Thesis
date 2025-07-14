@@ -10,13 +10,22 @@ public enum EnemyType
     Boss
 }
 
-public class EnemyData
+public class EnemyData : ScriptableObject
 {
-    public int enemyHealth { get; protected set; }
-    public int enemyAttack { get; protected set; }
-    public float enemySpeed { get; protected set; }
-    public EnemyType EnemyType { get; protected set; }
+    public int enemyHealth = 100;
+    public int enemyAttack = 10;
+    public float enemySpeed = 5f;
+    public EnemyType EnemyType;
+    
+    // Add default values in constructor
+    public EnemyData()
+    {
+        enemyHealth = 100;
+        enemyAttack = 10;
+        enemySpeed = 5f;
+    }
 }
+
 
 public class CreepEnemyData : EnemyData
 {
