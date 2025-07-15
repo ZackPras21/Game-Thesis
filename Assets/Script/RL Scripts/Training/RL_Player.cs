@@ -15,7 +15,7 @@ public class RL_Player : MonoBehaviour
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float turnSpeed = 4f;
     [SerializeField] private float attackInterval = 2.0f;
-    [SerializeField] private float attackDamage = 30f;
+    [SerializeField] private float attackDamage = 80f;
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float invincibilityDuration = 0.5f;
 
@@ -32,6 +32,7 @@ public class RL_Player : MonoBehaviour
     private float currentHealth;
     private bool isInvincible = false;
     private bool isAlive = true;
+    private bool attackEnabled = true;
     private Vector3 initialPosition;
     private Collider[] colliders;
     private Coroutine attackCoroutine;
@@ -73,6 +74,8 @@ public class RL_Player : MonoBehaviour
 
     public void SetAutoAttackEnabled(bool enabled)
     {
+        attackEnabled = enabled;
+        
         if (enabled && attackCoroutine == null)
         {
             attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
@@ -93,6 +96,11 @@ public class RL_Player : MonoBehaviour
         SetCollidersEnabled(true);
         UpdateHealthBar();
         InitializeAnimationState();
+        
+        if (attackEnabled && attackCoroutine == null)
+        {
+            attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
+        }
     }
 
     private bool CanTakeDamage() => isAlive && !isInvincible;
@@ -107,7 +115,15 @@ public class RL_Player : MonoBehaviour
     private void Die()
     {
         isAlive = false;
-        PlayDeathAnimation();
+        attackEnabled = false;
+        
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+            attackCoroutine = null;
+        }
+        
+        PlayAnimationBool("isDead", true);
         PlayParticleEffect(deathParticle);
         SetCollidersEnabled(false);
         NotifyDestruction();
@@ -115,16 +131,16 @@ public class RL_Player : MonoBehaviour
         Destroy(gameObject);
     }
 
-    private void PlayDeathAnimation()
-    {
-        if (animator != null)
-            animator.SetBool("isDead", true);
-    }
-
     private void PlayAnimationTrigger(string triggerName)
     {
         if (animator != null)
             animator.SetTrigger(triggerName);
+    }
+
+    private void PlayAnimationBool(string parameterName, bool value)
+    {
+        if (animator != null)
+            animator.SetBool(parameterName, value);
     }
 
     private void PlayParticleEffect(ParticleSystem particle)
@@ -159,7 +175,7 @@ public class RL_Player : MonoBehaviour
 
     private IEnumerator AutomaticAttackRoutine()
     {
-        while (attackCoroutine != null)
+        while (attackEnabled && isAlive)
         {
             yield return new WaitForSeconds(attackInterval);
             
@@ -167,6 +183,7 @@ public class RL_Player : MonoBehaviour
             if (enemiesInRange.Count > 0)
                 PerformAttack(enemiesInRange[0]);
         }
+        attackCoroutine = null;
     }
 
     private List<Transform> FindEnemiesInRange()
@@ -185,23 +202,56 @@ public class RL_Player : MonoBehaviour
 
     private void PerformAttack(Transform enemy)
     {
-        if (enemy == null) return;
+        if (enemy == null || !isAlive) return;
+
+        StartCoroutine(AttackSequence(enemy));
+    }
+
+    private IEnumerator AttackSequence(Transform enemy)
+    {
+        if (enemy == null) yield break;
 
         FaceTarget(enemy);
+        
+        yield return new WaitForSeconds(0.1f);
+        
         PlayAttackAnimation();
-        DealDamageToEnemy(enemy);
+        
+        yield return new WaitForSeconds(0.2f);
+        
+        if (enemy != null)
+            DealDamageToEnemy(enemy);
     }
 
     private void FaceTarget(Transform target)
     {
+        if (target == null) return;
+
         var directionToTarget = target.position - transform.position;
         directionToTarget.y = 0f;
         
         if (directionToTarget.sqrMagnitude > 0.001f)
         {
             var lookRotation = Quaternion.LookRotation(directionToTarget);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRotation, turnSpeed * 100 * Time.deltaTime);
+            StartCoroutine(RotateToTarget(lookRotation));
         }
+    }
+
+    private IEnumerator RotateToTarget(Quaternion targetRotation)
+    {
+        var startRotation = transform.rotation;
+        var elapsedTime = 0f;
+        var rotationDuration = 0.3f;
+
+        while (elapsedTime < rotationDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            var t = elapsedTime / rotationDuration;
+            transform.rotation = Quaternion.Lerp(startRotation, targetRotation, t);
+            yield return null;
+        }
+
+        transform.rotation = targetRotation;
     }
 
     private void PlayAttackAnimation()
@@ -227,7 +277,8 @@ public class RL_Player : MonoBehaviour
     private IEnumerator ResetAttackTriggerAfterFrame()
     {
         yield return null;
-        animator.ResetTrigger("AttackTrigger");
+        if (animator != null)
+            animator.ResetTrigger("AttackTrigger");
     }
 
     private IEnumerator InvincibilityRoutine()
@@ -262,6 +313,8 @@ public class RL_Player : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+        Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, 0.2f);
     }
 }

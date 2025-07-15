@@ -1165,8 +1165,8 @@ Transform:
   m_GameObject: {fileID: 7463465916216528784}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.02, y: 0, z: 0}
+  m_LocalScale: {x: 1.3833, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8906478605765353547}
@@ -1941,6 +1941,7 @@ MonoBehaviour:
   particlePosition: {fileID: 571224362856628930}
   enemyType: 0
   enemyState: 3
+  enemyData: {fileID: 0}
 --- !u!114 &6967424327214272843
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1956,6 +1957,7 @@ MonoBehaviour:
   lootDataPrefab: {fileID: 0}
   lootGearPrefab: {fileID: 0}
   lootHealthPrefab: {fileID: 0}
+  spawnGearLoot: 1
   spawnInterval: 3
 --- !u!54 &3895491713408048707
 Rigidbody:
