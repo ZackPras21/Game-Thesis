@@ -362,7 +362,6 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (playerComponent != null)
         {
             playerComponent.isRL_TrainingTarget = true;
-            playerComponent.spawner = this;
         }
 
         var lifeTracker = target.GetComponent<RL_TrainingTarget>();

@@ -175,12 +175,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992863038567366897}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.0246, y: 0, z: 0}
-  m_LocalScale: {x: 3, y: 1, z: 1}
+  m_LocalRotation: {x: 0.50000006, y: 0.49999994, z: 0.50000006, w: -0.49999994}
+  m_LocalPosition: {x: 0, y: 4.748593, z: -5.2000003}
+  m_LocalScale: {x: 300, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8596712146890156265}
+  m_Father: {fileID: 4728132633843373585}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &3584714595767020088
 BoxCollider:
@@ -231,8 +231,8 @@ Transform:
   m_GameObject: {fileID: 2541176520978434441}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.32, y: 5.24, z: -2.85}
-  m_LocalScale: {x: 10.58325, y: 9.483143, z: 9.595859}
+  m_LocalPosition: {x: -0.32, y: 5.24, z: -1.06}
+  m_LocalScale: {x: 10.58325, y: 9.483143, z: 12.305729}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4728132633843373585}
@@ -493,7 +493,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7987005776217593674}
   m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: -0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.88}
   m_LocalScale: {x: 0.01911111, y: 0.030166663, z: 0.044444438}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1319,6 +1319,9 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
+      insertIndex: 1
+      addedObject: {fileID: 8445844205547865179}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5201110360840179380}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
@@ -1330,9 +1333,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4647132365186564980}
-    - targetCorrespondingSourceObject: {fileID: 3556333867352430867, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 8445844205547865179}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
       insertIndex: -1
@@ -1416,6 +1416,7 @@ MonoBehaviour:
   particlePosition: {fileID: 5201110360840179380}
   enemyType: 2
   enemyState: 3
+  enemyData: {fileID: 0}
 --- !u!114 &8553900194276483005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1431,6 +1432,7 @@ MonoBehaviour:
   lootDataPrefab: {fileID: 0}
   lootGearPrefab: {fileID: 0}
   lootHealthPrefab: {fileID: 0}
+  spawnGearLoot: 1
   spawnInterval: 3
 --- !u!54 &-8896010834828871572
 Rigidbody:
@@ -1652,8 +1654,3 @@ MonoBehaviour:
   rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
   m_StartVerticalOffset: 0
   m_EndVerticalOffset: 0
---- !u!4 &8596712146890156265 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 3556333867352430867, guid: 9ca1c6ba87be9bd459b843a3f54e13f8, type: 3}
-  m_PrefabInstance: {fileID: 5050517503325237754}
-  m_PrefabAsset: {fileID: 0}

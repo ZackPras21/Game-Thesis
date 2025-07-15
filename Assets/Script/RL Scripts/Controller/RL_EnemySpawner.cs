@@ -20,7 +20,6 @@ public class RL_EnemySpawner : MonoBehaviour
 
     private int currentEnemyCount = 0;
     private bool hasTriggeredSpawn = false;
-    
     private CameraFollow cameraController;
     private GameProgression gameProgressionManager;
 
@@ -31,93 +30,51 @@ public class RL_EnemySpawner : MonoBehaviour
     private const float SPAWN_HEIGHT = 1f;
     private const float OBSTACLE_CHECK_RADIUS = 0.5f;
 
+    #region Unity Lifecycle
     private void Awake()
-    {
-        InitializeComponents();
-    }
-
-    private void InitializeComponents()
     {
         cameraController = FindCameraController();
         gameProgressionManager = GameProgression.Instance;
-    }
-
-    private CameraFollow FindCameraController()
-    {
-        GameObject mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
-        return mainCamera?.GetComponent<CameraFollow>();
     }
 
     private void OnTriggerEnter(Collider other)
     {
         if (IsPlayerHitbox(other))
         {
-            HandlePlayerEntered();
+            ActivateCombatMode();
+            if (!hasTriggeredSpawn)
+                StartSpawningSequence();
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (IsPlayerHitbox(other))
-        {
-            HandlePlayerExited();
-        }
+            DeactivateCombatMode();
     }
+    #endregion
 
-    private bool IsPlayerHitbox(Collider collider)
-    {
-        return collider.CompareTag("Player") && 
-               collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
-    }
-
-    private void HandlePlayerEntered()
-    {
-        ActivateCombatMode();
-        
-        if (!hasTriggeredSpawn)
-        {
-            StartSpawningSequence();
-        }
-    }
-
-    private void HandlePlayerExited()
-    {
-        DeactivateCombatMode();
-    }
+    #region Player Detection
+    private bool IsPlayerHitbox(Collider collider) => 
+        collider.CompareTag("Player") && collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
 
     private void ActivateCombatMode()
     {
         if (cameraController != null)
-        {
             cameraController.CombatMode();
-        }
         else
-        {
             Debug.LogError("CameraFollow reference not found in RL_EnemySpawner");
-        }
     }
 
-    private void DeactivateCombatMode()
-    {
-        if (cameraController != null)
-        {
-            cameraController.NormalMode();
-        }
-    }
+    private void DeactivateCombatMode() => cameraController?.NormalMode();
+    #endregion
 
+    #region Spawning System
     private void StartSpawningSequence()
     {
-        PlayGateCloseSound();
+        AudioManager.instance?.PlaySFX(AudioManager.instance.gateClose);
         StartCoroutine(SpawnEnemiesCoroutine());
         hasTriggeredSpawn = true;
-    }
-
-    private void PlayGateCloseSound()
-    {
-        if (AudioManager.instance != null)
-        {
-            AudioManager.instance.PlaySFX(AudioManager.instance.gateClose);
-        }
     }
 
     private IEnumerator SpawnEnemiesCoroutine()
@@ -132,13 +89,13 @@ public class RL_EnemySpawner : MonoBehaviour
 
     private void SpawnSingleEnemy()
     {
-        GameObject enemyPrefab = SelectEnemyType();
-        Vector3 spawnPosition = GetValidSpawnPosition();
+        var enemyPrefab = SelectEnemyType();
+        var spawnPosition = GetValidSpawnPosition();
         
         if (spawnPosition != Vector3.zero)
         {
             CreateAndConfigureEnemy(enemyPrefab, spawnPosition);
-            NotifyGameProgression();
+            gameProgressionManager?.EnemySpawn();
         }
     }
 
@@ -148,104 +105,67 @@ public class RL_EnemySpawner : MonoBehaviour
         float randomValue = Random.value;
 
         if (randomValue < 0.5f * progressionRatio)
-        {
             return enemyPrefabs[MEDIUM_ENEMY_INDEX];
-        }
         else if (randomValue < progressionRatio)
-        {
             return enemyPrefabs[NORMAL_ENEMY_INDEX];
-        }
         else
-        {
             return enemyPrefabs[CREEP_ENEMY_INDEX];
-        }
     }
 
     private float CalculateProgressionRatio()
     {
         if (gameProgressionManager == null) return 0f;
-        
-        return (float)gameProgressionManager.EnemyTotalSpawnCount / 
-               gameProgressionManager.EnemyTotalCount;
+        return (float)gameProgressionManager.EnemyTotalSpawnCount / gameProgressionManager.EnemyTotalCount;
     }
 
     private void CreateAndConfigureEnemy(GameObject prefab, Vector3 position)
     {
-        GameObject newEnemy = Instantiate(prefab, position, Quaternion.identity);
-        AssignWaypointsToEnemy(newEnemy);
-    }
-
-    private void AssignWaypointsToEnemy(GameObject enemy)
-    {
-        EnemyController enemyController = enemy.GetComponent<EnemyController>();
+        var newEnemy = Instantiate(prefab, position, Quaternion.identity);
+        var enemyController = newEnemy.GetComponent<EnemyController>();
+        
         if (enemyController != null && enemyWaypoints != null)
         {
-            for (int i = 0; i < enemyWaypoints.Length; i++)
-            {
+            for (int i = 0; i < enemyWaypoints.Length && i < enemyController.waypoints.Length; i++)
                 enemyController.waypoints[i] = enemyWaypoints[i];
-            }
         }
     }
+    #endregion
 
-    private void NotifyGameProgression()
-    {
-        if (gameProgressionManager != null)
-        {
-            gameProgressionManager.EnemySpawn();
-        }
-    }
-
+    #region Spawn Position Validation
     private Vector3 GetValidSpawnPosition()
     {
-        if (!AreSpawnCornersValid())
-        {
+        if (spawnAreaCorner1 == null || spawnAreaCorner2 == null)
             return Vector3.zero;
-        }
 
-        Vector3 minBounds = GetMinimumBounds();
-        Vector3 maxBounds = GetMaximumBounds();
+        var minBounds = Vector3.Min(spawnAreaCorner1.transform.position, spawnAreaCorner2.transform.position);
+        var maxBounds = Vector3.Max(spawnAreaCorner1.transform.position, spawnAreaCorner2.transform.position);
 
         for (int attempt = 0; attempt < MAX_SPAWN_ATTEMPTS; attempt++)
         {
-            Vector3 candidatePosition = GenerateRandomPosition(minBounds, maxBounds);
-            
+            var candidatePosition = GenerateRandomPosition(minBounds, maxBounds);
             if (IsPositionValid(candidatePosition))
-            {
                 return candidatePosition;
-            }
         }
 
         return Vector3.zero;
-    }
-
-    private bool AreSpawnCornersValid()
-    {
-        return spawnAreaCorner1 != null && spawnAreaCorner2 != null;
-    }
-
-    private Vector3 GetMinimumBounds()
-    {
-        return Vector3.Min(spawnAreaCorner1.transform.position, 
-        spawnAreaCorner2.transform.position);
-    }
-
-    private Vector3 GetMaximumBounds()
-    {
-        return Vector3.Max(spawnAreaCorner1.transform.position, 
-        spawnAreaCorner2.transform.position);
     }
 
     private Vector3 GenerateRandomPosition(Vector3 minBounds, Vector3 maxBounds)
     {
         float randomX = Random.Range(minBounds.x, maxBounds.x);
         float randomZ = Random.Range(minBounds.z, maxBounds.z);
-        
         return new Vector3(randomX, SPAWN_HEIGHT, randomZ);
     }
 
-    private bool IsPositionValid(Vector3 position)
+    private bool IsPositionValid(Vector3 position) => 
+        !Physics.CheckSphere(position, OBSTACLE_CHECK_RADIUS, LayerMask.GetMask("Obstacle"));
+    #endregion
+
+    #region Utility Methods
+    private CameraFollow FindCameraController()
     {
-        return !Physics.CheckSphere(position, OBSTACLE_CHECK_RADIUS, 
-        LayerMask.GetMask("Obstacle"));
+        var mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
+        return mainCamera?.GetComponent<CameraFollow>();
     }
+    #endregion
 }

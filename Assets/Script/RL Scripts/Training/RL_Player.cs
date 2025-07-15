@@ -28,7 +28,6 @@ public class RL_Player : MonoBehaviour
     [SerializeField] private ParticleSystem deathParticle;
 
     public float CurrentHealth => currentHealth;
-    public RL_TrainingTargetSpawner spawner;
 
     private float currentHealth;
     private bool isInvincible = false;

@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class RL_TrainingManager : MonoBehaviour
 {
@@ -12,52 +13,48 @@ public class RL_TrainingManager : MonoBehaviour
 
     private RL_TrainingEnemySpawner enemySpawner;
     private RL_TrainingTargetSpawner[] targetSpawners;
-    private List<NormalEnemyAgent> allAgents;
+    private List<NormalEnemyAgent> allAgents = new List<NormalEnemyAgent>();
     private bool isResetting = false;
     private int activeEnemiesCount = 0;
 
-    private void Awake()
-    {
-        InitializeComponents();
-    }
-
+    #region Unity Lifecycle
+    private void Awake() => InitializeComponents();
+    
     private void Start()
     {
         if (autoStartTraining)
-        {
             StartCoroutine(InitializeTrainingSession());
-        }
     }
 
-    #region Public Interface
+    private void OnDestroy() => StopAllCoroutines();
+    #endregion
 
+    #region Public Interface
     public void StartNewEpisode()
     {
         if (!isResetting)
-        {
             StartCoroutine(ResetEpisodeCoroutine());
-        }
     }
 
     public void ResetSpecificArena(int arenaIndex)
     {
         if (!isResetting)
-        {
             StartCoroutine(ResetArenaCoroutine(arenaIndex));
-        }
     }
 
     public void SetTargetSpawningEnabled(bool enabled)
     {
         enableTargetSpawning = enabled;
         ConfigureAllTargetSpawners();
-        LogTargetSpawningStatus();
+        LogDebug($"Target spawning globally set to: {enableTargetSpawning}");
     }
 
     public void SetMaxTargetsPerArena(int maxTargets)
     {
-        UpdateTargetSpawnerLimits(maxTargets);
-        LogTargetSpawnerStatus();
+        if (targetSpawners == null) return;
+        
+        foreach (var spawner in targetSpawners)
+            spawner?.SetMaxTargets(maxTargets);
     }
 
     public void ForceReset()
@@ -71,46 +68,43 @@ public class RL_TrainingManager : MonoBehaviour
     {
         StopAllCoroutines();
         isResetting = false;
-        DisableAllTargetSpawners();
+        SetAllTargetSpawners(false);
     }
 
     public void ResumeTraining()
     {
         if (!isResetting)
         {
-            EnableTargetSpawnersIfGloballyEnabled();
+            SetAllTargetSpawners(enableTargetSpawning);
             StartNewEpisode();
         }
     }
 
+    public void HandleEnemyDeath()
+    {
+        if (--activeEnemiesCount <= 0)
+            StartCoroutine(ResetEpisodeCoroutine());
+    }
     #endregion
 
     #region Initialization
-
     private void InitializeComponents()
     {
         enemySpawner = Object.FindFirstObjectByType<RL_TrainingEnemySpawner>();
         targetSpawners = Object.FindObjectsByType<RL_TrainingTargetSpawner>(FindObjectsSortMode.None);
-        allAgents = new List<NormalEnemyAgent>();
         
-        ValidateRequiredComponents();
+        ValidateComponents();
     }
 
-    private void ValidateRequiredComponents()
+    private void ValidateComponents()
     {
         if (enemySpawner == null)
-        {
-            Debug.LogError("RL_TrainingEnemySpawner not found! Please add it to the scene.");
-        }
+            Debug.LogError("RL_TrainingEnemySpawner not found!");
         
-        if (targetSpawners == null || targetSpawners.Length == 0)
-        {
-            Debug.LogWarning("No RL_TrainingTargetSpawner found. Target spawning will be skipped.");
-        }
-        else if (debugTraining)
-        {
-            Debug.Log($"Found {targetSpawners.Length} target spawners");
-        }
+        if (targetSpawners?.Length == 0)
+            Debug.LogWarning("No RL_TrainingTargetSpawner found.");
+        else
+            LogDebug($"Found {targetSpawners.Length} target spawners");
     }
 
     private IEnumerator InitializeTrainingSession()
@@ -122,259 +116,133 @@ public class RL_TrainingManager : MonoBehaviour
         yield return new WaitForSeconds(2f);
         
         RefreshAgentList();
-        LogTrainingSessionStart();
+        LogDebug($"Training started with {allAgents.Count} agents across {GetArenaCount()} arenas");
     }
-
     #endregion
 
     #region Episode Management
-
     private IEnumerator ResetEpisodeCoroutine()
     {
         isResetting = true;
-        LogEpisodeStart();
+        LogDebug("Starting new training episode...");
 
-        // Refresh agent list to get current state
         RefreshAgentList();
-        
-        // Check if all agents are dead
-        bool allDead = allAgents.Count == 0 || allAgents.TrueForAll(agent => agent.IsDead);
+        bool allDead = allAgents.Count == 0 || allAgents.All(agent => agent.IsDead);
         
         if (allDead)
         {
-            // Only reset targets and enemies when all agents are dead
             ConfigureAllTargetSpawners();
             ResetAllTargetSpawners();
             yield return new WaitForSeconds(episodeResetDelay);
-            ResetEnemySpawner();
+            enemySpawner?.RespawnAllArenas();
             yield return new WaitForSeconds(1f);
-            
-            // Refresh again after respawning
             RefreshAgentList();
         }
         
-        // Reset living agents (or new ones after respawn)
         ResetAllAgents();
-        
-        LogEpisodeComplete();
+        LogDebug($"Episode reset complete. Active agents: {allAgents.Count}");
         isResetting = false;
     }
 
     private IEnumerator ResetArenaCoroutine(int arenaIndex)
     {
-        LogArenaReset(arenaIndex);
-
-        // Only reset arena if all enemies are dead
+        LogDebug($"Resetting Arena {arenaIndex}");
         RefreshAgentList();
+        
         if (activeEnemiesCount <= 0)
         {
-            ConfigureSpecificTargetSpawner(arenaIndex);
-            ResetSpecificTargetSpawner(arenaIndex);
-            RespawnEnemiesInArena(arenaIndex);
-            
+            ResetArenaComponents(arenaIndex);
             yield return new WaitForSeconds(0.5f);
-            
             RefreshAgentList();
-            ResetAgentsInArena(arenaIndex);
+            ResetAllAgents();
         }
-        else if (debugTraining)
+        else
         {
-            Debug.Log($"Skipping arena {arenaIndex} reset - Not all enemies are dead");
-        }
-    }
-    
-    #endregion
-
-    #region Target Spawner Management
-
-    private void ConfigureAllTargetSpawners()
-    {
-        if (targetSpawners == null) return;
-        
-        LogTargetSpawnerConfiguration();
-        
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SetSpawningEnabled(enableTargetSpawning);
-                LogIndividualSpawnerConfiguration(spawner);
-            }
+            LogDebug($"Skipping arena {arenaIndex} reset - enemies still active");
         }
     }
 
-    private void ConfigureSpecificTargetSpawner(int arenaIndex)
+    private void ResetArenaComponents(int arenaIndex)
     {
-        if (IsValidArenaIndex(arenaIndex) && targetSpawners[arenaIndex] != null)
-        {
-            targetSpawners[arenaIndex].SetSpawningEnabled(enableTargetSpawning);
-            LogArenaSpawnerConfiguration(arenaIndex);
-        }
-    }
-
-    private void UpdateTargetSpawnerLimits(int maxTargets)
-    {
-        if (targetSpawners == null) return;
-
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SetMaxTargets(maxTargets);
-            }
-        }
-    }
-
-    private void ResetAllTargetSpawners()
-    {
-        if (targetSpawners == null) return;
-        
-        LogTargetSpawnerReset();
-        
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SetSpawningEnabled(enableTargetSpawning);
-                spawner.ResetArena();
-                LogSpawnerResetResult(spawner);
-            }
-        }
-    }
-
-    private void ResetSpecificTargetSpawner(int arenaIndex)
-    {
-        if (IsValidArenaIndex(arenaIndex) && targetSpawners[arenaIndex] != null)
+        if (IsValidArenaIndex(arenaIndex))
         {
             var spawner = targetSpawners[arenaIndex];
-            spawner.SetSpawningEnabled(enableTargetSpawning);
-            spawner.ResetArena();
-            LogSpecificSpawnerReset(arenaIndex, spawner);
+            spawner?.SetSpawningEnabled(enableTargetSpawning);
+            spawner?.ResetArena();
+            enemySpawner?.RespawnSpecificArena(arenaIndex);
         }
     }
-
-    private void DisableAllTargetSpawners()
-    {
-        if (targetSpawners == null) return;
-
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SetSpawningEnabled(false);
-            }
-        }
-    }
-
-    private void EnableTargetSpawnersIfGloballyEnabled()
-    {
-        if (targetSpawners == null) return;
-
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                spawner.SetSpawningEnabled(enableTargetSpawning);
-            }
-        }
-    }
-
     #endregion
 
     #region Agent Management
-
     private void RefreshAgentList()
     {
         allAgents.Clear();
         activeEnemiesCount = 0;
         
-        NormalEnemyAgent[] foundAgents = FindObjectsByType<NormalEnemyAgent>(FindObjectsSortMode.None);
+        var foundAgents = FindObjectsByType<NormalEnemyAgent>(FindObjectsSortMode.None);
         
         foreach (var agent in foundAgents)
         {
-            if (IsValidActiveAgent(agent))
+            if (agent?.gameObject.activeInHierarchy == true)
             {
                 allAgents.Add(agent);
-                if (agent.gameObject.activeInHierarchy)
-                {
-                    activeEnemiesCount++;
-                }
+                activeEnemiesCount++;
             }
         }
         
-        LogAgentRefresh();
-    }
-
-    public void HandleEnemyDeath()
-    {
-        activeEnemiesCount--;
-        if (activeEnemiesCount <= 0)
-        {
-            StartCoroutine(ResetEpisodeCoroutine());
-        }
-    }
-
-    private bool IsValidActiveAgent(NormalEnemyAgent agent)
-    {
-        return agent != null && agent.gameObject.activeInHierarchy;
+        LogDebug($"Refreshed agent list: Found {allAgents.Count} active agents");
     }
 
     private void ResetAllAgents()
     {
         foreach (var agent in allAgents)
         {
-            if (IsValidActiveAgent(agent))
+            if (agent?.gameObject.activeInHierarchy == true)
             {
-                TryResetAgent(agent);
+                try { agent.EndEpisode(); }
+                catch (System.Exception e) { Debug.LogError($"Error resetting agent {agent.name}: {e.Message}"); }
             }
         }
     }
-
-    private void ResetAgentsInArena(int arenaIndex)
-    {
-        ResetAllAgents();
-    }
-
-    private void TryResetAgent(NormalEnemyAgent agent)
-    {
-        try
-        {
-            agent.EndEpisode();
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Error resetting agent {agent.name}: {e.Message}");
-        }
-    }
-
     #endregion
 
-    #region Enemy Spawner Management
-
-    private void ResetEnemySpawner()
+    #region Target Spawner Management
+    private void ConfigureAllTargetSpawners()
     {
-        if (enemySpawner != null)
-        {
-            enemySpawner.RespawnAllArenas();
-        }
+        if (targetSpawners == null) return;
+        
+        LogDebug($"Configuring {targetSpawners.Length} target spawners - Spawning enabled: {enableTargetSpawning}");
+        SetAllTargetSpawners(enableTargetSpawning);
     }
 
-    private void RespawnEnemiesInArena(int arenaIndex)
+    private void SetAllTargetSpawners(bool enabled)
     {
-        if (enemySpawner != null)
-        {
-            enemySpawner.RespawnSpecificArena(arenaIndex);
-        }
+        if (targetSpawners == null) return;
+        
+        foreach (var spawner in targetSpawners)
+            spawner?.SetSpawningEnabled(enabled);
     }
 
+    private void ResetAllTargetSpawners()
+    {
+        if (targetSpawners == null) return;
+        
+        LogDebug($"Resetting {targetSpawners.Length} target spawners");
+        foreach (var spawner in targetSpawners)
+        {
+            if (spawner != null)
+            {
+                spawner.SetSpawningEnabled(enableTargetSpawning);
+                spawner.ResetArena();
+            }
+        }
+    }
     #endregion
 
     #region Utility Methods
-
-    private bool IsValidArenaIndex(int arenaIndex)
-    {
-        return targetSpawners != null && arenaIndex >= 0 && arenaIndex < targetSpawners.Length;
-    }
+    private bool IsValidArenaIndex(int arenaIndex) => 
+        targetSpawners != null && arenaIndex >= 0 && arenaIndex < targetSpawners.Length;
 
     private int GetArenaCount()
     {
@@ -383,35 +251,23 @@ public class RL_TrainingManager : MonoBehaviour
         var arenasField = typeof(RL_TrainingEnemySpawner).GetField("arenas", 
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         
-        if (arenasField != null)
-        {
-            var arenas = arenasField.GetValue(enemySpawner) as RL_TrainingEnemySpawner.ArenaConfiguration[];
-            return arenas?.Length ?? 0;
-        }
-        
-        return 0;
+        return (arenasField?.GetValue(enemySpawner) as RL_TrainingEnemySpawner.ArenaConfiguration[])?.Length ?? 0;
     }
 
+    private void LogDebug(string message)
+    {
+        if (debugTraining) Debug.Log(message);
+    }
     #endregion
 
     #region Debug Information
-
     public int GetActiveAgentCount() => allAgents.Count;
     public bool IsResetting() => isResetting;
 
     public int GetActiveTargetsCount()
     {
         if (targetSpawners == null) return 0;
-
-        int totalTargets = 0;
-        foreach (var spawner in targetSpawners)
-        {
-            if (spawner != null)
-            {
-                totalTargets += spawner.GetActiveTargetCount();
-            }
-        }
-        return totalTargets;
+        return targetSpawners.Where(s => s != null).Sum(s => s.GetActiveTargetCount());
     }
 
     [System.Serializable]
@@ -423,140 +279,12 @@ public class RL_TrainingManager : MonoBehaviour
         public bool targetSpawningEnabled;
     }
 
-    public DebugInfo GetDebugInfo()
+    public DebugInfo GetDebugInfo() => new DebugInfo
     {
-        return new DebugInfo
-        {
-            activeAgents = allAgents.Count,
-            totalTargets = GetActiveTargetsCount(),
-            isResetting = isResetting,
-            targetSpawningEnabled = enableTargetSpawning
-        };
-    }
-
+        activeAgents = allAgents.Count,
+        totalTargets = GetActiveTargetsCount(),
+        isResetting = isResetting,
+        targetSpawningEnabled = enableTargetSpawning
+    };
     #endregion
-
-    #region Logging
-
-    private void LogTrainingSessionStart()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Training started with {allAgents.Count} agents across {GetArenaCount()} arenas");
-            Debug.Log($"Target spawning enabled: {enableTargetSpawning}");
-            LogTargetSpawnerStatus();
-        }
-    }
-
-    private void LogEpisodeStart()
-    {
-        if (debugTraining)
-        {
-            Debug.Log("Starting new training episode...");
-        }
-    }
-
-    private void LogEpisodeComplete()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Episode reset complete. Active agents: {allAgents.Count}");
-            LogTargetSpawnerStatus();
-        }
-    }
-
-    private void LogArenaReset(int arenaIndex)
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Resetting Arena {arenaIndex}");
-        }
-    }
-
-    private void LogTargetSpawningStatus()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Target spawning globally set to: {enableTargetSpawning}");
-            LogTargetSpawnerStatus();
-        }
-    }
-
-    private void LogTargetSpawnerConfiguration()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Configuring {targetSpawners.Length} target spawners - Spawning enabled: {enableTargetSpawning}");
-        }
-    }
-
-    private void LogIndividualSpawnerConfiguration(RL_TrainingTargetSpawner spawner)
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Configured spawner {spawner.name}: Enabled={spawner.IsSpawningEnabled()}, MaxTargets={spawner.GetMaxTargets()}");
-        }
-    }
-
-    private void LogArenaSpawnerConfiguration(int arenaIndex)
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Configured Arena {arenaIndex} spawner: Enabled={enableTargetSpawning}");
-        }
-    }
-
-    private void LogAgentRefresh()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Refreshed agent list: Found {allAgents.Count} active agents");
-        }
-    }
-
-    private void LogTargetSpawnerReset()
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Resetting {targetSpawners.Length} target spawners");
-        }
-    }
-
-    private void LogSpawnerResetResult(RL_TrainingTargetSpawner spawner)
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Reset spawner {spawner.name}: Active targets after reset = {spawner.GetActiveTargetCount()}");
-        }
-    }
-
-    private void LogSpecificSpawnerReset(int arenaIndex, RL_TrainingTargetSpawner spawner)
-    {
-        if (debugTraining)
-        {
-            Debug.Log($"Reset Arena {arenaIndex} spawner: Active targets = {spawner.GetActiveTargetCount()}");
-        }
-    }
-
-    private void LogTargetSpawnerStatus()
-    {
-        if (targetSpawners == null) return;
-        
-        for (int i = 0; i < targetSpawners.Length; i++)
-        {
-            var spawner = targetSpawners[i];
-            if (spawner != null)
-            {
-                Debug.Log($"Arena {i} Target Spawner: {spawner.GetActiveTargetCount()}/{spawner.GetMaxTargets()} targets, " +
-                         $"Enabled: {spawner.IsSpawningEnabled()}, Episode Active: {spawner.IsEpisodeActive()}");
-            }
-        }
-    }
-
-    #endregion
-
-    private void OnDestroy()
-    {
-        StopAllCoroutines();
-    }
 }

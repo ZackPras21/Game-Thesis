@@ -5,7 +5,6 @@ using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
 using System.Collections;
-using System.Collections.Generic;
 
 [RequireComponent(typeof(NavMeshAgent), typeof(RayPerceptionSensorComponent3D), typeof(RL_EnemyController))]
 public class NormalEnemyAgent : Agent

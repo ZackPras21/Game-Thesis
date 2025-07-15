@@ -1447,7 +1447,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 357979731513827213, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.00731
+      value: -0.0073100007
+      objectReference: {fileID: 0}
+    - target: {fileID: 357979731513827213, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.00017000001
       objectReference: {fileID: 0}
     - target: {fileID: 433488086254151764, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1497,6 +1501,14 @@ PrefabInstance:
       propertyPath: m_LocalScale.y
       value: 0.86428785
       objectReference: {fileID: 0}
+    - target: {fileID: 1016196897865407825, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.00801
+      objectReference: {fileID: 0}
+    - target: {fileID: 1016196897865407825, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.00017000001
+      objectReference: {fileID: 0}
     - target: {fileID: 1168984935816882286, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_Name
       value: Normal Enemy Arena (Easy)
@@ -1541,6 +1553,14 @@ PrefabInstance:
       propertyPath: 'enemyPrefab.Array.data[1]'
       value: 
       objectReference: {fileID: 4443409237942974354, guid: fea521f89b9523a49bb83f6511b2e9a6, type: 3}
+    - target: {fileID: 2760912271531336070, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.006910001
+      objectReference: {fileID: 0}
+    - target: {fileID: 2760912271531336070, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.00017000001
+      objectReference: {fileID: 0}
     - target: {fileID: 3134311590419763022, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.0009507964
@@ -1595,7 +1615,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4802145741181887974, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.00017
       objectReference: {fileID: 0}
     - target: {fileID: 5328943814237056697, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalScale.x
