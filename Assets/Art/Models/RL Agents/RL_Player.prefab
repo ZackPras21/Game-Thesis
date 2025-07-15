@@ -623,6 +623,7 @@ GameObject:
   - component: {fileID: 8625117619887489572}
   - component: {fileID: 6567306619633097299}
   - component: {fileID: 8670995149941991896}
+  - component: {fileID: 5091740778519524130}
   m_Layer: 6
   m_Name: RL_Player
   m_TagString: Player
@@ -807,6 +808,39 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &5091740778519524130
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2819751379245008023}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bb6b867a41448888c1cd4f99643ad71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SensorName: RayPerceptionSensor
+  m_DetectableTags:
+  - Enemy
+  - Wall
+  - Box
+  - Gate
+  - Player
+  m_RaysPerDirection: 10
+  m_MaxRayDegrees: 75
+  m_SphereCastRadius: 0.5
+  m_RayLength: 35
+  m_RayLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967291
+  m_ObservationStacks: 3
+  m_AlternatingRayOrder: 1
+  m_UseBatchedRaycasts: 0
+  rayHitColor: {r: 0, g: 0.11241293, b: 1, a: 1}
+  rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
+  m_StartVerticalOffset: 0
+  m_EndVerticalOffset: 0
 --- !u!1 &3485249036913059050
 GameObject:
   m_ObjectHideFlags: 0
@@ -7116,6 +7150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 750789314923456546}
   fill: {fileID: 8813103707283213046}
+  smoothSpeed: 5
 --- !u!1 &7357420809819064528
 GameObject:
   m_ObjectHideFlags: 0
