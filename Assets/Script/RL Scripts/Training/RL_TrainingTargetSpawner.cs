@@ -7,19 +7,22 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     public struct ArenaConfiguration
     {
         [Header("Arena Boundaries")]
-        public Transform corner1;
-        public Transform corner2;
-        public Transform corner3;
-        public Transform corner4;
-
+        public Transform corner1, corner2, corner3, corner4;
+        
         [Header("Target Configuration")]
         public int maxTargets;
         
         [Header("Organization")]
         public Transform spawnParent;
-
+        
         [Header("Spawn Points (Optional)")]
         public Transform[] customSpawnPoints;
+    }
+
+    private struct ArenaBounds
+    {
+        public float minX, maxX, minZ, maxZ;
+        public Vector3 center;
     }
 
     [Header("Spawn Configuration")]
@@ -50,75 +53,62 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
     public static System.Action<float> OnRewardAdded;
 
-    private struct ArenaBounds
-    {
-        public float minX, maxX, minZ, maxZ;
-        public Vector3 center;
-    }
+    // Public Properties
+    public bool IsSpawningEnabled() => spawningEnabled;
+    public bool IsEpisodeActive() => episodeActive;
+    public bool IsInitialized() => initialized;
+    public int GetTotalActiveTargetCount() => GetTargetCount();
+    public int GetActiveTargetCount() => GetTotalActiveTargetCount();
+    public int GetMaxTargets() => arenas.Length > 0 ? arenas[0].maxTargets : 0;
 
-    private void Start()
-    {
-        Initialize();
-    }
+    private void Start() => Initialize();
 
     private void Update()
     {
         if (ShouldHandleContinuousSpawning())
-        {
             HandleContinuousSpawning();
-        }
     }
 
     private void Initialize()
     {
-        LogInitialization();
-        InitializeArenaData();
-        ResetTimingAndState();
-        UpdateVisuals();
-        initialized = true;
-        LogArenaConfiguration();
-    }
-
-    private void InitializeArenaData()
-    {
+        LogAction("Initializing spawner", $"with {arenas.Length} arenas");
+        
         for (int i = 0; i < arenas.Length; i++)
         {
             arenaTargets[i] = new List<GameObject>();
             arenaBounds[i] = CalculateArenaBounds(arenas[i]);
         }
-    }
 
-    private void ResetTimingAndState()
-    {
         lastSpawnTime = Time.time;
         episodeActive = false;
+        initialized = true;
+        UpdateVisuals();
+        LogArenaConfigurations();
     }
 
     public void ResetArena()
     {
-        LogArenaReset();
+        LogAction("ResetArena", $"Resetting all {arenas.Length} arenas");
+        
         DestroyAllTargets();
-        PlayEpisodeStartEffect();
+        PlayEffect(episodeStartPrefab, transform.position);
         StartNewEpisode();
         
         if (spawningEnabled)
-        {
             SpawnInitialTargetsInAllArenas();
-        }
     }
 
     public void SetSpawningEnabled(bool enabled)
     {
         bool previousState = spawningEnabled;
         spawningEnabled = enabled;
-        LogSpawningStateChange(previousState, enabled);
+        LogAction("Spawning state changed", $"{previousState} -> {enabled}");
 
         if (!enabled && previousState)
         {
             DestroyAllTargets();
             episodeActive = false;
         }
-
         UpdateVisuals();
     }
 
@@ -128,16 +118,22 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
         int oldMax = arenas[arenaIndex].maxTargets;
         arenas[arenaIndex].maxTargets = Mathf.Max(0, newMax);
-        LogMaxTargetsChange(arenaIndex, oldMax, newMax);
-
+        LogAction($"Arena {arenaIndex} max targets changed", $"{oldMax} -> {newMax}");
+        
         RemoveExcessTargetsFromArena(arenaIndex, newMax);
+    }
+
+    public void SetMaxTargets(int newMax)
+    {
+        for (int i = 0; i < arenas.Length; i++)
+            SetMaxTargetsForArena(i, newMax);
     }
 
     public void SpawnTargetsManuallyInArena(int arenaIndex, int count)
     {
         if (!CanSpawnInArena(arenaIndex))
         {
-            LogManualSpawnFailure(arenaIndex);
+            LogAction($"Cannot spawn manually in arena {arenaIndex}", "spawning disabled or invalid arena");
             return;
         }
 
@@ -145,12 +141,10 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (arena.maxTargets <= 0) return;
 
         count = Mathf.Clamp(count, 0, arena.maxTargets - arenaTargets[arenaIndex].Count);
-        LogManualSpawn(arenaIndex, count);
+        LogAction($"Manual spawn in Arena {arenaIndex}", $"{count} targets");
 
         for (int i = 0; i < count; i++)
-        {
             SpawnSingleTargetInArena(arenaIndex);
-        }
     }
 
     public void OnTargetDestroyed(GameObject target)
@@ -158,22 +152,28 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         int arenaIndex = FindTargetArena(target);
         if (arenaIndex == -1) return;
 
-        LogTargetDestroyed(arenaIndex);
+        LogAction($"Target destroyed in Arena {arenaIndex}", "");
         RemoveTargetFromArena(target, arenaIndex);
         UpdateVisuals();
 
         if (ShouldSpawnReplacement(arenaIndex))
-        {
             SpawnSingleTargetInArena(arenaIndex);
-        }
 
         CheckForEpisodeEnd();
     }
 
-    private bool ShouldHandleContinuousSpawning()
+    public int GetActiveTargetCountInArena(int arenaIndex)
     {
-        return initialized && enableContinuousSpawning && episodeActive && spawningEnabled;
+        if (!IsValidArenaIndex(arenaIndex)) return 0;
+        
+        arenaTargets[arenaIndex].RemoveAll(target => target == null);
+        return arenaTargets[arenaIndex].Count;
     }
+
+    public static void AddReward(float reward) => OnRewardAdded?.Invoke(reward);
+
+    private bool ShouldHandleContinuousSpawning() => 
+        initialized && enableContinuousSpawning && episodeActive && spawningEnabled;
 
     private void HandleContinuousSpawning()
     {
@@ -194,42 +194,34 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         episodeActive = true;
         lastSpawnTime = Time.time - spawnInterval;
         UpdateVisuals();
-        LogEpisodeStart();
+        LogAction("Episode started", "");
     }
 
     private void SpawnInitialTargetsInAllArenas()
     {
-        LogInitialTargetSpawning();
+        LogAction("Spawning initial targets", "in all arenas");
 
         for (int arenaIndex = 0; arenaIndex < arenas.Length; arenaIndex++)
         {
-            SpawnInitialTargetsInArena(arenaIndex);
-        }
-    }
+            var arena = arenas[arenaIndex];
+            if (arena.maxTargets <= 0) continue;
 
-    private void SpawnInitialTargetsInArena(int arenaIndex)
-    {
-        var arena = arenas[arenaIndex];
-        if (arena.maxTargets <= 0) return;
-
-        int spawnedCount = 0;
-        // Ensure we don't spawn more targets than the arena allows
-        int targetsToSpawn = Mathf.Min(arena.maxTargets, arena.customSpawnPoints?.Length ?? arena.maxTargets);
-        
-        for (int i = 0; i < targetsToSpawn; i++)
-        {
-            if (SpawnSingleTargetInArena(arenaIndex))
+            int spawnedCount = 0;
+            int targetsToSpawn = Mathf.Min(arena.maxTargets, arena.customSpawnPoints?.Length ?? arena.maxTargets);
+            
+            for (int i = 0; i < targetsToSpawn; i++)
             {
-                spawnedCount++;
+                if (SpawnSingleTargetInArena(arenaIndex))
+                    spawnedCount++;
+                else
+                {
+                    LogAction($"Failed to spawn target {i + 1}/{targetsToSpawn}", $"in Arena {arenaIndex}");
+                    break;
+                }
             }
-            else
-            {
-                LogSpawnFailure(arenaIndex, i + 1, targetsToSpawn);
-                break;
-            }
-        }
 
-        LogArenaSpawnResults(arenaIndex, spawnedCount, targetsToSpawn);
+            LogAction($"Arena {arenaIndex}", $"Spawned {spawnedCount}/{targetsToSpawn} targets");
+        }
     }
 
     private bool SpawnSingleTargetInArena(int arenaIndex)
@@ -240,11 +232,13 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (spawnPosition == Vector3.zero) return false;
 
         GameObject newTarget = CreateTargetAtPosition(spawnPosition, arenaIndex);
-        ConfigureTarget(newTarget);
-        PlaySpawnEffect(spawnPosition);
-        UpdateVisuals();
+        if (newTarget == null) return false;
 
-        LogTargetSpawned(arenaIndex, spawnPosition);
+        ConfigureTarget(newTarget);
+        PlayEffect(spawnParticlePrefab, spawnPosition);
+        UpdateVisuals();
+        LogAction($"Target spawned in Arena {arenaIndex}", $"at {spawnPosition}");
+        
         return true;
     }
 
@@ -253,23 +247,15 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         if (!IsValidArenaIndex(arenaIndex)) return false;
         
         var arena = arenas[arenaIndex];
-        return initialized &&
-               spawningEnabled &&
-               episodeActive &&
-               arena.maxTargets > 0 &&
-               arenaTargets[arenaIndex].Count < arena.maxTargets &&
+        return initialized && spawningEnabled && episodeActive && 
+               arena.maxTargets > 0 && arenaTargets[arenaIndex].Count < arena.maxTargets && 
                trainingTargetPrefab != null;
     }
 
-    private bool CanSpawnInArena(int arenaIndex)
-    {
-        return spawningEnabled && IsValidArenaIndex(arenaIndex);
-    }
+    private bool CanSpawnInArena(int arenaIndex) => spawningEnabled && IsValidArenaIndex(arenaIndex);
 
-    private bool ShouldSpawnReplacement(int arenaIndex)
-    {
-        return enableContinuousSpawning && CanSpawnMoreInArena(arenaIndex);
-    }
+    private bool ShouldSpawnReplacement(int arenaIndex) => 
+        enableContinuousSpawning && CanSpawnMoreInArena(arenaIndex);
 
     private Vector3 GetValidSpawnPosition(int arenaIndex)
     {
@@ -290,9 +276,7 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         foreach (var spawnPoint in arena.customSpawnPoints)
         {
             if (spawnPoint != null && IsValidPosition(spawnPoint.position, arenaIndex))
-            {
                 return spawnPoint.position;
-            }
         }
         return Vector3.zero;
     }
@@ -301,45 +285,30 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
     {
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 candidatePosition = GenerateRandomPosition(bounds);
+            Vector3 candidatePosition = new Vector3(
+                Random.Range(bounds.minX, bounds.maxX),
+                bounds.center.y,
+                Random.Range(bounds.minZ, bounds.maxZ)
+            );
+
             if (IsValidPosition(candidatePosition, arenaIndex))
             {
-                if (debugSpawning) Debug.Log($"[{gameObject.name}] Found valid position at {candidatePosition} on attempt {attempt + 1}");
+                if (debugSpawning) 
+                    Debug.Log($"[{gameObject.name}] Found valid position at {candidatePosition} on attempt {attempt + 1}");
                 return candidatePosition;
             }
-            else if (debugSpawning)
-            {
-                Debug.LogWarning($"[{gameObject.name}] Invalid position at {candidatePosition} - " +
-                    $"Bounds: {IsWithinArenaBounds(candidatePosition, arenaIndex)}, " +
-                    $"Collision: {!HasCollisionAtPosition(candidatePosition)}, " +
-                    $"Distance: {HasSufficientDistanceFromTargets(candidatePosition, arenaIndex)}");
-            }
         }
-        if (debugSpawning) Debug.LogError($"[{gameObject.name}] Failed to find valid position after {maxSpawnAttempts} attempts");
+        
+        if (debugSpawning) 
+            Debug.LogError($"[{gameObject.name}] Failed to find valid position after {maxSpawnAttempts} attempts");
         return Vector3.zero;
-    }
-
-    private Vector3 GenerateRandomPosition(ArenaBounds bounds)
-    {
-        float x = Random.Range(bounds.minX, bounds.maxX);
-        float z = Random.Range(bounds.minZ, bounds.maxZ);
-        return new Vector3(x, bounds.center.y, z);
     }
 
     private bool IsValidPosition(Vector3 position, int arenaIndex)
     {
-        bool inBounds = IsWithinArenaBounds(position, arenaIndex);
-        bool noCollision = !HasCollisionAtPosition(position);
-        bool sufficientDistance = HasSufficientDistanceFromTargets(position, arenaIndex);
-        
-        if (debugSpawning && !inBounds)
-            Debug.LogWarning($"[{gameObject.name}] Position {position} out of bounds for arena {arenaIndex}");
-        if (debugSpawning && !noCollision)
-            Debug.LogWarning($"[{gameObject.name}] Collision detected at {position}");
-        if (debugSpawning && !sufficientDistance)
-            Debug.LogWarning($"[{gameObject.name}] Insufficient distance from other targets at {position}");
-
-        return inBounds && noCollision && sufficientDistance;
+        return IsWithinArenaBounds(position, arenaIndex) && 
+               !HasCollisionAtPosition(position) && 
+               HasSufficientDistanceFromTargets(position, arenaIndex);
     }
 
     private bool IsWithinArenaBounds(Vector3 position, int arenaIndex)
@@ -351,62 +320,43 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
     private bool HasCollisionAtPosition(Vector3 position)
     {
-        // Use OverlapSphere with a small radius to avoid false positives
-        Collider[] colliders = Physics.OverlapSphere(position, 0.5f, spawnCollisionLayers);
+        var colliders = Physics.OverlapSphere(position, 0.5f, spawnCollisionLayers);
         foreach (var collider in colliders)
         {
-            // Ignore triggers and the player's own collider
             if (!collider.isTrigger && collider.gameObject != gameObject)
-            {
                 return true;
-            }
         }
         return false;
     }
 
     private bool HasSufficientDistanceFromTargets(Vector3 position, int arenaIndex)
     {
-        foreach (GameObject target in arenaTargets[arenaIndex])
+        foreach (var target in arenaTargets[arenaIndex])
         {
             if (target != null && Vector3.Distance(position, target.transform.position) < minimumSpawnDistance)
-            {
                 return false;
-            }
         }
         return true;
     }
 
     private GameObject CreateTargetAtPosition(Vector3 position, int arenaIndex)
     {
-        if (this == null || !gameObject.scene.isLoaded)
-        {
-            Debug.LogWarning("[Spawner] Cannot spawn target - spawner destroyed or scene unloading");
-            return null;
-        }
+        if (this == null || !gameObject.scene.isLoaded) return null;
 
         var arena = arenas[arenaIndex];
-        Transform parent = null;
-        if (arena.spawnParent != null && arena.spawnParent.gameObject.scene.isLoaded)
-        {
-            parent = arena.spawnParent;
-        }
+        Transform parent = (arena.spawnParent != null && arena.spawnParent.gameObject.scene.isLoaded) 
+            ? arena.spawnParent : null;
 
         GameObject newTarget = Instantiate(trainingTargetPrefab, position, Quaternion.identity, parent);
         if (newTarget != null)
         {
             arenaTargets[arenaIndex].Add(newTarget);
-            newTarget.hideFlags = HideFlags.DontSave; // Prevent scene persistence
+            newTarget.hideFlags = HideFlags.DontSave;
         }
         return newTarget;
     }
 
     private void ConfigureTarget(GameObject target)
-    {
-        ConfigurePlayerComponent(target);
-        ConfigureLifeTracker(target);
-    }
-
-    private void ConfigurePlayerComponent(GameObject target)
     {
         var playerComponent = target.GetComponent<RL_Player>();
         if (playerComponent != null)
@@ -414,62 +364,45 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
             playerComponent.isRL_TrainingTarget = true;
             playerComponent.spawner = this;
         }
-    }
 
-    private void ConfigureLifeTracker(GameObject target)
-    {
         var lifeTracker = target.GetComponent<RL_TrainingTarget>();
         if (lifeTracker == null)
-        {
             lifeTracker = target.AddComponent<RL_TrainingTarget>();
-        }
         lifeTracker.Initialize(this);
     }
 
-    private void PlaySpawnEffect(Vector3 position)
+    private void PlayEffect(GameObject prefab, Vector3 position)
     {
-        if (spawnParticlePrefab != null && gameObject.scene.isLoaded)
-        {
-            var effect = Instantiate(spawnParticlePrefab, position, Quaternion.identity);
-            if (effect != null)
-            {
-                var ps = effect.GetComponent<ParticleSystem>();
-                if (ps != null)
-                {
-                    var main = ps.main;
-                    main.stopAction = ParticleSystemStopAction.Destroy;
-                }
-                effect.hideFlags = HideFlags.DontSave;
-            }
-        }
-    }
+        if (prefab == null || !gameObject.scene.isLoaded) return;
 
-    private void PlayEpisodeStartEffect()
-    {
-        if (episodeStartPrefab != null)
+        var effect = Instantiate(prefab, position, Quaternion.identity);
+        if (effect != null)
         {
-            Instantiate(episodeStartPrefab, transform.position, Quaternion.identity);
+            var ps = effect.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main;
+                main.stopAction = ParticleSystemStopAction.Destroy;
+            }
+            effect.hideFlags = HideFlags.DontSave;
         }
     }
 
     private ArenaBounds CalculateArenaBounds(ArenaConfiguration arena)
     {
-        if (HasValidCorners(arena))
+        if (arena.corner1 == null || arena.corner2 == null || 
+            arena.corner3 == null || arena.corner4 == null)
         {
-            return CalculateBoundsFromCorners(arena);
+            return new ArenaBounds
+            {
+                minX = transform.position.x - 5f,
+                maxX = transform.position.x + 5f,
+                minZ = transform.position.z - 5f,
+                maxZ = transform.position.z + 5f,
+                center = transform.position
+            };
         }
-        
-        return CreateFallbackBounds();
-    }
 
-    private bool HasValidCorners(ArenaConfiguration arena)
-    {
-        return arena.corner1 != null && arena.corner2 != null && 
-               arena.corner3 != null && arena.corner4 != null;
-    }
-
-    private ArenaBounds CalculateBoundsFromCorners(ArenaConfiguration arena)
-    {
         float minX = Mathf.Min(arena.corner1.position.x, arena.corner2.position.x, 
                               arena.corner3.position.x, arena.corner4.position.x);
         float maxX = Mathf.Max(arena.corner1.position.x, arena.corner2.position.x, 
@@ -481,89 +414,47 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
         return new ArenaBounds
         {
-            minX = minX,
-            maxX = maxX,
-            minZ = minZ,
-            maxZ = maxZ,
+            minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ,
             center = new Vector3((minX + maxX) / 2f, arena.corner1.position.y, (minZ + maxZ) / 2f)
-        };
-    }
-
-    private ArenaBounds CreateFallbackBounds()
-    {
-        return new ArenaBounds
-        {
-            minX = transform.position.x - 5f,
-            maxX = transform.position.x + 5f,
-            minZ = transform.position.z - 5f,
-            maxZ = transform.position.z + 5f,
-            center = transform.position
         };
     }
 
     private int FindTargetArena(GameObject target)
     {
-        if (target == null || arenaTargets == null || arenas == null)
-            return -1;
+        if (target == null || arenaTargets == null || arenas == null) return -1;
 
         for (int i = 0; i < arenas.Length; i++)
         {
             if (arenaTargets.ContainsKey(i) && arenaTargets[i].Contains(target))
-            {
                 return i;
-            }
         }
         return -1;
     }
 
-    private void RemoveTargetFromArena(GameObject target, int arenaIndex)
-    {
+    private void RemoveTargetFromArena(GameObject target, int arenaIndex) => 
         arenaTargets[arenaIndex].Remove(target);
-    }
 
     private void RemoveExcessTargetsFromArena(int arenaIndex, int newMax)
     {
-        if (arenaTargets[arenaIndex].Count > newMax)
+        var targets = arenaTargets[arenaIndex];
+        while (targets.Count > newMax)
         {
-            int excessCount = arenaTargets[arenaIndex].Count - newMax;
-            for (int i = 0; i < excessCount; i++)
-            {
-                DestroyOldestTargetInArena(arenaIndex);
-            }
+            DestroyTarget(targets[0]);
+            targets.RemoveAt(0);
         }
     }
 
     private void DestroyAllTargets()
     {
-        LogTotalTargetDestruction();
+        int totalCount = GetTargetCount();
+        LogAction("Destroying targets", $"{totalCount} total targets across all arenas");
 
         foreach (var kvp in arenaTargets)
         {
-            DestroyTargetList(kvp.Value);
+            for (int i = kvp.Value.Count - 1; i >= 0; i--)
+                DestroyTarget(kvp.Value[i]);
+            kvp.Value.Clear();
         }
-    }
-
-    private void DestroyOldestTargetInArena(int arenaIndex)
-    {
-        var targets = arenaTargets[arenaIndex];
-        if (targets.Count > 0)
-        {
-            GameObject oldest = targets[0];
-            targets.RemoveAt(0);
-            DestroyTarget(oldest);
-        }
-    }
-
-    private void DestroyTargetList(List<GameObject> targets)
-    {
-        if (targets == null || targets.Count == 0) return;
-        
-        // Iterate backwards to avoid index shifting when removing elements
-        for (int i = targets.Count - 1; i >= 0; i--)
-        {
-            DestroyTarget(targets[i]);
-        }
-        targets.Clear();
     }
 
     private void DestroyTarget(GameObject target)
@@ -572,27 +463,16 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
         try
         {
-            // Disable components before destruction
             var targetComponent = target.GetComponent<RL_TrainingTarget>();
-            if (targetComponent != null)
-            {
-                targetComponent.enabled = false;
-            }
+            if (targetComponent != null) targetComponent.enabled = false;
 
             var playerComponent = target.GetComponent<RL_Player>();
-            if (playerComponent != null)
-            {
-                playerComponent.enabled = false;
-            }
+            if (playerComponent != null) playerComponent.enabled = false;
 
             if (Application.isPlaying)
-            {
                 Destroy(target);
-            }
             else
-            {
                 DestroyImmediate(target);
-            }
         }
         catch (System.Exception e)
         {
@@ -600,29 +480,9 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        if (arenaTargets == null) return;
-
-        foreach (var kvp in arenaTargets)
-        {
-            if (kvp.Value == null) continue;
-            
-            // Destroy targets in reverse order
-            for (int i = kvp.Value.Count - 1; i >= 0; i--)
-            {
-                if (kvp.Value[i] != null)
-                {
-                    DestroyTarget(kvp.Value[i]);
-                }
-            }
-            kvp.Value.Clear();
-        }
-    }
-
     private void CheckForEpisodeEnd()
     {
-        bool hasAnyTargets = false;
+        bool hasTargets = false;
         bool shouldHaveTargets = false;
 
         for (int i = 0; i < arenas.Length; i++)
@@ -632,59 +492,30 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
                 shouldHaveTargets = true;
                 if (arenaTargets[i].Count > 0)
                 {
-                    hasAnyTargets = true;
+                    hasTargets = true;
                     break;
                 }
             }
         }
 
-        if (!hasAnyTargets && shouldHaveTargets && episodeActive)
+        if (!hasTargets && shouldHaveTargets && episodeActive)
         {
-            EndCurrentEpisode();
+            episodeActive = false;
+            UpdateVisuals();
+            LogAction("Episode ended", "");
         }
-    }
-
-    private void EndCurrentEpisode()
-    {
-        episodeActive = false;
-        UpdateVisuals();
-        LogEpisodeEnd();
     }
 
     private void UpdateVisuals()
     {
         if (arenaLight != null)
         {
-            bool hasAnyTargets = HasAnyActiveTargets();
-            arenaLight.color = (episodeActive && hasAnyTargets) ? activeColor : inactiveColor;
+            bool hasTargets = GetTargetCount() > 0;
+            arenaLight.color = (episodeActive && hasTargets) ? activeColor : inactiveColor;
         }
     }
 
-    private bool HasAnyActiveTargets()
-    {
-        if (arenaTargets == null) return false;
-
-        foreach (var kvp in arenaTargets)
-        {
-            if (kvp.Value != null && kvp.Value.Count > 0)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private bool IsValidArenaIndex(int arenaIndex)
-    {
-        return arenaIndex >= 0 && arenaIndex < arenas.Length;
-    }
-
-    public static void AddReward(float reward)
-    {
-        OnRewardAdded?.Invoke(reward);
-    }
-
-    public int GetTotalActiveTargetCount()
+    private int GetTargetCount()
     {
         if (arenaTargets == null) return 0;
 
@@ -700,165 +531,38 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
         return total;
     }
 
-    public int GetActiveTargetCountInArena(int arenaIndex)
+    private bool IsValidArenaIndex(int arenaIndex) => arenaIndex >= 0 && arenaIndex < arenas.Length;
+
+    private void OnDestroy()
     {
-        if (!IsValidArenaIndex(arenaIndex)) return 0;
-        
-        arenaTargets[arenaIndex].RemoveAll(target => target == null);
-        return arenaTargets[arenaIndex].Count;
-    }
+        if (arenaTargets == null) return;
 
-    public bool IsSpawningEnabled() => spawningEnabled;
-    public bool IsEpisodeActive() => episodeActive;
-    public bool IsInitialized() => initialized;
-
-    public void SetMaxTargets(int newMax)
-    {
-        for (int i = 0; i < arenas.Length; i++)
-        {
-            SetMaxTargetsForArena(i, newMax);
-        }
-    }
-
-    public int GetMaxTargets()
-    {
-        if (arenas.Length == 0) return 0;
-        return arenas[0].maxTargets;
-    }
-
-    public int GetActiveTargetCount() => GetTotalActiveTargetCount();
-
-    #region Debug Logging
-
-    private void LogInitialization()
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Initializing spawner with {arenas.Length} arenas");
-        }
-    }
-
-    private void LogArenaConfiguration()
-    {
-        if (!debugSpawning) return;
-
-        for (int i = 0; i < arenas.Length; i++)
-        {
-            Debug.Log($"Arena {i}: MaxTargets={arenas[i].maxTargets}, Bounds={arenaBounds[i].center}");
-        }
-    }
-
-    private void LogArenaReset()
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] ResetArena called - Resetting all {arenas.Length} arenas");
-        }
-    }
-
-    private void LogSpawningStateChange(bool previousState, bool newState)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Spawning enabled changed: {previousState} -> {newState}");
-        }
-    }
-
-    private void LogMaxTargetsChange(int arenaIndex, int oldMax, int newMax)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Arena {arenaIndex} max targets changed: {oldMax} -> {newMax}");
-        }
-    }
-
-    private void LogManualSpawn(int arenaIndex, int count)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Manual spawn in Arena {arenaIndex}: {count} targets");
-        }
-    }
-
-    private void LogManualSpawnFailure(int arenaIndex)
-    {
-        if (debugSpawning)
-        {
-            Debug.LogWarning($"[{gameObject.name}] Cannot spawn manually in arena {arenaIndex}");
-        }
-    }
-
-    private void LogTargetDestroyed(int arenaIndex)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Target destroyed in Arena {arenaIndex}");
-        }
-    }
-
-    private void LogEpisodeStart()
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Episode started");
-        }
-    }
-
-    private void LogEpisodeEnd()
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Episode ended");
-        }
-    }
-
-    private void LogInitialTargetSpawning()
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Spawning initial targets in all arenas");
-        }
-    }
-
-    private void LogSpawnFailure(int arenaIndex, int current, int max)
-    {
-        if (debugSpawning)
-        {
-            Debug.LogWarning($"[{gameObject.name}] Failed to spawn target {current}/{max} in Arena {arenaIndex}");
-        }
-    }
-
-    private void LogArenaSpawnResults(int arenaIndex, int spawned, int max)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Arena {arenaIndex}: Spawned {spawned}/{max} targets");
-        }
-    }
-
-    private void LogTargetSpawned(int arenaIndex, Vector3 position)
-    {
-        if (debugSpawning)
-        {
-            Debug.Log($"[{gameObject.name}] Target spawned in Arena {arenaIndex} at {position}");
-        }
-    }
-
-    private void LogTotalTargetDestruction()
-    {
-        if (!debugSpawning) return;
-
-        int totalCount = 0;
         foreach (var kvp in arenaTargets)
         {
-            totalCount += kvp.Value.Count;
+            if (kvp.Value == null) continue;
+            
+            for (int i = kvp.Value.Count - 1; i >= 0; i--)
+            {
+                if (kvp.Value[i] != null)
+                    DestroyTarget(kvp.Value[i]);
+            }
+            kvp.Value.Clear();
         }
-        Debug.Log($"[{gameObject.name}] Destroying {totalCount} total targets across all arenas");
     }
 
-    #endregion
+    private void LogAction(string action, string details)
+    {
+        if (debugSpawning)
+            Debug.Log($"[{gameObject.name}] {action}{(string.IsNullOrEmpty(details) ? "" : $": {details}")}");
+    }
 
-    #region Debug Visualization
+    private void LogArenaConfigurations()
+    {
+        if (!debugSpawning) return;
+
+        for (int i = 0; i < arenas.Length; i++)
+            Debug.Log($"Arena {i}: MaxTargets={arenas[i].maxTargets}, Bounds={arenaBounds[i].center}");
+    }
 
     private void OnDrawGizmosSelected()
     {
@@ -866,61 +570,41 @@ public class RL_TrainingTargetSpawner : MonoBehaviour
 
         for (int i = 0; i < arenas.Length; i++)
         {
-            DrawArenaGizmos(i);
-        }
-    }
-
-    private void DrawArenaGizmos(int arenaIndex)
-    {
-        var arena = arenas[arenaIndex];
-        
-        DrawArenaBoundaries(arenaIndex);
-        DrawCustomSpawnPoints(arena);
-        DrawActiveTargets(arenaIndex);
-    }
-
-    private void DrawArenaBoundaries(int arenaIndex)
-    {
-        Gizmos.color = Color.cyan;
-        if (arenaBounds.ContainsKey(arenaIndex))
-        {
-            var bounds = arenaBounds[arenaIndex];
-            Vector3 size = new Vector3(bounds.maxX - bounds.minX, 2f, bounds.maxZ - bounds.minZ);
-            Gizmos.DrawWireCube(bounds.center, size);
-            
-            Gizmos.color = Color.white;
-            Gizmos.DrawWireSphere(bounds.center + Vector3.up * 3f, 0.3f);
-        }
-    }
-
-    private void DrawCustomSpawnPoints(ArenaConfiguration arena)
-    {
-        if (arena.customSpawnPoints == null) return;
-
-        Gizmos.color = Color.yellow;
-        foreach (var spawnPoint in arena.customSpawnPoints)
-        {
-            if (spawnPoint != null)
+            // Draw arena boundaries
+            Gizmos.color = Color.cyan;
+            if (arenaBounds.ContainsKey(i))
             {
-                Gizmos.DrawWireSphere(spawnPoint.position, 0.5f);
+                var bounds = arenaBounds[i];
+                Vector3 size = new Vector3(bounds.maxX - bounds.minX, 2f, bounds.maxZ - bounds.minZ);
+                Gizmos.DrawWireCube(bounds.center, size);
+                
+                Gizmos.color = Color.white;
+                Gizmos.DrawWireSphere(bounds.center + Vector3.up * 3f, 0.3f);
+            }
+
+            // Draw custom spawn points
+            var arena = arenas[i];
+            if (arena.customSpawnPoints != null)
+            {
+                Gizmos.color = Color.yellow;
+                foreach (var spawnPoint in arena.customSpawnPoints)
+                {
+                    if (spawnPoint != null)
+                        Gizmos.DrawWireSphere(spawnPoint.position, 0.5f);
+                }
+            }
+
+            // Draw active targets
+            if (Application.isPlaying && arenaTargets.ContainsKey(i))
+            {
+                arenaTargets[i].RemoveAll(target => target == null);
+                Gizmos.color = Color.green;
+                foreach (var target in arenaTargets[i])
+                {
+                    if (target != null)
+                        Gizmos.DrawLine(arenaBounds[i].center, target.transform.position);
+                }
             }
         }
     }
-
-    private void DrawActiveTargets(int arenaIndex)
-    {
-        if (!Application.isPlaying || !arenaTargets.ContainsKey(arenaIndex)) return;
-
-        arenaTargets[arenaIndex].RemoveAll(target => target == null);
-        Gizmos.color = Color.green;
-        foreach (var target in arenaTargets[arenaIndex])
-        {
-            if (target != null)
-            {
-                Gizmos.DrawLine(arenaBounds[arenaIndex].center, target.transform.position);
-            }
-        }
-    }
-
-    #endregion
 }

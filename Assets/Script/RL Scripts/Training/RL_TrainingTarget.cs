@@ -5,37 +5,21 @@ public class RL_TrainingTarget : MonoBehaviour
     private RL_TrainingTargetSpawner spawner;
     private bool isBeingDestroyed = false;
 
-    public void Initialize(RL_TrainingTargetSpawner targetSpawner)
-    {
-        spawner = targetSpawner;
-    }
+    public void Initialize(RL_TrainingTargetSpawner targetSpawner) => spawner = targetSpawner;
 
     public void ForceNotifyDestruction()
     {
         if (!isBeingDestroyed)
-        {
             HandleDestruction();
-        }
     }
 
-    private void OnDestroy()
-    {
-        HandleDestruction();
-    }
+    private void OnDestroy() => HandleDestruction();
 
     private void HandleDestruction()
     {
         if (isBeingDestroyed) return;
         
         isBeingDestroyed = true;
-        NotifySpawnerOfDestruction();
-    }
-
-    private void NotifySpawnerOfDestruction()
-    {
-        if (spawner != null)
-        {
-            spawner.OnTargetDestroyed(gameObject);
-        }
+        spawner?.OnTargetDestroyed(gameObject);
     }
 }

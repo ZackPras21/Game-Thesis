@@ -14,12 +14,9 @@ public class RL_Player : MonoBehaviour
     [Header("Combat Settings")]
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private float turnSpeed = 4f;
-    [SerializeField] private bool attackEnabled = false;
     [SerializeField] private float attackInterval = 2.0f;
     [SerializeField] private float attackDamage = 30f;
     [SerializeField] private float attackRange = 5f;
-
-    [Header("Invincibility")]
     [SerializeField] private float invincibilityDuration = 0.5f;
 
     [Header("UI Components")]
@@ -42,36 +39,36 @@ public class RL_Player : MonoBehaviour
 
     private void Awake()
     {
-        InitializePlayer();
+        Instance = this;
+        initialPosition = transform.position;
+        colliders = GetComponentsInChildren<Collider>();
+        animator = GetComponent<Animator>();
     }
 
     private void Start()
     {
-        SetupInitialState();
-        // Enable attack for RL training targets
-        attackEnabled = true;
-        StartAttackRoutineIfEnabled();
-        ValidateComponents();
+        currentHealth = maxHealth;
+        InitializeHealthBar();
+        InitializeAnimationState();
+        SetAutoAttackEnabled(true);
     }
-
 
     public bool DamagePlayer(float damageAmount)
     {
         if (!CanTakeDamage()) return false;
 
-        ApplyDamage(damageAmount);
+        currentHealth = Mathf.Clamp(currentHealth - damageAmount, 0f, maxHealth);
         UpdateHealthBar();
 
-        if (IsPlayerAlive())
+        if (currentHealth > 0f)
         {
-            // Always trigger hit effects when taking damage
-            HandleNonFatalDamage(damageAmount);
-            return false; // Player survived
+            HandleNonFatalDamage();
+            return false;
         }
         else
         {
             Die();
-            return true; // Player died
+            return true;
         }
     }
 
@@ -79,119 +76,41 @@ public class RL_Player : MonoBehaviour
     {
         if (enabled && attackCoroutine == null)
         {
-            EnableAutoAttack();
+            attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
         }
         else if (!enabled && attackCoroutine != null)
         {
-            DisableAutoAttack();
+            StopCoroutine(attackCoroutine);
+            attackCoroutine = null;
         }
     }
 
     public void Respawn()
     {
-        ResetPlayerState();
-        EnableColliders();
-        ResetAnimationState();
-        UpdateHealthBar();
-        ReturnToSpawnPoint();
-    }
-
-    private void InitializePlayer()
-    {
-        Instance = this;
-        initialPosition = transform.position;
-        colliders = GetComponentsInChildren<Collider>();
-        animator = GetComponent<Animator>();
-    }
-
-    private void SetupInitialState()
-    {
-        initialPosition = transform.position;
+        isAlive = true;
         currentHealth = maxHealth;
+        transform.position = initialPosition;
         
-        InitializeHealthBar();
+        SetCollidersEnabled(true);
+        UpdateHealthBar();
         InitializeAnimationState();
     }
 
-    private void StartAttackRoutineIfEnabled()
-    {
-        if (attackEnabled)
-        {
-            attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
-        }
-    }
+    private bool CanTakeDamage() => isAlive && !isInvincible;
 
-    private void ValidateComponents()
+    private void HandleNonFatalDamage()
     {
-        if (animator == null)
-            Debug.LogWarning("Animator is not assigned. Animations won't play.");
-        if (hurtParticle == null)
-            Debug.LogWarning("Hurt particle is not assigned. No hurt VFX will appear.");
-        if (deathParticle == null)
-            Debug.LogWarning("Death particle is not assigned. No death VFX will appear.");
-    }
-
-    private bool CanTakeDamage()
-    {
-        return isAlive && !isInvincible;
-    }
-
-    private void ApplyDamage(float damageAmount)
-    {
-        currentHealth = Mathf.Clamp(currentHealth - damageAmount, 0f, maxHealth);
-    }
-
-    private void UpdateHealthBar()
-    {
-        if (healthBarSlider != null)
-        {
-            healthBarSlider.value = currentHealth;
-        }
-    }
-
-    private bool IsPlayerAlive()
-    {
-        return currentHealth > 0f;
-    }
-
-    private void HandleNonFatalDamage(float damageAmount)
-    {
-        PlayHurtAnimation();
-        PlayHurtEffect();
+        PlayAnimationTrigger("getHit");
+        PlayParticleEffect(hurtParticle);
         StartCoroutine(InvincibilityRoutine());
-        
-        // Debug log to verify damage handling
-        Debug.Log($"Player took {damageAmount} damage. Current health: {currentHealth}");
     }
 
-    private void PlayHurtAnimation()
-    {
-        if (animator != null)
-        {
-            animator.SetTrigger("getHit");
-        }
-    }
-
-    private void PlayHurtEffect()
-    {
-        if (hurtParticle != null)
-        {
-            // Ensure particle system is properly reset before playing
-            hurtParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            hurtParticle.Play();
-        }
-        else
-        {
-            Debug.LogWarning("Hurt particle system is missing!");
-        }
-    }
-
-    public void Die()
+    private void Die()
     {
         isAlive = false;
         PlayDeathAnimation();
-        PlayDeathEffect();
-        DisableColliders();
+        PlayParticleEffect(deathParticle);
+        SetCollidersEnabled(false);
         NotifyDestruction();
         OnPlayerDestroyed?.Invoke();
         Destroy(gameObject);
@@ -200,76 +119,66 @@ public class RL_Player : MonoBehaviour
     private void PlayDeathAnimation()
     {
         if (animator != null)
-        {
             animator.SetBool("isDead", true);
-        }
     }
 
-    private void PlayDeathEffect()
+    private void PlayAnimationTrigger(string triggerName)
     {
-        if (deathParticle != null)
+        if (animator != null)
+            animator.SetTrigger(triggerName);
+    }
+
+    private void PlayParticleEffect(ParticleSystem particle)
+    {
+        if (particle != null)
         {
-            deathParticle.Play();
+            particle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            particle.Play();
         }
     }
 
-    private void DisableColliders()
+    private void SetCollidersEnabled(bool enabled)
     {
         foreach (var collider in colliders)
         {
             if (collider != null)
-                collider.enabled = false;
+                collider.enabled = enabled;
         }
     }
 
     private void NotifyDestruction()
     {
         var target = GetComponent<RL_TrainingTarget>();
-        if (target != null)
-        {
-            target.ForceNotifyDestruction();
-        }
+        target?.ForceNotifyDestruction();
     }
 
-    private void EnableAutoAttack()
+    private void UpdateHealthBar()
     {
-        attackEnabled = true;
-        attackCoroutine = StartCoroutine(AutomaticAttackRoutine());
-    }
-
-    private void DisableAutoAttack()
-    {
-        attackEnabled = false;
-        StopCoroutine(attackCoroutine);
-        attackCoroutine = null;
+        if (healthBarSlider != null)
+            healthBarSlider.value = currentHealth;
     }
 
     private IEnumerator AutomaticAttackRoutine()
     {
-        while (attackEnabled)
+        while (attackCoroutine != null)
         {
             yield return new WaitForSeconds(attackInterval);
             
-            List<Transform> enemiesInRange = FindEnemiesInRange();
-            
+            var enemiesInRange = FindEnemiesInRange();
             if (enemiesInRange.Count > 0)
-            {
                 PerformAttack(enemiesInRange[0]);
-            }
         }
     }
 
     private List<Transform> FindEnemiesInRange()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, attackRange);
-        List<Transform> enemies = new List<Transform>();
+        var hits = Physics.OverlapSphere(transform.position, attackRange);
+        var enemies = new List<Transform>();
         
         foreach (var hit in hits)
         {
             if (hit != null && hit.CompareTag("Enemy"))
-            {
                 enemies.Add(hit.transform);
-            }
         }
         
         return enemies;
@@ -286,12 +195,12 @@ public class RL_Player : MonoBehaviour
 
     private void FaceTarget(Transform target)
     {
-        Vector3 directionToTarget = target.position - transform.position;
+        var directionToTarget = target.position - transform.position;
         directionToTarget.y = 0f;
         
         if (directionToTarget.sqrMagnitude > 0.001f)
         {
-            Quaternion lookRotation = Quaternion.LookRotation(directionToTarget);
+            var lookRotation = Quaternion.LookRotation(directionToTarget);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRotation, turnSpeed * 100 * Time.deltaTime);
         }
     }
@@ -300,7 +209,6 @@ public class RL_Player : MonoBehaviour
     {
         if (animator != null)
         {
-            // Trigger attack animation with proper timing
             animator.SetTrigger("AttackTrigger");
             StartCoroutine(ResetAttackTriggerAfterFrame());
         }
@@ -308,23 +216,13 @@ public class RL_Player : MonoBehaviour
 
     private void DealDamageToEnemy(Transform enemy)
     {
-        NormalEnemyAgent enemyAgent = enemy.GetComponentInParent<NormalEnemyAgent>();
-        RL_EnemyController enemyController = enemy.GetComponentInParent<RL_EnemyController>();
+        var enemyAgent = enemy.GetComponentInParent<NormalEnemyAgent>();
+        var enemyController = enemy.GetComponentInParent<RL_EnemyController>();
 
         if (enemyAgent != null)
-        {
             enemyAgent.TakeDamage(attackDamage);
-            
-            // Add hit reaction if not dead
-            if (!enemyAgent.IsDead)
-            {
-                enemyAgent.TriggerHitAnimation();
-            }
-        }
         else if (enemyController != null)
-        {
             enemyController.TakeDamage((int)attackDamage);
-        }
     }
 
     private IEnumerator ResetAttackTriggerAfterFrame()
@@ -338,37 +236,6 @@ public class RL_Player : MonoBehaviour
         isInvincible = true;
         yield return new WaitForSeconds(invincibilityDuration);
         isInvincible = false;
-    }
-
-    private void ResetPlayerState()
-    {
-        isAlive = true;
-        currentHealth = maxHealth;
-    }
-
-    private void EnableColliders()
-    {
-        foreach (var collider in colliders)
-        {
-            if (collider != null)
-                collider.enabled = true;
-        }
-    }
-
-    private void ResetAnimationState()
-    {
-        if (animator != null)
-        {
-            animator.SetBool("isDead", false);
-            animator.SetBool("isWalking", false);
-            animator.SetBool("isIdle", true);
-            animator.ResetTrigger("getHit");
-        }
-    }
-
-    private void ReturnToSpawnPoint()
-    {
-        transform.position = initialPosition;
     }
 
     private void InitializeHealthBar()
@@ -388,8 +255,8 @@ public class RL_Player : MonoBehaviour
             animator.SetBool("isIdle", true);
             animator.SetBool("isWalking", false);
             animator.SetBool("AttackTrigger", false);
-            animator.ResetTrigger("getHit");
             animator.SetBool("isDead", false);
+            animator.ResetTrigger("getHit");
         }
     }
 
