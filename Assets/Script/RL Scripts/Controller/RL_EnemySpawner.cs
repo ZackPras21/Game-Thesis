@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class RL_EnemySpawner : MonoBehaviour
 {
+    #region Serialized Fields
     [Header("Enemy Configuration")]
     [SerializeField] private GameObject[] enemyPrefabs;
     [SerializeField] private int maxEnemyCount = 10;
@@ -17,7 +18,9 @@ public class RL_EnemySpawner : MonoBehaviour
 
     [Header("Audio & UI")]
     [SerializeField] private GameObject gate;
+    #endregion
 
+    #region Private Variables
     private int currentEnemyCount = 0;
     private bool hasTriggeredSpawn = false;
     private CameraFollow cameraController;
@@ -29,6 +32,7 @@ public class RL_EnemySpawner : MonoBehaviour
     private const int MAX_SPAWN_ATTEMPTS = 10;
     private const float SPAWN_HEIGHT = 1f;
     private const float OBSTACLE_CHECK_RADIUS = 0.5f;
+    #endregion
 
     #region Unity Lifecycle
     private void Awake()
@@ -55,7 +59,7 @@ public class RL_EnemySpawner : MonoBehaviour
     #endregion
 
     #region Player Detection
-    private bool IsPlayerHitbox(Collider collider) => 
+    private bool IsPlayerHitbox(Collider collider) =>
         collider.CompareTag("Player") && collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
 
     private void ActivateCombatMode()
@@ -91,7 +95,7 @@ public class RL_EnemySpawner : MonoBehaviour
     {
         var enemyPrefab = SelectEnemyType();
         var spawnPosition = GetValidSpawnPosition();
-        
+
         if (spawnPosition != Vector3.zero)
         {
             CreateAndConfigureEnemy(enemyPrefab, spawnPosition);
@@ -121,12 +125,30 @@ public class RL_EnemySpawner : MonoBehaviour
     private void CreateAndConfigureEnemy(GameObject prefab, Vector3 position)
     {
         var newEnemy = Instantiate(prefab, position, Quaternion.identity);
-        var enemyController = newEnemy.GetComponent<EnemyController>();
-        
-        if (enemyController != null && enemyWaypoints != null)
+        var enemyController = newEnemy.GetComponent<RL_EnemyController>();
+        var normalEnemyAgent = newEnemy.GetComponent<NormalEnemyAgent>(); // Get the agent component
+
+        if (enemyController != null)
         {
-            for (int i = 0; i < enemyWaypoints.Length && i < enemyController.waypoints.Length; i++)
-                enemyController.waypoints[i] = enemyWaypoints[i];
+            // Configure waypoints for RL_EnemyController
+            if (enemyWaypoints != null && enemyWaypoints.Length > 0)
+            {
+                // Ensure enemyController.waypoints is initialized and large enough
+                // This might require a public setter or a constructor in RL_EnemyController
+                // For now, assuming it's a public array that can be directly assigned or copied to.
+                // If waypoints is a fixed-size array, you might need to copy elements.
+                // If it's a List, you can clear and add.
+                // For simplicity, let's assume it's a public Transform[] that can be set.
+                enemyController.waypoints = enemyWaypoints;
+            }
+        }
+
+        // Initialize the NormalEnemyAgent if it exists
+        if (normalEnemyAgent != null)
+        {
+            normalEnemyAgent.Initialize(); // Force initialize the agent
+            // If the agent needs patrol points from the spawner, set them here
+            normalEnemyAgent.SetPatrolPoints(enemyWaypoints);
         }
     }
     #endregion
@@ -157,7 +179,7 @@ public class RL_EnemySpawner : MonoBehaviour
         return new Vector3(randomX, SPAWN_HEIGHT, randomZ);
     }
 
-    private bool IsPositionValid(Vector3 position) => 
+    private bool IsPositionValid(Vector3 position) =>
         !Physics.CheckSphere(position, OBSTACLE_CHECK_RADIUS, LayerMask.GetMask("Obstacle"));
     #endregion
 

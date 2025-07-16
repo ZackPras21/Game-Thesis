@@ -122,7 +122,7 @@ Transform:
   m_GameObject: {fileID: 2780053255438254653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.0038, y: 0.0026, z: 0.0099}
+  m_LocalPosition: {x: 0.0038, y: 0.00553, z: 0.0099}
   m_LocalScale: {x: 1.9253, y: 0.9743742, z: 1.1963558}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1305,7 +1305,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyHP: 100
-  attackDamage: 100
   attackRange: 3
   detectThreshold: 0.5
   fleeHealthThreshold: 0.2
@@ -1409,7 +1408,7 @@ NavMeshAgent:
   m_Speed: 3
   m_Acceleration: 8
   avoidancePriority: 50
-  m_AngularSpeed: 120
+  m_AngularSpeed: 90
   m_StoppingDistance: 0.5
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
@@ -1554,7 +1553,7 @@ MonoBehaviour:
   - Box
   - Gate
   - Player
-  m_RaysPerDirection: 10
+  m_RaysPerDirection: 20
   m_MaxRayDegrees: 45
   m_SphereCastRadius: 0.5
   m_RayLength: 9

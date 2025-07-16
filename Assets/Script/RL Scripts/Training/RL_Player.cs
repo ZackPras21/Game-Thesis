@@ -269,7 +269,7 @@ public class RL_Player : MonoBehaviour
         var enemyController = enemy.GetComponentInParent<RL_EnemyController>();
 
         if (enemyAgent != null)
-            enemyAgent.TakeDamage(attackDamage);
+            enemyController.TakeDamage((int)attackDamage);
         else if (enemyController != null)
             enemyController.TakeDamage((int)attackDamage);
     }

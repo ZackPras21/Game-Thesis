@@ -3,27 +3,27 @@ using UnityEngine;
 
 public class RL_EnemyController : MonoBehaviour
 {
+    #region Serialized Fields
     [Header("Combat Configuration")]
-    [SerializeField] public int enemyHP;
-    [SerializeField] public float attackDamage = 10f;
-    [SerializeField] public float attackRange = 2f;
-    [SerializeField] private float detectThreshold = 0.5f;
-    [SerializeField] private float fleeHealthThreshold = 0.2f;
+    public int enemyHP;
+    public float attackRange = 3f; 
+    [SerializeField] private float detectThreshold = 0.5f; // Unused, consider removal if not implemented
+    [SerializeField] private float fleeHealthThreshold = 0.2f; // Unused, consider removal if not implemented
     [SerializeField] private HealthBar healthBar;
     [SerializeField] private BoxCollider attackCollider;
-    
+
     [Header("Movement Configuration")]
     [SerializeField] public float rotationSpeed = 5f;
     [SerializeField] public float moveSpeed = 3f;
     [SerializeField] private float waypointThreshold = 0.5f;
-    [SerializeField] private Transform[] waypoints;
+    [SerializeField] public Transform[] waypoints; // Made public for spawner to set
     [SerializeField] private LayerMask obstacleMask;
 
     [Header("AI Behavior")]
     [SerializeField] private float startWaitTime = 4f;
-    [SerializeField] private float timeToRotate = 2f;
-    [SerializeField] private float separationRadius = 2f;
-    [SerializeField] private LayerMask enemyMask;
+    [SerializeField] private float timeToRotate = 2f; // Unused, consider removal if not implemented
+    [SerializeField] private float separationRadius = 2f; // Unused, consider removal if not implemented
+    [SerializeField] private LayerMask enemyMask; // Unused, consider removal if not implemented
 
     [Header("Component References")]
     [SerializeField] private Animator animator;
@@ -31,30 +31,36 @@ public class RL_EnemyController : MonoBehaviour
     [SerializeField] private VFXManager vfxManager;
     [SerializeField] private Transform particlePosition;
     [SerializeField] private EnemyType enemyType;
-    [SerializeField] private NonBossEnemyState enemyState;
+    [SerializeField] private NonBossEnemyState enemyState; // Unused, consider removal if not implemented
+    #endregion
 
+    #region Public Properties & Variables
     public EnemyData enemyData;
     public bool IsInitialized { get; private set; }
-    
+    #endregion
+
+    #region Private Variables
     private PlayerTrackingState playerTracking;
     private WaypointNavigationState waypointNavigation;
-    public CombatState combatState;
-    public HealthState healthState;
+    public CombatState combatState; // Public for NormalEnemyAgent access
+    public HealthState healthState; // Public for NormalEnemyAgent access
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
 
     private const float ATTACK_DURATION = 1f;
     private const float ATTACK_COOLDOWN = 2f;
-    private const float KNOCKBACK_FORCE = 10f;
-    private const float KNOCKBACK_DURATION = 0.5f;
+    private const float KNOCKBACK_FORCE = 10f; // Unused, consider removal if not implemented
+    private const float KNOCKBACK_DURATION = 0.5f; // Unused, consider removal if not implemented
     private const float DESTROY_DELAY = 8f;
+    #endregion
 
+    #region Unity Lifecycle
     private void Awake() => ForceInitialize();
 
     private void Update()
     {
         if (!IsInitialized) return;
-        
+
         UpdatePlayerTracking();
         HandleCombatBehavior();
         HandleMovementBehavior();
@@ -81,7 +87,9 @@ public class RL_EnemyController : MonoBehaviour
 
     private void OnEnable() => RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
     private void OnDisable() => RL_Player.OnPlayerDestroyed -= HandlePlayerDestroyed;
+    #endregion
 
+    #region Initialization
     public void ForceInitialize()
     {
         if (IsInitialized) return;
@@ -95,7 +103,8 @@ public class RL_EnemyController : MonoBehaviour
 
     private void InitializeComponents()
     {
-        attackCollider = GetComponent<BoxCollider>();
+        // attackCollider is serialized, so it should be assigned in inspector.
+        // If not, uncomment: attackCollider = GetComponent<BoxCollider>();
         statDisplay = GetComponent<EnemyStatDisplay>();
         rigidBody = GetComponent<Rigidbody>();
     }
@@ -148,7 +157,9 @@ public class RL_EnemyController : MonoBehaviour
             healthBar.SetHealth(enemyHP);
         }
     }
+    #endregion
 
+    #region Player Tracking
     private void UpdatePlayerTracking()
     {
         if (playerTracking.PlayerTransform == null)
@@ -172,13 +183,15 @@ public class RL_EnemyController : MonoBehaviour
     }
 
     private void HandlePlayerDestroyed() => playerTracking.HandlePlayerDestroyed();
+    #endregion
 
+    #region Combat
     private void HandleCombatBehavior()
     {
         if (playerTracking.IsInRange && playerTracking.PlayerTransform != null && playerTracking.IsPlayerAlive)
         {
             RotateTowardsTarget(playerTracking.PlayerPosition);
-            
+
             if (combatState.CanAttack)
                 StartCoroutine(ExecuteAttackSequence());
         }
@@ -200,17 +213,17 @@ public class RL_EnemyController : MonoBehaviour
     {
         combatState.SetCanAttack(false);
         combatState.SetAttacking(true);
-        
+
         if (attackCollider != null) attackCollider.enabled = true;
-        
+
         SetAnimationState(attacking: true);
         yield return new WaitForSeconds(ATTACK_DURATION);
-        
+
         if (attackCollider != null) attackCollider.enabled = false;
-        
+
         SetAnimationState(attacking: false, idle: true);
         yield return new WaitForSeconds(ATTACK_COOLDOWN);
-        
+
         combatState.SetAttacking(false);
         combatState.SetCanAttack(true);
     }
@@ -249,6 +262,7 @@ public class RL_EnemyController : MonoBehaviour
     public void TakeDamage(int damageAmount)
     {
         enemyHP = Mathf.Max(enemyHP - damageAmount, 0);
+        GetComponent<NormalEnemyAgent>()?.HandleDamage();
         UpdateHealthBar();
 
         if (enemyHP > 0)
@@ -268,17 +282,19 @@ public class RL_EnemyController : MonoBehaviour
     private void ReactToPlayerAttack()
     {
         if (healthState.IsDead) return;
-        
+
         playerTracking.SetInRange(true);
         waypointNavigation.SetPatrolling(false);
-        
+
         if (RL_Player.Instance != null)
         {
             playerTracking.SetPlayerPosition(RL_Player.Instance.transform.position);
             RotateTowardsTarget(playerTracking.PlayerPosition);
         }
     }
+    #endregion
 
+    #region Movement
     private void HandleMovementBehavior()
     {
         if (healthState.IsDead) return;
@@ -309,7 +325,7 @@ public class RL_EnemyController : MonoBehaviour
     {
         var targetPosition = waypointNavigation.GetCurrentWaypointPosition();
         var movementDirection = CalculateMovementDirection(targetPosition);
-        
+
         RotateTowardsTarget(targetPosition);
         ExecuteMovement(movementDirection);
         CheckWaypointReached(targetPosition);
@@ -349,11 +365,13 @@ public class RL_EnemyController : MonoBehaviour
         var targetRotation = Quaternion.LookRotation(directionToTarget);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
     }
+    #endregion
 
+    #region Animation & Visuals
     private void UpdateAnimationStates()
     {
         if (combatState.IsAttacking && combatState.CanAttack) return;
-        
+
         if (playerTracking.IsInRange)
             RotateTowardsTarget(playerTracking.PlayerPosition);
     }
@@ -372,6 +390,10 @@ public class RL_EnemyController : MonoBehaviour
 
     private void UpdateHealthBar() => healthBar?.SetHealth(enemyHP);
 
+    public void ShowHealthBar() => healthBar?.gameObject.SetActive(true);
+    #endregion
+
+    #region Death & Loot
     private void HandleDeath()
     {
         healthState.SetDead(true);
@@ -381,15 +403,17 @@ public class RL_EnemyController : MonoBehaviour
         healthBar?.gameObject.SetActive(false);
         NotifyGameProgression();
         SpawnLoot();
-        
+
         var agent = GetComponent<NormalEnemyAgent>();
         if (agent != null)
-            agent.HandleEnemyDeath();
+        {
+            agent.HandleEnemyDeath(); // Notify the ML-Agent that it died
+        }
         else
-            Destroy(gameObject, DESTROY_DELAY);
+        {
+            Destroy(gameObject, DESTROY_DELAY); // Destroy if not an ML-Agent
+        }
     }
-
-    public void ShowHealthBar() => healthBar?.gameObject.SetActive(true);
 
     private void SpawnLoot()
     {
@@ -398,13 +422,17 @@ public class RL_EnemyController : MonoBehaviour
         else
             Debug.LogWarning("SpawnLoot: lootManager reference is null", this);
     }
+    #endregion
 
+    #region Audio & VFX
     private void PlayHitSound() => AudioManager.instance?.PlayEnemyGetHitSound(enemyType);
     private void PlayDeathSound() => AudioManager.instance?.PlayEnemyDieSound(enemyType);
     private void PlayAttackSound() => AudioManager.instance?.PlayEnemyAttackSound(enemyType);
     private void CreateHitEffect() => vfxManager?.EnemyGettingHit(particlePosition, enemyType);
+    #endregion
 
-    private bool IsPlayerHitbox(Collider collider) => 
+    #region Utility Methods
+    private bool IsPlayerHitbox(Collider collider) =>
         collider.CompareTag("Player") && collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
 
     private bool HasValidWaypoints() => waypoints != null && waypoints.Length > 0;
@@ -416,10 +444,13 @@ public class RL_EnemyController : MonoBehaviour
     public bool IsDead() => healthState.IsDead;
     public float GetDistanceToCurrentWaypoint() => waypointNavigation.GetDistanceToCurrentWaypoint(transform.position);
     public Vector3 GetWaypointDirection() => waypointNavigation.GetDirectionToCurrentWaypoint(transform.position);
-    public bool IsCaughtPlayer => false;
+    public bool IsCaughtPlayer => false; // Unused, consider removal if not implemented
+    #endregion
 }
 
 #region State Classes
+// These state classes remain largely the same, but are included for completeness.
+// Ensure they are defined outside the main class or in their own files.
 
 public class PlayerTrackingState
 {
@@ -456,7 +487,7 @@ public class WaypointNavigationState
     private readonly Transform[] waypoints;
     private readonly float startWaitTime;
     private int currentWaypointIndex;
-    
+
     public bool IsPatrolling { get; private set; }
     public float WaitTime { get; private set; }
 
@@ -480,15 +511,15 @@ public class WaypointNavigationState
         }
     }
 
-    public Vector3 GetCurrentWaypointPosition() => 
-        waypoints?.Length > 0 && currentWaypointIndex < waypoints.Length 
-            ? waypoints[currentWaypointIndex].position 
+    public Vector3 GetCurrentWaypointPosition() =>
+        waypoints?.Length > 0 && currentWaypointIndex < waypoints.Length
+            ? waypoints[currentWaypointIndex].position
             : Vector3.zero;
 
-    public float GetDistanceToCurrentWaypoint(Vector3 currentPosition) => 
+    public float GetDistanceToCurrentWaypoint(Vector3 currentPosition) =>
         waypoints?.Length > 0 ? Vector3.Distance(currentPosition, GetCurrentWaypointPosition()) : -1f;
 
-    public Vector3 GetDirectionToCurrentWaypoint(Vector3 currentPosition) => 
+    public Vector3 GetDirectionToCurrentWaypoint(Vector3 currentPosition) =>
         waypoints?.Length > 0 ? (GetCurrentWaypointPosition() - currentPosition).normalized : Vector3.zero;
 }
 
@@ -506,5 +537,4 @@ public class HealthState
     public bool IsDead { get; private set; }
     public void SetDead(bool dead) => IsDead = dead;
 }
-
 #endregion
