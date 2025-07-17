@@ -7,7 +7,7 @@ public class RL_EnemyController : MonoBehaviour
     [Header("Combat Configuration")]
     public int enemyHP;
     public float attackRange = 3f; 
-    [SerializeField] private float detectThreshold = 0.5f; // Unused, consider removal if not implemented
+    [SerializeField] private float detectThreshold = 0.5f; 
     [SerializeField] private float fleeHealthThreshold = 0.2f; // Unused, consider removal if not implemented
     [SerializeField] private HealthBar healthBar;
     [SerializeField] private BoxCollider attackCollider;

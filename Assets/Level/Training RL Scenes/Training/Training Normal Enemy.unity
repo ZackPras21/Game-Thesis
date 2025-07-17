@@ -582,6 +582,9 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -966,6 +969,9 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -1764,8 +1770,7 @@ MonoBehaviour:
     corner4: {fileID: 158219680}
     maxTargets: 1
     spawnParent: {fileID: 0}
-    customSpawnPoints:
-    - {fileID: 0}
+    customSpawnPoints: []
   maxSpawnAttempts: 10
   spawnInterval: 1
   spawnCollisionLayers:
@@ -1773,6 +1778,9 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 256
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -7053,6 +7061,9 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}

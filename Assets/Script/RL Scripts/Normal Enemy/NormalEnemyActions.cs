@@ -238,6 +238,12 @@ public sealed class NormalEnemyActions
         }
 
         public Transform[] GetPatrolPoints() => patrolPoints;
+
+        internal bool HasReachedNewPatrolPoint()
+        {
+            throw new System.NotImplementedException();
+        }
+
         public int PatrolLoopsCompleted => patrolLoopsCompleted;
     }
 

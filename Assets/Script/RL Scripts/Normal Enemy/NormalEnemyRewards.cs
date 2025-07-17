@@ -41,7 +41,7 @@ public class NormalEnemyRewards : MonoBehaviour
         public void AddIdlePunishment(float deltaTime) => agent.AddReward(rewardConfig.IdlePunishment * deltaTime);
         public void AddPatrolReward() => agent.AddReward(rewardConfig.PatrolCompleteReward);
         public void AddAttackReward() => agent.AddReward(rewardConfig.AttackPlayerReward);
-        public void AddKillPlayerReward() => agent.AddReward(rewardConfig.KillPlayerReward);
+        public void AddKillPlayerReward() => agent.AddReward(rewardConfig.KillPlayerReward); 
         public void AddObstaclePunishment() => agent.AddReward(rewardConfig.ObstaclePunishment);
         public void AddDeathPunishment() => agent.AddReward(rewardConfig.DiedByPlayerPunishment);
         public void AddDamagePunishment() => agent.AddReward(rewardConfig.HitByPlayerPunishment);
@@ -49,11 +49,11 @@ public class NormalEnemyRewards : MonoBehaviour
         public void AddApproachPlayerReward(float deltaTime) => agent.AddReward(rewardConfig.ApproachPlayerReward * deltaTime);
         public void AddStayFarFromPlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.StayFarFromPlayerPunishment * deltaTime);
         public void AddDoesntChasePlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.DoesntChasePlayerPunishment * deltaTime);
-        public void AddAttackMissedPunishment() => agent.AddReward(rewardConfig.AttackMissedPunishment);
+        public void AddAttackMissedPunishment() => agent.AddReward(rewardConfig.AttackMissedPunishment); 
         public void AddChasePlayerReward() => agent.AddReward(rewardConfig.ChasePlayerReward);
         public void AddChaseStepReward(float deltaTime) => agent.AddReward(rewardConfig.ChaseStepReward * deltaTime);
         public void AddPatrolStepReward(float deltaTime) => agent.AddReward(rewardConfig.PatrolStepReward * deltaTime);
-        public void AddAttackIncentive(float deltaTime) => agent.AddReward(rewardConfig.AttackIncentive * deltaTime);
+        public void AddAttackIncentive(float deltaTime) => agent.AddReward(rewardConfig.AttackIncentive * deltaTime); 
     }
 }
 
