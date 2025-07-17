@@ -176,8 +176,8 @@ Transform:
   m_GameObject: {fileID: 1992863038567366897}
   serializedVersion: 2
   m_LocalRotation: {x: 0.50000006, y: 0.49999994, z: 0.50000006, w: -0.49999994}
-  m_LocalPosition: {x: 0, y: 4.748593, z: -5.37}
-  m_LocalScale: {x: 275.01483, y: 100, z: 100}
+  m_LocalPosition: {x: 0.24419, y: 4.7486, z: -1.67}
+  m_LocalScale: {x: 275.01483, y: 212.34, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4728132633843373585}
@@ -231,7 +231,7 @@ Transform:
   m_GameObject: {fileID: 2541176520978434441}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.32, y: 5.24, z: -1.06}
+  m_LocalPosition: {x: -0.32, y: 5.24, z: -1.77}
   m_LocalScale: {x: 10.58325, y: 9.483143, z: 12.305729}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1391,7 +1391,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyHP: 100
-  attackDamage: 80
   attackRange: 2
   detectThreshold: 0.5
   fleeHealthThreshold: 0.2
@@ -1405,17 +1404,11 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 640
   startWaitTime: 4
-  timeToRotate: 2
-  separationRadius: 2
-  enemyMask:
-    serializedVersion: 2
-    m_Bits: 2112
   animator: {fileID: 208499107586539375}
   lootManager: {fileID: 8553900194276483005}
   vfxManager: {fileID: 2212133294256333331}
   particlePosition: {fileID: 5201110360840179380}
   enemyType: 2
-  enemyState: 3
   enemyData: {fileID: 0}
 --- !u!114 &8553900194276483005
 MonoBehaviour:
@@ -1595,8 +1588,7 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
   rl_EnemyController: {fileID: 5551480163239934643}
-  healthBar: {fileID: 162162460577697592}
-  rewardConfig: {fileID: 2042449206248845779}
+  enemyRewards: {fileID: 2042449206248845779}
   animator: {fileID: 208499107586539375}
   navAgent: {fileID: -5401494195924976978}
   obstacleMask:

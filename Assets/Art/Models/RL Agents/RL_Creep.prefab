@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 401666489616662954}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.077849, y: 2.85, z: -0.55}
-  m_LocalScale: {x: 6.3879986, y: 3.3333328, z: 6.493252}
+  m_LocalPosition: {x: 0.12613, y: 2.85, z: -0.71}
+  m_LocalScale: {x: 8.282679, y: 3.3333328, z: 8.025809}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3954716295185296680}
@@ -1165,8 +1165,8 @@ Transform:
   m_GameObject: {fileID: 7463465916216528784}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.02, y: 0, z: 0}
-  m_LocalScale: {x: 1.3833, y: 1, z: 1}
+  m_LocalPosition: {x: 0.0131, y: -0, z: 0.005}
+  m_LocalScale: {x: 1.9904581, y: 1.2838, z: 1.1498}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8906478605765353547}
@@ -1916,7 +1916,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyHP: 100
-  attackDamage: 60
   attackRange: 2
   detectThreshold: 0.5
   fleeHealthThreshold: 0.2
@@ -1930,17 +1929,11 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 640
   startWaitTime: 4
-  timeToRotate: 2
-  separationRadius: 2
-  enemyMask:
-    serializedVersion: 2
-    m_Bits: 2112
   animator: {fileID: 1525368558665590809}
   lootManager: {fileID: 6967424327214272843}
   vfxManager: {fileID: 5201797498111052518}
   particlePosition: {fileID: 571224362856628930}
   enemyType: 0
-  enemyState: 3
   enemyData: {fileID: 0}
 --- !u!114 &6967424327214272843
 MonoBehaviour:
@@ -2017,7 +2010,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 1.98
-  m_Speed: 4
+  m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 90
@@ -2136,8 +2129,7 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
   rl_EnemyController: {fileID: 3413073641965294540}
-  healthBar: {fileID: 1552570349913411215}
-  rewardConfig: {fileID: 3247270290517839601}
+  enemyRewards: {fileID: 3247270290517839601}
   animator: {fileID: 1525368558665590809}
   navAgent: {fileID: 4662399911735061079}
   obstacleMask:

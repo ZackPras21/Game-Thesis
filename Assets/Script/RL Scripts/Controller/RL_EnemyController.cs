@@ -16,14 +16,9 @@ public class RL_EnemyController : MonoBehaviour
     [SerializeField] public float rotationSpeed = 5f;
     [SerializeField] public float moveSpeed = 3f;
     [SerializeField] private float waypointThreshold = 0.5f;
-    [SerializeField] public Transform[] waypoints; // Made public for spawner to set
+    [SerializeField] public Transform[] waypoints; 
     [SerializeField] private LayerMask obstacleMask;
-
-    [Header("AI Behavior")]
     [SerializeField] private float startWaitTime = 4f;
-    [SerializeField] private float timeToRotate = 2f; // Unused, consider removal if not implemented
-    [SerializeField] private float separationRadius = 2f; // Unused, consider removal if not implemented
-    [SerializeField] private LayerMask enemyMask; // Unused, consider removal if not implemented
 
     [Header("Component References")]
     [SerializeField] private Animator animator;
@@ -31,19 +26,16 @@ public class RL_EnemyController : MonoBehaviour
     [SerializeField] private VFXManager vfxManager;
     [SerializeField] private Transform particlePosition;
     [SerializeField] private EnemyType enemyType;
-    [SerializeField] private NonBossEnemyState enemyState; // Unused, consider removal if not implemented
     #endregion
 
     #region Public Properties & Variables
     public EnemyData enemyData;
     public bool IsInitialized { get; private set; }
+    public NormalEnemyStates enemyStates { get; private set; }
+    public bool IsMLControlled { get; set; } = false;
     #endregion
 
     #region Private Variables
-    private PlayerTrackingState playerTracking;
-    private WaypointNavigationState waypointNavigation;
-    public CombatState combatState; // Public for NormalEnemyAgent access
-    public HealthState healthState; // Public for NormalEnemyAgent access
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
 
@@ -59,8 +51,9 @@ public class RL_EnemyController : MonoBehaviour
 
     private void Update()
     {
-        if (!IsInitialized) return;
+        if (!IsInitialized || IsMLControlled) return;
 
+        UpdateEnemyStates();
         UpdatePlayerTracking();
         HandleCombatBehavior();
         HandleMovementBehavior();
@@ -95,26 +88,32 @@ public class RL_EnemyController : MonoBehaviour
         if (IsInitialized) return;
 
         InitializeComponents();
-        InitializeStates();
         SetupEnemyData();
+        InitializeEnemyStates();
         SetAnimationState(idle: true);
         IsInitialized = true;
     }
 
     private void InitializeComponents()
     {
-        // attackCollider is serialized, so it should be assigned in inspector.
-        // If not, uncomment: attackCollider = GetComponent<BoxCollider>();
+        attackCollider = GetComponent<BoxCollider>();
         statDisplay = GetComponent<EnemyStatDisplay>();
         rigidBody = GetComponent<Rigidbody>();
     }
 
-    private void InitializeStates()
+    private void InitializeEnemyStates()
     {
-        playerTracking = new PlayerTrackingState();
-        waypointNavigation = new WaypointNavigationState(waypoints, startWaitTime);
-        combatState = new CombatState();
-        healthState = new HealthState();
+        Transform playerTransform = RL_Player.Instance?.transform;
+        enemyStates = new NormalEnemyStates(
+            transform,
+            enemyHP,
+            enemyData.enemyHealth,
+            playerTransform,
+            detectThreshold,
+            obstacleMask,
+            waypoints,
+            startWaitTime
+        );
     }
 
     private void SetupEnemyData()
@@ -159,43 +158,68 @@ public class RL_EnemyController : MonoBehaviour
     }
     #endregion
 
+    #region State Updates
+    private void UpdateEnemyStates()
+    {
+        if (enemyStates == null) return;
+
+        Transform playerTransform = RL_Player.Instance?.transform;
+        
+        enemyStates.UpdateStates(
+            transform,
+            enemyHP,
+            enemyData.enemyHealth,
+            playerTransform,  
+            detectThreshold,
+            obstacleMask
+        );
+        
+        if (playerTransform != null && enemyStates.PlayerTracking.PlayerTransform != playerTransform)
+        {
+            SetTarget(playerTransform);
+        }
+    }
+    #endregion
+
     #region Player Tracking
     private void UpdatePlayerTracking()
     {
-        if (playerTracking.PlayerTransform == null)
+        if (enemyStates.PlayerTracking.PlayerTransform == null)
         {
-            playerTracking.SetInRange(false);
-            waypointNavigation.SetPatrolling(true);
+            enemyStates.PlayerTracking.SetInRange(false);
+            enemyStates.WaypointNavigation.SetPatrolling(true);
             SetAnimationState(walking: true);
         }
     }
 
     public void SetTarget(Transform target)
     {
-        if (target == null || !playerTracking.IsPlayerAlive)
+        if (target == null || !enemyStates.PlayerTracking.IsPlayerAlive)
         {
-            playerTracking.ClearTarget();
+            enemyStates.PlayerTracking.ClearTarget();
             return;
         }
 
-        playerTracking.SetTarget(target);
-        waypointNavigation.SetPatrolling(false);
+        enemyStates.PlayerTracking.SetTarget(target);
+        enemyStates.WaypointNavigation.SetPatrolling(false);
     }
 
-    private void HandlePlayerDestroyed() => playerTracking.HandlePlayerDestroyed();
+    private void HandlePlayerDestroyed() => enemyStates.PlayerTracking.HandlePlayerDestroyed();
     #endregion
 
     #region Combat
     private void HandleCombatBehavior()
     {
-        if (playerTracking.IsInRange && playerTracking.PlayerTransform != null && playerTracking.IsPlayerAlive)
+        if (enemyStates.PlayerTracking.IsInRange && 
+            enemyStates.PlayerTracking.PlayerTransform != null && 
+            enemyStates.PlayerTracking.IsPlayerAlive)
         {
-            RotateTowardsTarget(playerTracking.PlayerPosition);
+            RotateTowardsTarget(enemyStates.PlayerTracking.PlayerPosition);
 
-            if (combatState.CanAttack)
+            if (enemyStates.CombatState.CanAttack)
                 StartCoroutine(ExecuteAttackSequence());
         }
-        else if (!combatState.IsAttacking)
+        else if (!enemyStates.CombatState.IsAttacking)
         {
             SetAnimationState(idle: true);
         }
@@ -203,34 +227,35 @@ public class RL_EnemyController : MonoBehaviour
 
     private void HandlePlayerEnterCombat()
     {
-        combatState.SetAttacking(true);
-        combatState.SetCanAttack(true);
+        enemyStates.CombatState.SetAttacking(true);
+        enemyStates.CombatState.SetCanAttack(true);
     }
 
-    private void HandlePlayerExitCombat() => combatState.SetAttacking(false);
+    private void HandlePlayerExitCombat() => enemyStates.CombatState.SetAttacking(false);
 
     private IEnumerator ExecuteAttackSequence()
     {
-        combatState.SetCanAttack(false);
-        combatState.SetAttacking(true);
+        enemyStates.CombatState.SetCanAttack(false);
+        enemyStates.CombatState.SetAttacking(true);
 
         if (attackCollider != null) attackCollider.enabled = true;
 
         SetAnimationState(attacking: true);
-        yield return new WaitForSeconds(ATTACK_DURATION);
+        yield return new WaitForSeconds(ATTACK_DURATION * 0.4f); 
+        ExecuteAttackDamage();
 
         if (attackCollider != null) attackCollider.enabled = false;
 
         SetAnimationState(attacking: false, idle: true);
-        yield return new WaitForSeconds(ATTACK_COOLDOWN);
+        yield return new WaitForSeconds(ATTACK_DURATION * 0.6f);
 
-        combatState.SetAttacking(false);
-        combatState.SetCanAttack(true);
+        enemyStates.CombatState.SetAttacking(false);
+        enemyStates.CombatState.SetCanAttack(true);
     }
 
     public void AgentAttack()
     {
-        if (combatState.CanAttack)
+        if (enemyStates.CombatState.CanAttack)
             StartCoroutine(ExecuteAttackSequence());
     }
 
@@ -281,15 +306,15 @@ public class RL_EnemyController : MonoBehaviour
 
     private void ReactToPlayerAttack()
     {
-        if (healthState.IsDead) return;
+        if (enemyStates.HealthState.IsDead) return;
 
-        playerTracking.SetInRange(true);
-        waypointNavigation.SetPatrolling(false);
+        enemyStates.PlayerTracking.SetInRange(true);
+        enemyStates.WaypointNavigation.SetPatrolling(false);
 
         if (RL_Player.Instance != null)
         {
-            playerTracking.SetPlayerPosition(RL_Player.Instance.transform.position);
-            RotateTowardsTarget(playerTracking.PlayerPosition);
+            enemyStates.PlayerTracking.SetPlayerPosition(RL_Player.Instance.transform.position);
+            RotateTowardsTarget(enemyStates.PlayerTracking.PlayerPosition);
         }
     }
     #endregion
@@ -297,33 +322,33 @@ public class RL_EnemyController : MonoBehaviour
     #region Movement
     private void HandleMovementBehavior()
     {
-        if (healthState.IsDead) return;
+        if (enemyStates.HealthState.IsDead) return;
 
-        if (!playerTracking.IsInRange && HasValidWaypoints())
+        if (!enemyStates.PlayerTracking.IsInRange && HasValidWaypoints())
             ExecuteWaypointMovement();
-        else if (!combatState.IsAttacking)
+        else if (!enemyStates.CombatState.IsAttacking)
             SetAnimationState(idle: true);
     }
 
     private void ExecuteWaypointMovement()
     {
-        if (waypointNavigation.IsPatrolling)
+        if (enemyStates.WaypointNavigation.IsPatrolling)
         {
             MoveToCurrentWaypoint();
         }
-        else if (waypointNavigation.WaitTime <= 0)
+        else if (enemyStates.WaypointNavigation.WaitTime <= 0)
         {
-            waypointNavigation.SetPatrolling(true);
+            enemyStates.WaypointNavigation.SetPatrolling(true);
         }
         else
         {
-            waypointNavigation.DecrementWaitTime();
+            enemyStates.WaypointNavigation.DecrementWaitTime();
         }
     }
 
     private void MoveToCurrentWaypoint()
     {
-        var targetPosition = waypointNavigation.GetCurrentWaypointPosition();
+        var targetPosition = enemyStates.WaypointNavigation.GetCurrentWaypointPosition();
         var movementDirection = CalculateMovementDirection(targetPosition);
 
         RotateTowardsTarget(targetPosition);
@@ -356,7 +381,7 @@ public class RL_EnemyController : MonoBehaviour
     private void CheckWaypointReached(Vector3 targetPosition)
     {
         if (Vector3.Distance(transform.position, targetPosition) < waypointThreshold)
-            waypointNavigation.MoveToNextWaypoint();
+            enemyStates.WaypointNavigation.MoveToNextWaypoint();
     }
 
     private void RotateTowardsTarget(Vector3 targetPosition)
@@ -370,10 +395,10 @@ public class RL_EnemyController : MonoBehaviour
     #region Animation & Visuals
     private void UpdateAnimationStates()
     {
-        if (combatState.IsAttacking && combatState.CanAttack) return;
+        if (enemyStates.CombatState.IsAttacking && enemyStates.CombatState.CanAttack) return;
 
-        if (playerTracking.IsInRange)
-            RotateTowardsTarget(playerTracking.PlayerPosition);
+        if (enemyStates.PlayerTracking.IsInRange)
+            RotateTowardsTarget(enemyStates.PlayerTracking.PlayerPosition);
     }
 
     private void SetAnimationState(bool idle = false, bool walking = false, bool attacking = false, bool dead = false)
@@ -384,6 +409,11 @@ public class RL_EnemyController : MonoBehaviour
         animator.SetBool("isWalking", walking);
         animator.SetBool("isAttacking", attacking);
         animator.SetBool("isDead", dead);
+        
+        enemyStates.IsIdle = idle;
+        enemyStates.CombatState.SetAttacking(attacking);
+        enemyStates.HealthState.SetDead(dead);
+        enemyStates.WaypointNavigation.SetPatrolling(walking);
     }
 
     private void PlayHitAnimation() => animator?.SetTrigger("getHit");
@@ -396,7 +426,7 @@ public class RL_EnemyController : MonoBehaviour
     #region Death & Loot
     private void HandleDeath()
     {
-        healthState.SetDead(true);
+        enemyStates.HealthState.SetDead(true);
         SetAnimationState(dead: true);
         PlayDeathSound();
         GetComponent<Collider>().enabled = false;
@@ -407,11 +437,11 @@ public class RL_EnemyController : MonoBehaviour
         var agent = GetComponent<NormalEnemyAgent>();
         if (agent != null)
         {
-            agent.HandleEnemyDeath(); // Notify the ML-Agent that it died
+            agent.HandleEnemyDeath(); 
         }
         else
         {
-            Destroy(gameObject, DESTROY_DELAY); // Destroy if not an ML-Agent
+            Destroy(gameObject, DESTROY_DELAY); 
         }
     }
 
@@ -441,100 +471,37 @@ public class RL_EnemyController : MonoBehaviour
 
     public float GetHealthPercentage() => (float)enemyHP / enemyData.enemyHealth;
     public bool IsHealthLow() => enemyHP <= enemyData.enemyHealth * 0.2f;
-    public bool IsDead() => healthState.IsDead;
-    public float GetDistanceToCurrentWaypoint() => waypointNavigation.GetDistanceToCurrentWaypoint(transform.position);
-    public Vector3 GetWaypointDirection() => waypointNavigation.GetDirectionToCurrentWaypoint(transform.position);
-    public bool IsCaughtPlayer => false; // Unused, consider removal if not implemented
+    public bool IsDead() => enemyStates.HealthState.IsDead;
+    public float GetDistanceToCurrentWaypoint() => enemyStates.WaypointNavigation.GetDistanceToCurrentWaypoint(transform.position);
+    public Vector3 GetWaypointDirection() => enemyStates.WaypointNavigation.GetDirectionToCurrentWaypoint(transform.position);
     #endregion
 }
 
-#region State Classes
-// These state classes remain largely the same, but are included for completeness.
-// Ensure they are defined outside the main class or in their own files.
-
-public class PlayerTrackingState
+#region Debug Display
+public class DebugDisplay
 {
-    public Vector3 PlayerPosition { get; private set; }
-    public Transform PlayerTransform { get; private set; }
-    public bool IsInRange { get; private set; }
-    public bool IsPlayerAlive { get; private set; } = true;
+    private float cumulativeReward;
+    private int episodeSteps;
 
-    public void SetTarget(Transform target)
+    public void Reset()
     {
-        PlayerTransform = target;
-        IsInRange = true;
-        PlayerPosition = target.position;
+        cumulativeReward = 0f;
+        episodeSteps = 0;
     }
 
-    public void SetInRange(bool inRange) => IsInRange = inRange;
-    public void SetPlayerPosition(Vector3 position) => PlayerPosition = position;
-    public void ClearTarget()
+    public void IncrementSteps() => episodeSteps++;
+    public void UpdateCumulativeReward(float reward) => cumulativeReward = reward;
+
+    public void DisplayDebugInfo(string agentName, string currentState, string currentAction, Vector2 offset, Color textColor, int fontSize, int patrolLoops)
     {
-        IsInRange = false;
-        PlayerTransform = null;
-    }
-
-    public void HandlePlayerDestroyed()
-    {
-        IsInRange = false;
-        IsPlayerAlive = false;
-        PlayerTransform = null;
-    }
-}
-
-public class WaypointNavigationState
-{
-    private readonly Transform[] waypoints;
-    private readonly float startWaitTime;
-    private int currentWaypointIndex;
-
-    public bool IsPatrolling { get; private set; }
-    public float WaitTime { get; private set; }
-
-    public WaypointNavigationState(Transform[] waypoints, float waitTime)
-    {
-        this.waypoints = waypoints;
-        startWaitTime = waitTime;
-        currentWaypointIndex = Random.Range(0, waypoints?.Length ?? 0);
-    }
-
-    public void SetPatrolling(bool patrolling) => IsPatrolling = patrolling;
-    public void DecrementWaitTime() => WaitTime -= Time.deltaTime;
-
-    public void MoveToNextWaypoint()
-    {
-        if (waypoints?.Length > 0)
+        var labelStyle = new GUIStyle
         {
-            currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
-            IsPatrolling = true;
-            WaitTime = startWaitTime;
-        }
+            fontSize = fontSize,
+            normal = { textColor = textColor }
+        };
+
+        string debugText = $"{agentName}:\nState: {currentState}\nAction: {currentAction}\nSteps: {episodeSteps}\nCumulative Reward: {cumulativeReward:F3}\nPatrol Loops: {patrolLoops}";
+        GUI.Label(new Rect(offset.x, offset.y, 300, 150), debugText, labelStyle);
     }
-
-    public Vector3 GetCurrentWaypointPosition() =>
-        waypoints?.Length > 0 && currentWaypointIndex < waypoints.Length
-            ? waypoints[currentWaypointIndex].position
-            : Vector3.zero;
-
-    public float GetDistanceToCurrentWaypoint(Vector3 currentPosition) =>
-        waypoints?.Length > 0 ? Vector3.Distance(currentPosition, GetCurrentWaypointPosition()) : -1f;
-
-    public Vector3 GetDirectionToCurrentWaypoint(Vector3 currentPosition) =>
-        waypoints?.Length > 0 ? (GetCurrentWaypointPosition() - currentPosition).normalized : Vector3.zero;
-}
-
-public class CombatState
-{
-    public bool IsAttacking { get; private set; }
-    public bool CanAttack { get; private set; } = true;
-
-    public void SetAttacking(bool attacking) => IsAttacking = attacking;
-    public void SetCanAttack(bool canAttack) => CanAttack = canAttack;
-}
-
-public class HealthState
-{
-    public bool IsDead { get; private set; }
-    public void SetDead(bool dead) => IsDead = dead;
 }
 #endregion

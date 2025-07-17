@@ -122,8 +122,8 @@ Transform:
   m_GameObject: {fileID: 2780053255438254653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.0038, y: 0.00553, z: 0.0099}
-  m_LocalScale: {x: 1.9253, y: 0.9743742, z: 1.1963558}
+  m_LocalPosition: {x: 0.0056, y: 0.00757, z: 0.00855}
+  m_LocalScale: {x: 2.6861787, y: 0.9743742, z: 1.5099207}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -915,11 +915,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalScale.y
-      value: 126.96987
+      value: 105.28468
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.0000000093132
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.y
@@ -927,7 +927,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.29172
+      value: 0.223
       objectReference: {fileID: 0}
     - target: {fileID: -2830495135425623846, guid: 102d1c754748ce348ab7360467b3a778, type: 3}
       propertyPath: m_Layer
@@ -1318,17 +1318,11 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 640
   startWaitTime: 4
-  timeToRotate: 2
-  separationRadius: 2
-  enemyMask:
-    serializedVersion: 2
-    m_Bits: 2112
   animator: {fileID: 2030732665317957927}
   lootManager: {fileID: 4215898573996737307}
   vfxManager: {fileID: -3980627480044796084}
   particlePosition: {fileID: 4424110341604512507}
   enemyType: 1
-  enemyState: 3
   enemyData: {fileID: 0}
 --- !u!114 &4215898573996737307
 MonoBehaviour:
@@ -1508,8 +1502,7 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
   rl_EnemyController: {fileID: 326335764756484714}
-  healthBar: {fileID: 8359980924510194894}
-  rewardConfig: {fileID: 7144006557691622317}
+  enemyRewards: {fileID: 7144006557691622317}
   animator: {fileID: 2030732665317957927}
   navAgent: {fileID: 8707273861137654613}
   obstacleMask:
