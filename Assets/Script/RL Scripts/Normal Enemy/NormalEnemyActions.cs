@@ -107,6 +107,13 @@ public sealed class NormalEnemyActions
 
             try
             {
+                // Additional null check for destroyed player
+                if (playerTransform == null || !playerTransform.gameObject.activeInHierarchy)
+                {
+                    FindPlayerTransform();
+                    return;
+                }
+
                 float distanceToPlayer = GetDistanceToPlayer(agentPosition);
 
                 if (distanceToPlayer <= raySensor.RayLength)
@@ -119,6 +126,7 @@ public sealed class NormalEnemyActions
             catch (MissingReferenceException)
             {
                 playerTransform = null; // Player object was destroyed
+                FindPlayerTransform(); // Try to find the new player
             }
         }
 
@@ -127,7 +135,11 @@ public sealed class NormalEnemyActions
             playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
             if (playerTransform == null)
             {
-                playerTransform = Object.FindFirstObjectByType<RL_Player>()?.transform;
+                var player = Object.FindFirstObjectByType<RL_Player>();
+                if (player != null && player.gameObject.activeInHierarchy)
+                {
+                    playerTransform = player.transform;
+                }
             }
         }
 
@@ -239,9 +251,11 @@ public sealed class NormalEnemyActions
 
         public Transform[] GetPatrolPoints() => patrolPoints;
 
-        internal bool HasReachedNewPatrolPoint()
+        public bool HasReachedNewPatrolPoint()
         {
-            throw new System.NotImplementedException();
+            // This can be used to track if agent reached a new patrol point
+            // Implementation depends on your specific needs
+            return false; // Placeholder - implement based on your requirements
         }
 
         public int PatrolLoopsCompleted => patrolLoopsCompleted;

@@ -31,13 +31,10 @@ public class NormalEnemyAgent : Agent
     private NormalEnemyStates enemyStates; 
     private DebugDisplay debugDisplay;
     private NormalEnemyRewards.RewardSystem rewardSystem;
-    private AnimationClip attackAnimation;
-    private float dynamicAttackCooldown = 0.3f;
     private const float HEALTH_NORMALIZATION_FACTOR = 100f;
     private const float ATTACK_COOLDOWN_FALLBACK = 0.3f;
     private bool wasPlayerVisibleLastFrame = false;
     private bool hasPlayerBeenKilled = false;
-    private float lastAttackAttemptTime = 0f;
     private Vector3 lastPlayerPosition = Vector3.zero;
     private float attackIncentiveTimer = 0f;
     private const float ATTACK_INCENTIVE_THRESHOLD = 2f;
@@ -46,12 +43,10 @@ public class NormalEnemyAgent : Agent
     private string currentState = "Idle";
     private string currentAction = "Idle";
     private float previousDistanceToPlayer = float.MaxValue;
-    private float lastAttackTime;
     private bool isInitialized = false;
     #endregion
 
     #region Public Properties & Variables
-    public static bool TrainingActive = true;
     public float CurrentHealth => rl_EnemyController?.enemyHP ?? 0f;
     public float MaxHealth => rl_EnemyController?.enemyData?.enemyHealth ?? 100f;
     public bool IsDead => enemyStates?.HealthState?.IsDead ?? false;
@@ -64,9 +59,7 @@ public class NormalEnemyAgent : Agent
         {
             rl_EnemyController.ForceInitialize();
         }
-
-        InitializeEnemyStates();
-
+        InitializeEnemyStates(); 
         InitializeComponents();
         InitializeSystems();
         initialPosition = transform.position;
@@ -87,17 +80,25 @@ public class NormalEnemyAgent : Agent
             Initialize();
             if (!isInitialized) return;
         }
-
+        
+        // Stop any ongoing coroutines
+        StopAllCoroutines();
+        
         ResetForNewEpisode();
         WarpToRandomPatrolPoint();
         ResetTrainingArena();
+        
         Debug.Log($"{gameObject.name} episode began - Health: {CurrentHealth}");
         
         if (rl_EnemyController != null)
         {
             rl_EnemyController.ShowHealthBar();
+            // Ensure the controller's combat state is properly reset
+            rl_EnemyController.enemyStates.CombatState.ResetCombatState();
+            // Reset ML control flag
+            rl_EnemyController.IsMLControlled = true;
         }
-
+        
         // Reset animator to a living state
         if (animator != null)
         {
@@ -106,8 +107,9 @@ public class NormalEnemyAgent : Agent
             animator.SetBool("isWalking", false);
             animator.SetBool("isIdle", true);
             animator.ResetTrigger("getHit");
+            animator.ResetTrigger("attack");
         }
-
+        
         // Re-enable collider and NavMeshAgent
         var collider = GetComponent<Collider>();
         if (collider != null)
@@ -119,6 +121,12 @@ public class NormalEnemyAgent : Agent
         {
             navAgent.enabled = true;
             navAgent.isStopped = false;
+        }
+        
+        // Force player detection refresh
+        if (playerDetection != null)
+        {
+            playerDetection.Reset();
         }
     }
 
@@ -226,39 +234,36 @@ public class NormalEnemyAgent : Agent
     private void ResetForNewEpisode()
     {
         ResetAgentState();
-
         if (rl_EnemyController != null && rl_EnemyController.enemyData != null)
         {
             rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
             rl_EnemyController.InitializeHealthBar();
         }
-
         if (enemyStates?.HealthState != null)
         {
             enemyStates.HealthState.SetDead(false);
         }
-
+        // Reset combat state properly in the controller's state object
+        if (rl_EnemyController != null && rl_EnemyController.enemyStates?.CombatState != null)
+        {
+            rl_EnemyController.enemyStates.CombatState.ResetCombatState();
+        }
         // Reset reward tracking variables
-        currentStepCount = 0;
+        currentStepCount = 0;   
         currentState = "Idle";
         currentAction = "Idle";
-        lastAttackTime = Time.fixedTime - dynamicAttackCooldown;
-        lastAttackAttemptTime = 0f;
         wasPlayerVisibleLastFrame = false;
         hasPlayerBeenKilled = false;
         attackIncentiveTimer = 0f;
         lastPlayerPosition = Vector3.zero;
-
+        previousDistanceToPlayer = float.MaxValue; // Reset this for new episode
         patrolSystem?.Reset();
-
         gameObject.SetActive(true);
-        
         var collider = GetComponent<Collider>();
         if (collider != null)
         {
             collider.enabled = true;
         }
-        
         if (navAgent != null)
         {
             navAgent.enabled = true;
@@ -303,6 +308,16 @@ public class NormalEnemyAgent : Agent
     {
         FindFirstObjectByType<RL_TrainingTargetSpawner>()?.ResetArena();
     }
+
+    private void CheckEpisodeEnd()
+    {
+        if (currentStepCount >= MaxStep)
+        {
+            Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
+            EndEpisode();
+        }
+    }
+    
     #endregion
 
     #region Action Processing
@@ -337,42 +352,34 @@ public class NormalEnemyAgent : Agent
     {
         bool shouldAttack = actions.DiscreteActions[0] == (int)EnemyHighLevelAction.Attack;
         bool playerInRange = IsPlayerInAttackRange();
-        bool canAttack = Time.fixedTime - lastAttackTime >= dynamicAttackCooldown;
+        bool canAttack = rl_EnemyController?.enemyStates?.CombatState?.CanAttack ?? false;
+        bool isAttacking = rl_EnemyController?.enemyStates?.CombatState?.IsAttacking ?? false;
 
-        if (playerInRange && shouldAttack && canAttack)
+        if (playerInRange && shouldAttack && canAttack && !isAttacking)
         {
             ExecuteAttack();
             currentState = "Attacking";
             currentAction = "Attacking";
         }
-        else if (playerInRange)
+        else if (playerInRange && !shouldAttack)
         {
             currentAction = "Chasing";
+            currentState = "Chasing";
         }
-
-        UpdateAnimationStates(playerInRange, canAttack);
-        AdjustMovementSpeed(playerInRange);
+        else if (!playerInRange)
+        {
+            currentAction = "Patrolling";
+            currentState = "Patrolling";
+        }
     }
 
     private void ExecuteAttack()
     {
-        if (animator != null && attackAnimation == null)
-        {
-            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            if (stateInfo.IsName("Attack"))
-            {
-                attackAnimation = animator.GetCurrentAnimatorClipInfo(0)[0].clip;
-                dynamicAttackCooldown = attackAnimation.length;
-            }
-            else
-            {
-                dynamicAttackCooldown = ATTACK_COOLDOWN_FALLBACK;
-            }
-        }
-
-        lastAttackTime = Time.fixedTime;
-        lastAttackAttemptTime = Time.fixedTime;
-        attackIncentiveTimer = 0f; // Reset attack incentive timer
+        // Validate attack conditions before executing
+        if (rl_EnemyController?.enemyStates?.CombatState?.CanAttack != true) return;
+        if (rl_EnemyController.enemyStates.CombatState.IsAttacking) return;
+        
+        attackIncentiveTimer = 0f;
         
         // Store player position for hit detection
         if (playerDetection != null && playerDetection.IsPlayerAvailable())
@@ -380,45 +387,11 @@ public class NormalEnemyAgent : Agent
             lastPlayerPosition = playerDetection.GetPlayerPosition();
         }
         
-        rewardSystem?.AddAttackReward();
-
-        if (currentAction == "Chasing")
-        {
-            rewardSystem?.AddChasePlayerReward();
-        }
-
-        if (rl_EnemyController != null)
-        {
-            rl_EnemyController.AgentAttack();
-            
-            // Check if attack hit player after a short delay
-            StartCoroutine(CheckAttackResult());
-        }
-    }
-
-    private System.Collections.IEnumerator CheckAttackResult()
-    {
-        yield return new UnityEngine.WaitForSeconds(0.1f); // Small delay to check hit result
+        currentAction = "Attacking";
+        currentState = "Attacking";
         
-        if (playerDetection != null && playerDetection.IsPlayerAvailable())
-        {
-            float distanceToLastPosition = Vector3.Distance(transform.position, lastPlayerPosition);
-            
-            // If player is still in range and attack animation played, assume hit
-            if (distanceToLastPosition <= rl_EnemyController.attackRange * 1.2f)
-            {
-            }
-            else
-            {
-                // Attack missed
-                rewardSystem?.AddAttackMissedPunishment();
-            }
-        }
-        else
-        {
-            // Player not available, attack missed
-            rewardSystem?.AddAttackMissedPunishment();
-        }
+        // Call the ML attack method
+        rl_EnemyController.MLAgentAttack();
     }
 
     private void ProcessAttackIncentive(float deltaTime)
@@ -438,33 +411,14 @@ public class NormalEnemyAgent : Agent
         }
     }
 
-    private void UpdateAnimationStates(bool playerInRange, bool canAttack)
+    public void OnAttackHit()
     {
-        if (animator == null || IsDead || enemyStates == null) return;
+        rewardSystem?.AddAttackReward();
+    }
 
-        bool isMoving = navAgent != null && navAgent.velocity.magnitude > 0.1f && !enemyStates.CombatState.IsAttacking;
-        bool shouldAttackAnim = playerInRange && canAttack;
-
-        animator.SetBool("isWalking", isMoving);
-        animator.SetBool("isAttacking", shouldAttackAnim);
-        animator.SetBool("isIdle", !isMoving && !shouldAttackAnim);
-
-        if (navAgent != null && rl_EnemyController != null)
-        {
-            if (animator.GetBool("isWalking"))
-            {
-                animator.speed = Mathf.Clamp(navAgent.velocity.magnitude / rl_EnemyController.moveSpeed, 0.5f, 1.5f);
-            }
-            else
-            {
-                animator.speed = 1f;
-            }
-        }
-
-        if (shouldAttackAnim && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
-        {
-            animator.Play("Attack", 0, 0f);
-        }
+    public void OnAttackMissed()
+    {
+        rewardSystem?.AddAttackMissedPunishment();
     }
 
     private void AdjustMovementSpeed(bool playerInRange)
@@ -474,6 +428,35 @@ public class NormalEnemyAgent : Agent
             navAgent.speed = playerInRange
                 ? rl_EnemyController.moveSpeed * 0.2f
                 : rl_EnemyController.moveSpeed;
+        }
+    }
+
+    public void HandleEnemyDeath()
+    {
+        rewardSystem?.AddDeathPunishment();
+        currentState = "Dead";
+        currentAction = "Dead";
+        Debug.Log($"{gameObject.name} died. Ending episode.");
+        EndEpisode();
+    }
+
+    public void HandleDamage()
+    {
+        rewardSystem?.AddDamagePunishment();
+        currentState = "Attacking";
+        currentAction = "Attacking";
+    }
+
+    public void HandlePlayerKilled()
+    {
+        if (!hasPlayerBeenKilled)
+        {
+            hasPlayerBeenKilled = true;
+            rewardSystem?.AddKillPlayerReward();
+            currentState = "Victory";
+            currentAction = "Victory";
+            Debug.Log($"{gameObject.name} killed the player! Ending episode with victory.");
+            EndEpisode();
         }
     }
     #endregion
@@ -518,8 +501,7 @@ public class NormalEnemyAgent : Agent
         {
             float currentDistance = playerDetection.GetDistanceToPlayer(transform.position);
             
-            // Only reward if significantly closer
-            if (currentDistance < previousDistanceToPlayer - 0.1f)
+            if (currentDistance < previousDistanceToPlayer - 1f)
             {
                 rewardSystem?.AddApproachPlayerReward(deltaTime);
             }
@@ -531,8 +513,7 @@ public class NormalEnemyAgent : Agent
     private void ProcessPlayerVisibilityRewards(float deltaTime)
     {
         bool isPlayerCurrentlyVisible = playerDetection != null && playerDetection.IsPlayerVisible;
-        
-        if (isPlayerCurrentlyVisible && !currentAction.Contains("Detect") && !currentAction.Contains("Chas"))
+        if (isPlayerCurrentlyVisible && !currentAction.Contains("Detecting") && !currentAction.Contains("Chasing"))
         {
             rewardSystem?.AddDoesntChasePlayerPunishment(deltaTime);
         }
@@ -556,11 +537,27 @@ public class NormalEnemyAgent : Agent
         if (playerDetection.IsPlayerVisible)
         {
             rewardSystem?.AddDetectionReward(Time.deltaTime);
-            currentState = "Detecting";
-            currentAction = "Detecting";
+            
+            // Set proper states for chasing
+            if (IsPlayerInAttackRange())
+            {
+                currentState = "In Attack Range";
+                currentAction = "Preparing Attack";
+            }
+            else
+            {
+                currentState = "Detecting";
+                currentAction = "Chasing";
+            }
+            
+            // Update enemy states for proper behavior
+            enemyStates.IsDetecting = true;
+            enemyStates.IsChasing = !IsPlayerInAttackRange();
         }
         else
         {
+            enemyStates.IsDetecting = false;
+            enemyStates.IsChasing = false;
             UpdatePatrolBehavior();
         }
 
@@ -568,11 +565,6 @@ public class NormalEnemyAgent : Agent
         if (patrolSystem != null)
         {
             patrolSystem.UpdatePatrol(transform.position, rewardSystem);
-        
-            /*if (patrolSystem.HasReachedNewPatrolPoint())
-            {
-                HandlePatrolPointReached();
-            }*/
         }
     }
 
@@ -602,46 +594,6 @@ public class NormalEnemyAgent : Agent
             currentState = "Position in Arena: " + nearestPoint;
         }
     }
-    #endregion
-
-    #region Episode Management
-    private void CheckEpisodeEnd()
-    {
-        if (currentStepCount >= MaxStep)
-        {
-            Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
-            EndEpisode();
-        }
-    }
-
-    public void HandleEnemyDeath()
-    {
-        rewardSystem?.AddDeathPunishment();
-        currentState = "Dead";
-        currentAction = "Dead";
-        Debug.Log($"{gameObject.name} died. Ending episode.");
-        EndEpisode();
-    }
-
-    public void HandleDamage()
-    {
-        rewardSystem?.AddDamagePunishment();
-        currentState = "Attacking";
-        currentAction = "Attacking";
-    }
-
-    public void HandlePlayerKilled()
-    {
-        if (!hasPlayerBeenKilled)
-        {
-            hasPlayerBeenKilled = true;
-            rewardSystem?.AddKillPlayerReward();
-            currentState = "Victory";
-            currentAction = "Victory";
-            Debug.Log($"{gameObject.name} killed the player! Ending episode with victory.");
-            EndEpisode();
-        }
-}
     #endregion
 
     #region Utility & Debug

@@ -1,16 +1,16 @@
 using UnityEngine;
 
-public sealed class NormalEnemyStates
+public class NormalEnemyStates : MonoBehaviour 
 {
     #region Properties
     public Vector3 AgentPosition { get; private set; }
     public float HealthFraction { get; private set; }
     public Vector3 PlayerPosition { get; private set; }
     public bool CanSeePlayer { get; private set; }
-    public Vector3 NextPatrolPointDirection { get; set; } = Vector3.zero; //unimplemented
+    public Vector3 NextPatrolPointDirection { get; set; } = Vector3.zero;
     public float DistanceToNearestObstacle { get; private set; }
-    public bool IsChasing { get; set; } = false; //unimplemented
-    public bool IsDetecting { get; set; } = false; //unimplemented
+    public bool IsChasing { get; set; } = false;
+    public bool IsDetecting { get; set; } = false;
     public bool IsIdle { get; set; } = false;
     #endregion
 
@@ -19,6 +19,57 @@ public sealed class NormalEnemyStates
     public WaypointNavigationState WaypointNavigation { get; private set; }
     public CombatState CombatState { get; private set; }
     public HealthState HealthState { get; private set; }
+
+    public void SetChasing(bool chasing)
+    {
+        IsChasing = chasing;
+        if (chasing)
+        {
+            IsIdle = false;
+            IsDetecting = false;
+        }
+    }
+
+    public void SetDetecting(bool detecting)
+    {
+        IsDetecting = detecting;
+        if (detecting)
+        {
+            IsIdle = false;
+        }
+    }
+
+    public void SetIdle(bool idle)
+    {
+        IsIdle = idle;
+        if (idle)
+        {
+            IsChasing = false;
+            IsDetecting = false;
+        }
+    }
+
+    public void UpdateBehavioralStates(bool playerVisible, bool playerInRange, bool playerInAttackRange)
+    {
+        if (playerInAttackRange)
+        {
+            SetChasing(false);
+            SetDetecting(false);
+            SetIdle(false);
+        }
+        else if (playerVisible && playerInRange)
+        {
+            SetChasing(true);
+        }
+        else if (playerVisible)
+        {
+            SetDetecting(true);
+        }
+        else
+        {
+            SetIdle(true);
+        }
+    }
     #endregion
 
     #region Constants
@@ -187,11 +238,48 @@ public class WaypointNavigationState
 
 public class CombatState
 {
-    public bool IsAttacking { get; private set; }
-    public bool CanAttack { get; private set; } = true;
+    private bool _isAttacking;
+    private float _lastAttackTime;
+    private const float ATTACK_COOLDOWN = 1f;
 
-    public void SetAttacking(bool attacking) => IsAttacking = attacking;
-    public void SetCanAttack(bool canAttack) => CanAttack = canAttack;
+    public bool IsAttacking
+    {
+        get => _isAttacking;
+        private set => _isAttacking = value;
+    }
+
+    public bool CanAttack => !_isAttacking && (Time.time - _lastAttackTime) >= ATTACK_COOLDOWN;
+
+    public void SetAttacking(bool attacking)
+    {
+        if (attacking && !_isAttacking)
+        {
+            _isAttacking = true;
+            _lastAttackTime = Time.time;
+        }
+        else if (!attacking && _isAttacking)
+        {
+            _isAttacking = false;
+            _lastAttackTime = Time.time;
+        }
+    }
+
+    public void ResetCombatState()
+    {
+        _isAttacking = false;
+        _lastAttackTime = 0f;
+    }
+
+    public float GetRemainingCooldown()
+    {
+        return Mathf.Max(0f, ATTACK_COOLDOWN - (Time.time - _lastAttackTime));
+    }
+
+    public void StartAttackCooldown()
+    {
+        _lastAttackTime = Time.time;
+        _isAttacking = false;
+    }   
 }
 
 public class HealthState
