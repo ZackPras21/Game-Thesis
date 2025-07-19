@@ -29,7 +29,7 @@ public class NormalEnemyRewards : MonoBehaviour
     #endregion
 
     #region Massive Rewards
-    public void AddKillPlayerReward(Agent agent)
+    public void AddKillPlayerReward(Agent agent) 
     {
         agent.AddReward(KillPlayerReward);
         Debug.Log($"[REWARD] {agent.name} killed player: +{KillPlayerReward}");
@@ -113,12 +113,12 @@ public class NormalEnemyRewards : MonoBehaviour
         agent.AddReward(DoesntChasePlayerPunishment);
     }
 
-    public void AddAttackIncentive(Agent agent, float deltaTime)
+    public void AddAttackIncentive(Agent agent, float deltaTime) //unimplemented
     {
         agent.AddReward(AttackIncentive);
     }
 
-    public void AddAttackMissedPunishment(Agent agent)
+    public void AddAttackMissedPunishment(Agent agent) //unimplemented
     {
         agent.AddReward(AttackMissedPunishment);
     }

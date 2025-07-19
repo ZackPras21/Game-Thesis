@@ -18,12 +18,7 @@ public class RL_EnemyController : MonoBehaviour
     [SerializeField] private float waypointThreshold = 0.5f;
     [SerializeField] public Transform[] waypoints; // Made public for spawner to set
     [SerializeField] private LayerMask obstacleMask;
-
-    [Header("AI Behavior")]
     [SerializeField] private float startWaitTime = 4f;
-    [SerializeField] private float timeToRotate = 2f; // Unused, consider removal if not implemented
-    [SerializeField] private float separationRadius = 2f; // Unused, consider removal if not implemented
-    [SerializeField] private LayerMask enemyMask; // Unused, consider removal if not implemented
 
     [Header("Component References")]
     [SerializeField] private Animator animator;
@@ -436,9 +431,7 @@ public class RL_EnemyController : MonoBehaviour
         collider.CompareTag("Player") && collider.gameObject.layer == LayerMask.NameToLayer("Hitbox");
 
     private bool HasValidWaypoints() => waypoints != null && waypoints.Length > 0;
-
     private void NotifyGameProgression() => GameProgression.Instance?.EnemyKill();
-
     public float GetHealthPercentage() => (float)enemyHP / enemyData.enemyHealth;
     public bool IsHealthLow() => enemyHP <= enemyData.enemyHealth * 0.2f;
     public bool IsDead() => healthState.IsDead;
@@ -449,9 +442,6 @@ public class RL_EnemyController : MonoBehaviour
 }
 
 #region State Classes
-// These state classes remain largely the same, but are included for completeness.
-// Ensure they are defined outside the main class or in their own files.
-
 public class PlayerTrackingState
 {
     public Vector3 PlayerPosition { get; private set; }

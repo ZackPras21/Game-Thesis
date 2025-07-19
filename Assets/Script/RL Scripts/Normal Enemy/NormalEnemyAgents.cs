@@ -38,14 +38,12 @@ public class NormalEnemyAgent : Agent
     private PatrolSystem patrolSystem;
     private AgentMovement agentMovement;
     private DebugDisplay debugDisplay;
-    private RewardSystem rewardSystem;
     private AnimationClip attackAnimation;
     private float dynamicAttackCooldown = 0.5f;
 
     private const float HEALTH_NORMALIZATION_FACTOR = 100f; // Used for observation normalization
     private const float ATTACK_COOLDOWN_FALLBACK = 0.5f; // Fallback if attack animation length is not found
 
-    private int currentStepCount;
     private Vector3 initialPosition;
     private string currentState = "Idle";
     private string currentAction = "Idle";
@@ -148,7 +146,7 @@ public class NormalEnemyAgent : Agent
     {
         if (!isInitialized || rl_EnemyController == null || IsDead || !isActiveAndEnabled) return;
 
-        UpdateStepCount();
+        debugDisplay.IncrementSteps();
         ProcessActions(actions);
         UpdateBehaviorAndRewards();
         CheckEpisodeEnd();
@@ -185,7 +183,7 @@ public class NormalEnemyAgent : Agent
         patrolSystem = new PatrolSystem(FindPatrolPoints());
         agentMovement = new AgentMovement(navAgent, transform, rl_EnemyController.moveSpeed, rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange);
         debugDisplay = new DebugDisplay();
-        rewardSystem = new RewardSystem(this, rewardConfig);
+        rewardConfig = new NormalEnemyRewards();
     }
 
     private void ConfigureNavMeshAgent()
@@ -228,7 +226,6 @@ public class NormalEnemyAgent : Agent
         rl_EnemyController.healthState.SetDead(false);
         rl_EnemyController.InitializeHealthBar(); // Update health bar display
 
-        currentStepCount = 0;
         currentState = "Idle";
         currentAction = "Idle";
         lastAttackTime = Time.fixedTime - dynamicAttackCooldown; // Allow immediate attack
@@ -283,8 +280,6 @@ public class NormalEnemyAgent : Agent
     #endregion
 
     #region Action Processing
-    private void UpdateStepCount() => currentStepCount++;
-
     private void ProcessActions(ActionBuffers actions)
     {
         ProcessMovementActions(actions);
@@ -316,11 +311,15 @@ public class NormalEnemyAgent : Agent
 
         if (playerInRange)
             agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
-
         if (playerInRange && shouldAttack && canAttack)
+        {
             ExecuteAttack();
+        }
         else if (playerInRange)
+        {
             currentAction = "Chasing";
+            rewardConfig.AddApproachPlayerReward(this, Time.deltaTime);
+        }
 
         UpdateAnimationStates(playerInRange, canAttack);
         AdjustMovementSpeed(playerInRange);
@@ -345,13 +344,13 @@ public class NormalEnemyAgent : Agent
         }
 
         lastAttackTime = Time.fixedTime;
-        rewardSystem.AddAttackReward();
+        rewardConfig.AddAttackReward(this);
 
         if (currentAction == "Chasing")
-            rewardSystem.AddChasePlayerReward();
-
-        rl_EnemyController.AgentAttack(); // Trigger attack via the controller
-
+        {
+            rewardConfig.AddChasePlayerReward(this);
+        }
+        rl_EnemyController.AgentAttack(); 
         currentState = "Attacking";
         currentAction = "Attacking";
     }
@@ -406,18 +405,18 @@ public class NormalEnemyAgent : Agent
     {
         if (currentAction == "Chasing")
         {
-            rewardSystem.AddChaseStepReward(deltaTime);
+            rewardConfig.AddChaseStepReward(this, Time.deltaTime);
             ProcessChaseRewards(deltaTime);
         }
         else if (currentAction.StartsWith("Patrol"))
         {
-            rewardSystem.AddPatrolStepReward(deltaTime);
+            rewardConfig.AddPatrolStepReward(this, Time.deltaTime);
             if (navAgent.velocity.magnitude < 0.1f)
-                rewardSystem.AddNoMovementPunishment(deltaTime);
+                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime);
         }
         else if (currentAction == "Idle")
         {
-            rewardSystem.AddIdlePunishment(deltaTime);
+            rewardConfig.AddIdlePunishment(this, Time.deltaTime);
         }
 
         ProcessPlayerVisibilityRewards(deltaTime);
@@ -430,7 +429,7 @@ public class NormalEnemyAgent : Agent
         {
             float currentDistance = playerDetection.GetDistanceToPlayer(transform.position);
             if (currentDistance < previousDistanceToPlayer)
-                rewardSystem.AddApproachPlayerReward(deltaTime);
+                rewardConfig.AddApproachPlayerReward(this, Time.deltaTime);
             previousDistanceToPlayer = currentDistance;
         }
     }
@@ -438,14 +437,14 @@ public class NormalEnemyAgent : Agent
     private void ProcessPlayerVisibilityRewards(float deltaTime)
     {
         if (playerDetection.IsPlayerVisible && !currentAction.Contains("Chasing"))
-            rewardSystem.AddDoesntChasePlayerPunishment(deltaTime);
+            rewardConfig.AddDoesntChasePlayerPunishment(this, Time.deltaTime);
     }
 
     private void ProcessDistanceRewards(float deltaTime)
     {
         if (playerDetection.IsPlayerAvailable() &&
-            playerDetection.GetDistanceToPlayer(transform.position) > 10f)
-            rewardSystem.AddStayFarFromPlayerPunishment(deltaTime);
+            playerDetection.GetDistanceToPlayer(transform.position) > 5f)
+            rewardConfig.AddStayFarFromPlayerPunishment(this, Time.deltaTime);
     }
 
     private void UpdateDetectionAndBehavior()
@@ -454,7 +453,7 @@ public class NormalEnemyAgent : Agent
 
         if (playerDetection.IsPlayerVisible)
         {
-            rewardSystem.AddDetectionReward(Time.deltaTime);
+            rewardConfig.AddDetectionReward(this, Time.deltaTime);
             currentState = "Detecting";
             currentAction = "Detecting";
         }
@@ -463,7 +462,7 @@ public class NormalEnemyAgent : Agent
             UpdatePatrolBehavior();
         }
 
-        patrolSystem.UpdatePatrol(transform.position, rewardSystem);
+        patrolSystem.UpdatePatrol(transform.position, rewardConfig, this);
     }
 
     private void UpdatePatrolBehavior()
@@ -489,7 +488,7 @@ public class NormalEnemyAgent : Agent
     #region Episode Management
     private void CheckEpisodeEnd()
     {
-        if (currentStepCount >= MaxStep)
+        if (StepCount >= MaxStep)
         {
             Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
             EndEpisode();
@@ -498,18 +497,23 @@ public class NormalEnemyAgent : Agent
 
     public void HandleEnemyDeath()
     {
-        rewardSystem.AddDeathPunishment();
+        rewardConfig.AddDeathPunishment(this);
         currentState = "Dead";
         currentAction = "Dead";
         Debug.Log($"{gameObject.name} died. Ending episode.");
-        EndEpisode(); // End the episode when the agent dies
+        EndEpisode(); 
     }
 
     public void HandleDamage()
     {
-        rewardSystem.AddDamagePunishment();
+        rewardConfig.AddDamagePunishment(this);
         currentState = "Attacking";
         currentAction = "Attacking";
+    }
+
+    public void HandleKillPlayer()
+    {
+        rewardConfig.AddKillPlayerReward(this);
     }
     #endregion
 
@@ -539,7 +543,7 @@ public class NormalEnemyAgent : Agent
     void OnCollisionEnter(Collision collision)
     {
         if (IsObstacleCollision(collision))
-            rewardSystem.AddObstaclePunishment();
+            rewardConfig.AddObstaclePunishment(this);
     }
     #endregion
 }
@@ -659,16 +663,15 @@ public class PatrolSystem
         patrolLoopsCompleted = 0;
     }
 
-    public void UpdatePatrol(Vector3 agentPosition, RewardSystem rewardSystem)
+    public void UpdatePatrol(Vector3 agentPosition, NormalEnemyRewards rewardConfig, Agent agent)
     {
         if (patrolPoints == null || patrolPoints.Length == 0) return;
 
         Vector3 targetWaypoint = patrolPoints[currentPatrolIndex].position;
-
         if (Vector3.Distance(agentPosition, targetWaypoint) < PATROL_WAYPOINT_TOLERANCE)
         {
             AdvanceToNextWaypoint();
-            rewardSystem.AddPatrolReward();
+            rewardConfig.AddPatrolReward(agent);
         }
     }
 
@@ -809,35 +812,4 @@ public class DebugDisplay
         GUI.Label(new Rect(offset.x, offset.y, 300, 150), debugText, labelStyle);
     }
 }
-
-public class RewardSystem
-{
-    private readonly Agent agent;
-    private readonly NormalEnemyRewards rewardConfig;
-
-    public RewardSystem(Agent agent, NormalEnemyRewards rewardConfig)
-    {
-        this.agent = agent;
-        this.rewardConfig = rewardConfig;
-    }
-
-    public void AddDetectionReward(float deltaTime) => agent.AddReward(rewardConfig.DetectPlayerReward * deltaTime); 
-    public void AddIdlePunishment(float deltaTime) => agent.AddReward(rewardConfig.IdlePunishment * deltaTime);
-    public void AddPatrolReward() => agent.AddReward(rewardConfig.PatrolCompleteReward);
-    public void AddAttackReward() => agent.AddReward(rewardConfig.AttackPlayerReward);
-    public void AddKillPlayerReward() => agent.AddReward(rewardConfig.KillPlayerReward);
-    public void AddObstaclePunishment() => agent.AddReward(rewardConfig.ObstaclePunishment);
-    public void AddDeathPunishment() => agent.AddReward(rewardConfig.DiedByPlayerPunishment);
-    public void AddDamagePunishment() => agent.AddReward(rewardConfig.HitByPlayerPunishment);
-    public void AddNoMovementPunishment(float deltaTime) => agent.AddReward(rewardConfig.NoMovementPunishment * deltaTime);
-    public void AddApproachPlayerReward(float deltaTime) => agent.AddReward(rewardConfig.ApproachPlayerReward * deltaTime);
-    public void AddStayFarFromPlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.StayFarFromPlayerPunishment * deltaTime);
-    public void AddDoesntChasePlayerPunishment(float deltaTime) => agent.AddReward(rewardConfig.DoesntChasePlayerPunishment * deltaTime);
-    public void AddAttackMissedPunishment() => agent.AddReward(rewardConfig.AttackMissedPunishment);
-    public void AddChasePlayerReward() => agent.AddReward(rewardConfig.ChasePlayerReward);
-    public void AddChaseStepReward(float deltaTime) => agent.AddReward(rewardConfig.ChaseStepReward * deltaTime);
-    public void AddPatrolStepReward(float deltaTime) => agent.AddReward(rewardConfig.PatrolStepReward * deltaTime);
-    public void AddAttackIncentive(float deltaTime) => agent.AddReward(rewardConfig.AttackIncentive * deltaTime);
-}
-
 #endregion

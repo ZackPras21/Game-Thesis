@@ -13,7 +13,6 @@ public class RL_Player : MonoBehaviour
 
     [Header("Combat Settings")]
     [SerializeField] private float maxHealth = 100f;
-    [SerializeField] private float turnSpeed = 4f;
     [SerializeField] private float attackInterval = 2.0f;
     [SerializeField] private float attackDamage = 80f;
     [SerializeField] private float attackRange = 5f;
@@ -122,7 +121,8 @@ public class RL_Player : MonoBehaviour
             StopCoroutine(attackCoroutine);
             attackCoroutine = null;
         }
-        
+
+        GetComponent<NormalEnemyAgent>()?.HandleKillPlayer();
         PlayAnimationBool("isDead", true);
         PlayParticleEffect(deathParticle);
         SetCollidersEnabled(false);
