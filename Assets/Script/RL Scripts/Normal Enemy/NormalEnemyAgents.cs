@@ -4,7 +4,7 @@ using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
-using System.Collections;
+using static NormalEnemyActions;
 
 [RequireComponent(typeof(NavMeshAgent), typeof(RayPerceptionSensorComponent3D), typeof(RL_EnemyController))]
 public class NormalEnemyAgent : Agent
@@ -12,7 +12,6 @@ public class NormalEnemyAgent : Agent
     #region Serialized Fields
     [Header("References")]
     [SerializeField] private RL_EnemyController rl_EnemyController;
-    [SerializeField] private HealthBar healthBar; // Consider if this is needed here or only in RL_EnemyController
     [SerializeField] private NormalEnemyRewards rewardConfig;
     [SerializeField] private NormalEnemyStates stateConfig; // Unused, consider removal if not implemented
     [SerializeField] private Animator animator;
@@ -89,9 +88,9 @@ public class NormalEnemyAgent : Agent
 
         InitializeComponents();
         InitializeSystems();
-        initialPosition = transform.position; // Store initial position for potential reset
-        ResetAgentState(); // Reset internal state for first use
-        rl_EnemyController.InitializeHealthBar(); // Ensure health bar is set up
+        initialPosition = transform.position; 
+        ResetAgentState(); 
+        rl_EnemyController.InitializeHealthBar(); 
         isInitialized = true;
     }
 
@@ -99,17 +98,15 @@ public class NormalEnemyAgent : Agent
     {
         if (!isInitialized)
         {
-            Initialize(); // Ensure full initialization if not already
-            if (!isInitialized) return; // If initialization failed, stop
+            Initialize(); 
+            if (!isInitialized) return; 
         }
 
         ResetForNewEpisode();
         WarpToRandomPatrolPoint();
         ResetTrainingArena();
-        Debug.Log($"{gameObject.name} episode began - Health: {CurrentHealth}");
-        rl_EnemyController.ShowHealthBar(); // Show health bar at episode start
+        rl_EnemyController.ShowHealthBar(); 
 
-        // Reset animator to a living state
         if (animator != null)
         {
             animator.SetBool("isDead", false);
@@ -119,7 +116,6 @@ public class NormalEnemyAgent : Agent
             animator.ResetTrigger("getHit");
         }
 
-        // Re-enable collider and NavMeshAgent
         GetComponent<Collider>().enabled = true;
         if (navAgent != null)
         {
@@ -134,8 +130,7 @@ public class NormalEnemyAgent : Agent
 
         sensor.AddObservation(CurrentHealth / MaxHealth); // Normalized health
         sensor.AddObservation(playerDetection.IsPlayerAvailable()
-            ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR
-            : 0f); // Normalized distance to player
+            ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR: 0f); 
 
         Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
         sensor.AddObservation(localVelocity.x / rl_EnemyController.moveSpeed);
@@ -549,243 +544,6 @@ public class NormalEnemyAgent : Agent
 }
 
 #region Helper Classes (Keep these in separate files or nested if preferred)
-
-public class PlayerDetection
-{
-    private readonly RayPerceptionSensorComponent3D raySensor;
-    private readonly LayerMask obstacleMask;
-    private Transform playerTransform;
-    private bool isPlayerVisible;
-
-    private float lastPlayerCheckTime;
-    private const float PLAYER_CHECK_INTERVAL = 2f; // How often to try and find the player if null
-
-    public PlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
-    {
-        this.raySensor = raySensor;
-        this.obstacleMask = obstacleMask;
-        FindPlayerTransform();
-    }
-
-    public void Reset()
-    {
-        isPlayerVisible = false;
-        FindPlayerTransform(); // Re-find player on reset
-    }
-
-    public void UpdatePlayerDetection(Vector3 agentPosition)
-    {
-        isPlayerVisible = false;
-
-        if (!IsPlayerAvailable() || !playerTransform.gameObject.activeInHierarchy)
-        {
-            if (Time.time - lastPlayerCheckTime > PLAYER_CHECK_INTERVAL)
-            {
-                FindPlayerTransform();
-                lastPlayerCheckTime = Time.time;
-            }
-            if (!IsPlayerAvailable()) return;
-        }
-
-        try
-        {
-            float distanceToPlayer = GetDistanceToPlayer(agentPosition);
-
-            if (distanceToPlayer <= raySensor.RayLength)
-            {
-                CheckRayPerceptionVisibility();
-                if (isPlayerVisible)
-                    VerifyLineOfSight(agentPosition, distanceToPlayer);
-            }
-        }
-        catch (MissingReferenceException)
-        {
-            playerTransform = null; // Player object was destroyed
-        }
-    }
-
-    private void FindPlayerTransform()
-    {
-        // Prioritize finding the active player in the scene
-        playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-        if (playerTransform == null)
-        {
-            playerTransform = Object.FindFirstObjectByType<RL_Player>()?.transform;
-        }
-    }
-
-    private void CheckRayPerceptionVisibility()
-    {
-        var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-        isPlayerVisible = rayOutputs.RayOutputs.Any(ray =>
-            ray.HasHit && ray.HitGameObject != null && ray.HitGameObject.CompareTag("Player"));
-    }
-
-    private void VerifyLineOfSight(Vector3 agentPosition, float distanceToPlayer)
-    {
-        Vector3 directionToPlayer = (playerTransform.position - agentPosition).normalized;
-        // Add a small offset to agentPosition to avoid self-intersection with raycast origin
-        Vector3 rayOrigin = agentPosition + directionToPlayer * 0.5f;
-
-        if (Physics.Raycast(rayOrigin, directionToPlayer, out RaycastHit hit, distanceToPlayer, obstacleMask))
-        {
-            if (hit.collider != null && !hit.collider.CompareTag("Player"))
-                isPlayerVisible = false;
-        }
-    }
-
-    public bool IsPlayerAvailable() => playerTransform != null && playerTransform.gameObject.activeInHierarchy;
-    public bool IsPlayerVisible => isPlayerVisible;
-    public Vector3 GetPlayerPosition() => playerTransform?.position ?? Vector3.zero;
-    public Transform GetPlayerTransform() => playerTransform;
-    public float GetDistanceToPlayer(Vector3 agentPosition) =>
-        IsPlayerAvailable() ? Vector3.Distance(agentPosition, playerTransform.position) : float.MaxValue;
-}
-
-public class PatrolSystem
-{
-    private Transform[] patrolPoints;
-    private int currentPatrolIndex;
-    private int patrolLoopsCompleted;
-
-    private const float PATROL_WAYPOINT_TOLERANCE = 0.5f;
-    private const float NEAR_POINT_DISTANCE = 3f;
-
-    public PatrolSystem(Transform[] patrolPoints)
-    {
-        this.patrolPoints = patrolPoints;
-        Reset();
-    }
-
-    public void Reset()
-    {
-        currentPatrolIndex = 0;
-        patrolLoopsCompleted = 0;
-    }
-
-    public void UpdatePatrol(Vector3 agentPosition, NormalEnemyRewards rewardConfig, Agent agent)
-    {
-        if (patrolPoints == null || patrolPoints.Length == 0) return;
-
-        Vector3 targetWaypoint = patrolPoints[currentPatrolIndex].position;
-        if (Vector3.Distance(agentPosition, targetWaypoint) < PATROL_WAYPOINT_TOLERANCE)
-        {
-            AdvanceToNextWaypoint();
-            rewardConfig.AddPatrolReward(agent);
-        }
-    }
-
-    public string GetNearestPointName(Vector3 agentPosition)
-    {
-        if (patrolPoints == null || patrolPoints.Length == 0) return "None";
-
-        int nearestIndex = GetNearestPointIndex(agentPosition);
-        float minDistance = Vector3.Distance(agentPosition, patrolPoints[nearestIndex].position);
-
-        if (minDistance < NEAR_POINT_DISTANCE)
-        {
-            string pointName = patrolPoints[nearestIndex].gameObject.name;
-            return string.IsNullOrEmpty(pointName) ? $"Point {nearestIndex + 1}" : pointName;
-        }
-        return "None";
-    }
-
-    private int GetNearestPointIndex(Vector3 agentPosition)
-    {
-        float minDistance = float.MaxValue;
-        int nearestIndex = 0;
-
-        for (int i = 0; i < patrolPoints.Length; i++)
-        {
-            float distance = Vector3.Distance(agentPosition, patrolPoints[i].position);
-            if (distance < minDistance)
-            {
-                minDistance = distance;
-                nearestIndex = i;
-            }
-        }
-        return nearestIndex;
-    }
-
-    private void AdvanceToNextWaypoint()
-    {
-        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-        if (currentPatrolIndex == 0)
-            patrolLoopsCompleted++;
-    }
-
-    public void SetPatrolPoints(Transform[] points)
-    {
-        patrolPoints = points;
-        Reset();
-    }
-
-    public Transform[] GetPatrolPoints() => patrolPoints;
-    public int PatrolLoopsCompleted => patrolLoopsCompleted;
-}
-
-public class AgentMovement
-{
-    private readonly NavMeshAgent navAgent;
-    private readonly Transform agentTransform;
-    private readonly float moveSpeed;
-    private readonly float turnSpeed;
-    private readonly float attackRange;
-
-    public AgentMovement(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, float turnSpeed, float attackRange)
-    {
-        this.navAgent = navAgent;
-        this.agentTransform = agentTransform;
-        this.moveSpeed = moveSpeed;
-        this.turnSpeed = turnSpeed;
-        this.attackRange = attackRange;
-    }
-
-    public void Reset()
-    {
-        if (navAgent != null)
-        {
-            navAgent.velocity = Vector3.zero;
-            navAgent.isStopped = false;
-        }
-    }
-
-    public void ProcessMovement(Vector3 movement, float rotation)
-    {
-        if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
-        {
-            // Apply movement using NavMeshAgent.Move
-            navAgent.Move(movement * moveSpeed * Time.deltaTime);
-        }
-        else
-        {
-            // Fallback for direct transform movement if NavMeshAgent is not active/on mesh
-            agentTransform.position += movement * moveSpeed * Time.deltaTime;
-        }
-
-        agentTransform.Rotate(0, rotation * turnSpeed * Time.deltaTime, 0);
-    }
-
-    public bool IsPlayerInAttackRange(Vector3 playerPosition) =>
-        Vector3.Distance(agentTransform.position, playerPosition) <= attackRange;
-
-    public void FaceTarget(Vector3 targetPosition)
-    {
-        Vector3 direction = (targetPosition - agentTransform.position).normalized;
-        direction.y = 0;
-
-        if (direction != Vector3.zero)
-        {
-            Quaternion lookRotation = Quaternion.LookRotation(direction);
-            agentTransform.rotation = Quaternion.Slerp(
-                agentTransform.rotation,
-                lookRotation,
-                Time.deltaTime * turnSpeed
-            );
-        }
-    }
-}
-
 public class DebugDisplay
 {
     private float cumulativeReward;
