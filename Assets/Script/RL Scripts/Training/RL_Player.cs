@@ -16,7 +16,7 @@ public class RL_Player : MonoBehaviour
     [SerializeField] private float attackInterval = 2.0f;
     [SerializeField] private float attackDamage = 80f;
     [SerializeField] private float attackRange = 5f;
-    [SerializeField] private float invincibilityDuration = 0.5f;
+    [SerializeField] private float invincibilityDuration = 0.7f;
 
     [Header("UI Components")]
     [SerializeField] private Slider healthBarSlider;
@@ -258,7 +258,7 @@ public class RL_Player : MonoBehaviour
     {
         if (animator != null)
         {
-            animator.SetTrigger("AttackTrigger");
+            animator.SetTrigger("isAttacking");
             StartCoroutine(ResetAttackTriggerAfterFrame());
         }
     }
@@ -278,7 +278,7 @@ public class RL_Player : MonoBehaviour
     {
         yield return null;
         if (animator != null)
-            animator.ResetTrigger("AttackTrigger");
+            animator.ResetTrigger("isAttacking");
     }
 
     private IEnumerator InvincibilityRoutine()
@@ -304,7 +304,7 @@ public class RL_Player : MonoBehaviour
         {
             animator.SetBool("isIdle", true);
             animator.SetBool("isWalking", false);
-            animator.SetBool("AttackTrigger", false);
+            animator.SetBool("isAttacking", false);
             animator.SetBool("isDead", false);
             animator.ResetTrigger("getHit");
         }
