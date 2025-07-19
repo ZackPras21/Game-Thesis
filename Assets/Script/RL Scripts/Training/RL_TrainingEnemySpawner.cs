@@ -42,7 +42,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     [SerializeField] private float patrolPointSpawnRadius = 4f; // Radius around patrol points for spawning
     [SerializeField] private bool debugSpawning = true;
 
-    // Fixed: Separate lists for each arena to prevent cross-arena interference
     private Dictionary<int, List<GameObject>> arenaEnemies = new Dictionary<int, List<GameObject>>();
 
     private void Start()

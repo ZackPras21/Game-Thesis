@@ -1,9 +1,7 @@
-// FileName: /NormalEnemyActions.cs
+using System.Linq;
+using Unity.MLAgents.Sensors;
 using UnityEngine;
 using UnityEngine.AI;
-using Unity.MLAgents;
-using Unity.MLAgents.Sensors;
-using System.Linq;
 
 public enum EnemyHighLevelAction
 {
@@ -17,9 +15,15 @@ public enum EnemyHighLevelAction
 
 public sealed class NormalEnemyActions
 {
+    #region Fields
+    private float patrolIdleTimer;
+    private bool isIdlingAtSpawn;
+    #endregion
+
     #region Constants
+    private const float IDLE_DURATION_AT_SPAWN = 5.0f;
     private const float MOVEMENT_DESTINATION_OFFSET = 0.5f;
-    private const float WAYPOINT_ARRIVAL_TOLERANCE = 0.1f; //unimplemented
+    private const float WAYPOINT_ARRIVAL_TOLERANCE = 0.1f;
     #endregion
 
     #region Movement Actions
@@ -53,21 +57,108 @@ public sealed class NormalEnemyActions
     private static bool HasMovementInput(float moveX, float moveZ) =>
         moveZ != 0f || moveX != 0f;
 
-    public static void SetAgentDestination(NavMeshAgent navAgent, Vector3 destination, float speed = 0f)
+    private static void SetAgentDestination(NavMeshAgent navAgent, Vector3 destination, float speed = 0f)
     {
         navAgent.isStopped = false;
         if (speed > 0f) navAgent.speed = speed;
         navAgent.SetDestination(destination);
     }
 
-    public static void StopAgent(NavMeshAgent navAgent)
+    private static void StopAgent(NavMeshAgent navAgent)
     {
         navAgent.velocity = Vector3.zero;
         navAgent.isStopped = true;
     }
     #endregion
-    #region Action Classes
 
+    #region Behavior Actions
+    public static void DoIdle(NavMeshAgent navAgent) => StopAgent(navAgent);
+
+    public static void DoChase(NavMeshAgent navAgent, Transform playerTransform) =>
+        SetAgentDestination(navAgent, playerTransform.position);
+
+    public static void DoAttack(NavMeshAgent navAgent) => StopAgent(navAgent);
+
+    public static void DoDead(Transform agentTransform, NavMeshAgent navAgent) => StopAgent(navAgent);
+
+    public void DoPatrol(
+        NavMeshAgent navAgent,
+        Transform[] patrolPoints,
+        ref int currentPatrolIndex,
+        ref int patrolLoopsCompleted,
+        Animator animator = null)
+    {
+        if (IsPatrolPointsEmpty(patrolPoints)) return;
+
+        if (isIdlingAtSpawn)
+            HandleSpawnIdling(navAgent, patrolPoints, ref currentPatrolIndex, animator);
+        else
+            ExecutePatrolMovement(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted, animator);
+    }
+
+    private static bool IsPatrolPointsEmpty(Transform[] patrolPoints) =>
+        patrolPoints == null || patrolPoints.Length == 0;
+
+    private void HandleSpawnIdling(NavMeshAgent navAgent, Transform[] patrolPoints, ref int currentPatrolIndex, Animator animator)
+    {
+        patrolIdleTimer -= Time.deltaTime;
+        StopAgent(navAgent);
+        SetAnimationState(animator, isWalking: false, isIdle: true);
+
+        if (patrolIdleTimer <= 0f)
+            CompleteSpawnIdling(patrolPoints, ref currentPatrolIndex);
+    }
+
+    private void CompleteSpawnIdling(Transform[] patrolPoints, ref int currentPatrolIndex)
+    {
+        isIdlingAtSpawn = false;
+        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+    }
+
+    private void ExecutePatrolMovement(
+        NavMeshAgent navAgent,
+        Transform[] patrolPoints,
+        ref int currentPatrolIndex,
+        ref int patrolLoopsCompleted,
+        Animator animator)
+    {
+        SetAgentDestination(navAgent, patrolPoints[currentPatrolIndex].position);
+        SetAnimationState(animator, isWalking: true, isIdle: false);
+
+        if (HasReachedWaypoint(navAgent))
+            HandleWaypointReached(patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted);
+    }
+
+    private static bool HasReachedWaypoint(NavMeshAgent navAgent) =>
+        !navAgent.pathPending &&
+        navAgent.remainingDistance <= navAgent.stoppingDistance + WAYPOINT_ARRIVAL_TOLERANCE;
+
+    private void HandleWaypointReached(Transform[] patrolPoints, ref int currentPatrolIndex, ref int patrolLoopsCompleted)
+    {
+        int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+
+        if (nextIndex == 0)
+            InitiateSpawnIdling(ref patrolLoopsCompleted);
+        else
+            currentPatrolIndex = nextIndex;
+    }
+
+    private void InitiateSpawnIdling(ref int patrolLoopsCompleted)
+    {
+        patrolLoopsCompleted++;
+        isIdlingAtSpawn = true;
+        patrolIdleTimer = IDLE_DURATION_AT_SPAWN;
+    }
+
+    private static void SetAnimationState(Animator animator, bool isWalking, bool isIdle)
+    {
+        if (animator == null) return;
+        animator.SetBool("isWalking", isWalking);
+        animator.SetBool("isIdle", isIdle);
+    }
+    #endregion
+
+    #region Action Helper Class 
     public class PlayerDetection
     {
         private readonly RayPerceptionSensorComponent3D raySensor;
@@ -76,7 +167,7 @@ public sealed class NormalEnemyActions
         private bool isPlayerVisible;
 
         private float lastPlayerCheckTime;
-        private const float PLAYER_CHECK_INTERVAL = 2f; 
+        private const float PLAYER_CHECK_INTERVAL = 2f; // How often to try and find the player if null
 
         public PlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
         {
@@ -107,13 +198,6 @@ public sealed class NormalEnemyActions
 
             try
             {
-                // Additional null check for destroyed player
-                if (playerTransform == null || !playerTransform.gameObject.activeInHierarchy)
-                {
-                    FindPlayerTransform();
-                    return;
-                }
-
                 float distanceToPlayer = GetDistanceToPlayer(agentPosition);
 
                 if (distanceToPlayer <= raySensor.RayLength)
@@ -126,20 +210,16 @@ public sealed class NormalEnemyActions
             catch (MissingReferenceException)
             {
                 playerTransform = null; // Player object was destroyed
-                FindPlayerTransform(); // Try to find the new player
             }
         }
 
         private void FindPlayerTransform()
         {
+            // Prioritize finding the active player in the scene
             playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
             if (playerTransform == null)
             {
-                var player = Object.FindFirstObjectByType<RL_Player>();
-                if (player != null && player.gameObject.activeInHierarchy)
-                {
-                    playerTransform = player.transform;
-                }
+                playerTransform = Object.FindFirstObjectByType<RL_Player>()?.transform;
             }
         }
 
@@ -153,6 +233,7 @@ public sealed class NormalEnemyActions
         private void VerifyLineOfSight(Vector3 agentPosition, float distanceToPlayer)
         {
             Vector3 directionToPlayer = (playerTransform.position - agentPosition).normalized;
+            // Add a small offset to agentPosition to avoid self-intersection with raycast origin
             Vector3 rayOrigin = agentPosition + directionToPlayer * 0.5f;
 
             if (Physics.Raycast(rayOrigin, directionToPlayer, out RaycastHit hit, distanceToPlayer, obstacleMask))
@@ -176,7 +257,7 @@ public sealed class NormalEnemyActions
         private int currentPatrolIndex;
         private int patrolLoopsCompleted;
 
-        private const float PATROL_WAYPOINT_TOLERANCE = 0.5f;
+        private const float PATROL_WAYPOINT_TOLERANCE = 2f;
         private const float NEAR_POINT_DISTANCE = 3f;
 
         public PatrolSystem(Transform[] patrolPoints)
@@ -191,16 +272,15 @@ public sealed class NormalEnemyActions
             patrolLoopsCompleted = 0;
         }
 
-        public void UpdatePatrol(Vector3 agentPosition, NormalEnemyRewards.RewardSystem rewardSystem)
+        public void UpdatePatrol(Vector3 agentPosition, NormalEnemyRewards rewardConfig, NormalEnemyAgent agent)
         {
             if (patrolPoints == null || patrolPoints.Length == 0) return;
 
             Vector3 targetWaypoint = patrolPoints[currentPatrolIndex].position;
-
             if (Vector3.Distance(agentPosition, targetWaypoint) < PATROL_WAYPOINT_TOLERANCE)
             {
                 AdvanceToNextWaypoint();
-                rewardSystem.AddPatrolReward();
+                rewardConfig.AddPatrolReward(agent);
             }
         }
 
@@ -250,14 +330,6 @@ public sealed class NormalEnemyActions
         }
 
         public Transform[] GetPatrolPoints() => patrolPoints;
-
-        public bool HasReachedNewPatrolPoint()
-        {
-            // This can be used to track if agent reached a new patrol point
-            // Implementation depends on your specific needs
-            return false; // Placeholder - implement based on your requirements
-        }
-
         public int PatrolLoopsCompleted => patrolLoopsCompleted;
     }
 
@@ -291,10 +363,12 @@ public sealed class NormalEnemyActions
         {
             if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
             {
+                // Apply movement using NavMeshAgent.Move
                 navAgent.Move(movement * moveSpeed * Time.deltaTime);
             }
             else
             {
+                // Fallback for direct transform movement if NavMeshAgent is not active/on mesh
                 agentTransform.position += movement * moveSpeed * Time.deltaTime;
             }
 
