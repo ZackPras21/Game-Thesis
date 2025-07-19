@@ -1404,11 +1404,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 640
   startWaitTime: 4
-  timeToRotate: 2
-  separationRadius: 2
-  enemyMask:
-    serializedVersion: 2
-    m_Bits: 2112
   animator: {fileID: 208499107586539375}
   lootManager: {fileID: 8553900194276483005}
   vfxManager: {fileID: 2212133294256333331}
@@ -1594,7 +1589,6 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
   rl_EnemyController: {fileID: 5551480163239934643}
-  healthBar: {fileID: 162162460577697592}
   rewardConfig: {fileID: 2042449206248845779}
   animator: {fileID: 208499107586539375}
   navAgent: {fileID: -5401494195924976978}
@@ -1639,9 +1633,9 @@ MonoBehaviour:
   - Box
   - Gate
   - Player
-  m_RaysPerDirection: 20
+  m_RaysPerDirection: 25
   m_MaxRayDegrees: 75
-  m_SphereCastRadius: 0.5
+  m_SphereCastRadius: 2
   m_RayLength: 35
   m_RayLayerMask:
     serializedVersion: 2
