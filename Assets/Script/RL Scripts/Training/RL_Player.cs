@@ -13,7 +13,7 @@ public class RL_Player : MonoBehaviour
 
     [Header("Combat Settings")]
     [SerializeField] private float maxHealth = 100f;
-    [SerializeField] private float attackInterval = 2.0f;
+    [SerializeField] private float attackInterval = 1.2f;
     [SerializeField] private float attackDamage = 80f;
     [SerializeField] private float attackRange = 5f;
     [SerializeField] private float invincibilityDuration = 0.7f;

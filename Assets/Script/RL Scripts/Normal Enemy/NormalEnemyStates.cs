@@ -160,3 +160,147 @@ public class NormalEnemyStates : MonoBehaviour
     }
     #endregion
 }
+
+#region State Classes
+public class PlayerTrackingState
+{
+    public Vector3 PlayerPosition { get; private set; }
+    public Transform PlayerTransform { get; private set; }
+    public bool IsInRange { get; private set; }
+    public bool IsPlayerAlive { get; private set; } = true;
+
+    public void SetTarget(Transform target)
+    {
+        PlayerTransform = target;
+        IsInRange = true;
+        PlayerPosition = target.position;
+    }
+
+    public void SetInRange(bool inRange) => IsInRange = inRange;
+    public void SetPlayerPosition(Vector3 position) => PlayerPosition = position;
+    
+    public void ClearTarget()
+    {
+        IsInRange = false;
+        PlayerTransform = null;
+    }
+
+    public void HandlePlayerDestroyed()
+    {
+        IsInRange = false;
+        IsPlayerAlive = false;
+        PlayerTransform = null;
+    }
+}
+
+public class WaypointNavigationState
+{
+    private readonly Transform[] waypoints;
+    private readonly float startWaitTime;
+    private int currentWaypointIndex;
+
+    public bool IsPatrolling { get; private set; }
+    public float WaitTime { get; private set; }
+
+    public WaypointNavigationState(Transform[] waypoints, float waitTime)
+    {
+        this.waypoints = waypoints;
+        startWaitTime = waitTime;
+        WaitTime = waitTime;
+        currentWaypointIndex = Random.Range(0, waypoints?.Length ?? 0);
+    }
+
+    public void SetPatrolling(bool patrolling) => IsPatrolling = patrolling;
+    public void DecrementWaitTime() => WaitTime -= Time.deltaTime;
+
+    public void MoveToNextWaypoint()
+    {
+        if (!HasValidWaypoints()) return;
+        
+        currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
+        IsPatrolling = true;
+        WaitTime = startWaitTime;
+    }
+
+    public Vector3 GetCurrentWaypointPosition() =>
+        HasValidWaypoints() && IsValidIndex()
+            ? waypoints[currentWaypointIndex].position
+            : Vector3.zero;
+
+    public float GetDistanceToCurrentWaypoint(Vector3 currentPosition) =>
+        HasValidWaypoints() ? Vector3.Distance(currentPosition, GetCurrentWaypointPosition()) : -1f;
+
+    public Vector3 GetDirectionToCurrentWaypoint(Vector3 currentPosition) =>
+        HasValidWaypoints() ? (GetCurrentWaypointPosition() - currentPosition).normalized : Vector3.zero;
+
+    private bool HasValidWaypoints() => waypoints != null && waypoints.Length > 0;
+    private bool IsValidIndex() => currentWaypointIndex >= 0 && currentWaypointIndex < waypoints.Length;
+}
+
+public class CombatState
+{
+    public bool IsAttacking { get; private set; }
+    public bool CanAttack { get; private set; } = true;
+
+    public void SetAttacking(bool attacking) => IsAttacking = attacking;
+    public void SetCanAttack(bool canAttack) => CanAttack = canAttack;
+
+    public void ResetCombatState()
+    {
+        IsAttacking = false;
+        CanAttack = true;
+    }
+}
+
+public class FleeState
+{
+    public bool IsFleeing { get; private set; }
+    public Vector3 FleeDirection { get; private set; }
+    public float FleeStartTime { get; private set; }
+    
+    public void StartFleeing(Vector3 direction)
+    {
+        IsFleeing = true;
+        FleeDirection = direction;
+        FleeStartTime = Time.time;
+    }
+    
+    public void StopFleeing()
+    {
+        IsFleeing = false;
+        FleeDirection = Vector3.zero;
+    }
+}
+
+public class KnockbackState
+{
+    public bool IsKnockedBack { get; private set; }
+    public Vector3 KnockbackDirection { get; private set; }
+    public float KnockbackEndTime { get; private set; }
+    
+    public void ApplyKnockback(Vector3 direction, float duration)
+    {
+        IsKnockedBack = true;
+        KnockbackDirection = direction;
+        KnockbackEndTime = Time.time + duration;
+    }
+    
+    public void UpdateKnockback()
+    {
+        if (IsKnockedBack && Time.time >= KnockbackEndTime)
+        {
+            IsKnockedBack = false;
+            KnockbackDirection = Vector3.zero;
+        }
+    }
+}
+
+public class HealthState
+{
+    public bool IsDead { get; private set; }
+
+    public void SetDead(bool dead) => IsDead = dead;
+
+    public void ResetHealthState() => IsDead = false;
+}
+#endregion

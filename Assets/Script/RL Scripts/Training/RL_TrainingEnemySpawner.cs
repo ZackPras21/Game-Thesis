@@ -35,11 +35,11 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     [SerializeField] private ArenaConfiguration[] arenas;
 
     [Header("Spawn Settings")]
-    [SerializeField] private float spawnInterval = 0.1f; // Reduced for faster spawning
-    [SerializeField] private int maxSpawnAttempts = 50; // Increased attempts
+    [SerializeField] private float spawnInterval = 0.1f; 
+    [SerializeField] private int maxSpawnAttempts = 50; 
     [SerializeField] private LayerMask obstacleLayerMask = ~0;
-    [SerializeField] private float minSpawnDistance = 1.5f; // Minimum distance between spawned enemies
-    [SerializeField] private float patrolPointSpawnRadius = 4f; // Radius around patrol points for spawning
+    [SerializeField] private float minSpawnDistance = 1.5f; 
+    [SerializeField] private float patrolPointSpawnRadius = 5f; 
     [SerializeField] private bool debugSpawning = true;
 
     private Dictionary<int, List<GameObject>> arenaEnemies = new Dictionary<int, List<GameObject>>();
@@ -118,28 +118,26 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         for (int i = 0; i < spawnPositions.Count && successfulSpawns < count; i++)
         {
             Vector3 spawnPosition = spawnPositions[i];
-            
+
             // Double-check position validity
             if (IsPositionValidInArena(spawnPosition, bounds, arenaIndex))
             {
                 GameObject enemy = Instantiate(prefab, spawnPosition, Quaternion.identity, arena.spawnParent);
                 arenaEnemies[arenaIndex].Add(enemy);
                 successfulSpawns++;
-                
+
                 if (debugSpawning)
                 {
                     Debug.Log($"Spawned {prefab.name} #{successfulSpawns} in Arena {arenaIndex} at {spawnPosition}");
                 }
-                
+
                 yield return new WaitForSeconds(spawnInterval);
             }
             else
             {
-                if (debugSpawning)
-                {
-                    Debug.LogWarning($"Position {spawnPosition} was invalid for {prefab.name} in Arena {arenaIndex}");
-                }
+                
             }
+
         }
 
         // Fallback for any remaining enemies

@@ -582,9 +582,6 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -969,9 +966,6 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -1585,11 +1579,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3714786027172849543, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.00669
+      value: -0.00741
       objectReference: {fileID: 0}
     - target: {fileID: 3714786027172849543, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.00675
+      value: -0.00692
       objectReference: {fileID: 0}
     - target: {fileID: 3785440444931594099, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_ScaleInLightmap
@@ -1601,7 +1595,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4091760477102433168, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.00608
+      value: 0.00663
       objectReference: {fileID: 0}
     - target: {fileID: 4091760477102433168, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1661,11 +1655,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8962787400097775378, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.00527
+      value: 0.00663
       objectReference: {fileID: 0}
     - target: {fileID: 8962787400097775378, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.00618
+      value: 0.00762
       objectReference: {fileID: 0}
     - target: {fileID: 9033530743252768565, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalScale.x
@@ -1673,11 +1667,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9033530743252768565, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.006987
+      value: -0.0073
       objectReference: {fileID: 0}
     - target: {fileID: 9033530743252768565, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.00716
+      value: 0.00779
+      objectReference: {fileID: 0}
+    - target: {fileID: 9033530743252768565, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.0041
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 2112572585037626649, guid: 412b73e8d50846e4d8c343be129f4aaa, type: 3}
@@ -1778,9 +1776,6 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 256
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}
@@ -7061,9 +7056,6 @@ MonoBehaviour:
     m_Bits: 31999
   enableContinuousSpawning: 1
   minimumSpawnDistance: 2
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 1
   spawnParticlePrefab: {fileID: 0}
   episodeStartPrefab: {fileID: 0}
   arenaLight: {fileID: 0}

@@ -159,10 +159,10 @@ public class EnemyController : MonoBehaviour
                 enemyData = CreepEnemyData.Instance;
                 break;
             case EnemyType.Medium1:
-                enemyData = Medium1EnemyData.medium1EnemyData;
+                enemyData = Medium1EnemyData.Instance;
                 break;
             case EnemyType.Medium2:
-                enemyData = Medium2EnemyData.medium2EnemyData;
+                enemyData = Medium2EnemyData.Instance;
                 break;
         }
 

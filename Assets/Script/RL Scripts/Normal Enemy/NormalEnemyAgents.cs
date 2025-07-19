@@ -13,7 +13,6 @@ public class NormalEnemyAgent : Agent
     [Header("References")]
     [SerializeField] private RL_EnemyController rl_EnemyController;
     [SerializeField] private NormalEnemyRewards rewardConfig;
-    [SerializeField] private NormalEnemyStates stateConfig; // Unused, consider removal if not implemented
     [SerializeField] private Animator animator;
     [SerializeField] private NavMeshAgent navAgent;
     [SerializeField] private LayerMask obstacleMask;
@@ -26,7 +25,7 @@ public class NormalEnemyAgent : Agent
     #endregion
 
     #region Public Properties & Variables
-    public static bool TrainingActive = true; // Consider if this should be static or managed by a training manager
+    public static bool TrainingActive = true; 
     public float CurrentHealth => rl_EnemyController.enemyHP;
     public float MaxHealth => rl_EnemyController.enemyData.enemyHealth;
     public bool IsDead => rl_EnemyController.healthState.IsDead;
@@ -39,10 +38,8 @@ public class NormalEnemyAgent : Agent
     private DebugDisplay debugDisplay;
     private AnimationClip attackAnimation;
     private float dynamicAttackCooldown = 0.5f;
-
-    private const float HEALTH_NORMALIZATION_FACTOR = 100f; // Used for observation normalization
-    private const float ATTACK_COOLDOWN_FALLBACK = 0.5f; // Fallback if attack animation length is not found
-
+    private const float HEALTH_NORMALIZATION_FACTOR = 100f; 
+    private const float ATTACK_COOLDOWN_FALLBACK = 0.5f; 
     private Vector3 initialPosition;
     private string currentState = "Idle";
     private string currentAction = "Idle";
@@ -54,7 +51,6 @@ public class NormalEnemyAgent : Agent
     #region Agent Lifecycle
     public override void Initialize()
     {
-        // Ensure RL_EnemyController reference exists
         rl_EnemyController ??= GetComponent<RL_EnemyController>();
         if (rl_EnemyController == null)
         {
@@ -63,7 +59,6 @@ public class NormalEnemyAgent : Agent
             return;
         }
 
-        // Ensure NavMeshAgent reference exists
         navAgent ??= GetComponent<NavMeshAgent>();
         if (navAgent == null)
         {
@@ -72,13 +67,11 @@ public class NormalEnemyAgent : Agent
             return;
         }
 
-        // Force initialize RL_EnemyController if it hasn't been already
         if (!rl_EnemyController.IsInitialized)
         {
             rl_EnemyController.ForceInitialize();
         }
 
-        // Check enemyData after initialization
         if (rl_EnemyController.enemyData == null)
         {
             Debug.LogError("NormalEnemyAgent: enemyData is still null after RL_EnemyController initialization!", gameObject);
@@ -162,12 +155,20 @@ public class NormalEnemyAgent : Agent
             (int)EnemyHighLevelAction.Attack :
             (int)EnemyHighLevelAction.Idle;
     }
+
+    private void CheckEpisodeEnd()
+    {
+        if (StepCount >= MaxStep)
+        {
+            Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
+            EndEpisode();
+        }
+    }
     #endregion
 
     #region Initialization & Reset Helpers
     private void InitializeComponents()
     {
-        // NavMeshAgent and RL_EnemyController are already ensured by RequireComponent and checks in Initialize()
         var raySensor = GetComponent<RayPerceptionSensorComponent3D>();
         ConfigureNavMeshAgent();
         playerDetection = new PlayerDetection(raySensor, obstacleMask);
@@ -178,7 +179,6 @@ public class NormalEnemyAgent : Agent
         patrolSystem = new PatrolSystem(FindPatrolPoints());
         agentMovement = new AgentMovement(navAgent, transform, rl_EnemyController.moveSpeed, rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange);
         debugDisplay = new DebugDisplay();
-        rewardConfig = new NormalEnemyRewards();
     }
 
     private void ConfigureNavMeshAgent()
@@ -216,20 +216,18 @@ public class NormalEnemyAgent : Agent
     {
         ResetAgentState();
 
-        // Reinitialize RL_EnemyController's health and state
         rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
-        rl_EnemyController.healthState.SetDead(false);
-        rl_EnemyController.InitializeHealthBar(); // Update health bar display
+        rl_EnemyController.healthState.ResetHealthState();
+        rl_EnemyController.InitializeHealthBar(); 
 
         currentState = "Idle";
         currentAction = "Idle";
-        lastAttackTime = Time.fixedTime - dynamicAttackCooldown; // Allow immediate attack
+        lastAttackTime = Time.fixedTime - dynamicAttackCooldown; 
 
-        // Reset patrol loop counter
         patrolSystem?.Reset();
 
-        gameObject.SetActive(true); // Ensure agent is active
-        GetComponent<Collider>().enabled = true; // Re-enable collider
+        gameObject.SetActive(true); 
+        GetComponent<Collider>().enabled = true; 
         if (navAgent != null)
         {
             navAgent.enabled = true;
@@ -322,10 +320,8 @@ public class NormalEnemyAgent : Agent
 
     private void ExecuteAttack()
     {
-        // Get attack animation length if available for dynamic cooldown
         if (animator != null && attackAnimation == null)
         {
-            // This assumes a specific animation state named "Attack"
             AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
             if (stateInfo.IsName("Attack"))
             {
@@ -345,6 +341,7 @@ public class NormalEnemyAgent : Agent
         {
             rewardConfig.AddChasePlayerReward(this);
         }
+        
         rl_EnemyController.AgentAttack(); 
         currentState = "Attacking";
         currentAction = "Attacking";
@@ -478,17 +475,6 @@ public class NormalEnemyAgent : Agent
             currentState = "Position in Arena: " + nearestPoint;
         }
     }
-    #endregion
-
-    #region Episode Management
-    private void CheckEpisodeEnd()
-    {
-        if (StepCount >= MaxStep)
-        {
-            Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
-            EndEpisode();
-        }
-    }
 
     public void HandleEnemyDeath()
     {
@@ -510,7 +496,7 @@ public class NormalEnemyAgent : Agent
     {
         rewardConfig.AddKillPlayerReward(this);
     }
-    #endregion
+    #endregion  
 
     #region Utility & Debug
     private float GetRotationInputHeuristic()
