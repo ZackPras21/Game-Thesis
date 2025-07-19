@@ -118,7 +118,6 @@ public class NormalEnemyAgent : Agent
             animator.SetBool("isAttacking", false);
             animator.SetBool("isWalking", false);
             animator.SetBool("isIdle", true);
-            animator.ResetTrigger("attack");
             animator.ResetTrigger("getHit");
         }
 
