@@ -1304,10 +1304,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d6e458ab47be24886c858c9db8b72e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enemyHP: 100
-  attackRange: 3
-  detectThreshold: 0.5
   fleeHealthThreshold: 0.2
+  fleeSpeed: 5
+  fleeDistance: 8
+  fleeDetectionRadius: 10
   healthBar: {fileID: 8359980924510194894}
   attackCollider: {fileID: 7083142781546743490}
   rotationSpeed: 5
@@ -1323,8 +1323,9 @@ MonoBehaviour:
   vfxManager: {fileID: -3980627480044796084}
   particlePosition: {fileID: 4424110341604512507}
   enemyType: 1
-  enemyState: 3
   enemyData: {fileID: 0}
+  enemyHP: 100
+  attackRange: 3
 --- !u!114 &4215898573996737307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1547,7 +1548,7 @@ MonoBehaviour:
   - Box
   - Gate
   - Player
-  m_RaysPerDirection: 15
+  m_RaysPerDirection: 20
   m_MaxRayDegrees: 45
   m_SphereCastRadius: 0.5
   m_RayLength: 9

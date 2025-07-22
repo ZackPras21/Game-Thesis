@@ -10,3 +10,5 @@ mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRun1 --torch-de
 --force (diakhir buat force)
 
 --resume (buat lanjut training tapi harus gedein step dulu)
+
+Raycast harus sama untuk semua agent
