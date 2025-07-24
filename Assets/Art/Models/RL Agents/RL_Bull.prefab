@@ -456,6 +456,7 @@ MonoBehaviour:
   AttackPlayerReward: 1
   HitByPlayerPunishment: -0.7
   ObstaclePunishment: -0.9
+  ObstacleAvoidance: 0.015
   PatrolStepReward: 0.005
   ChaseStepReward: 0.01
   IdlePunishment: -0.01
@@ -1634,9 +1635,10 @@ MonoBehaviour:
   - Box
   - Gate
   - Player
+  - Patrol Point
   m_RaysPerDirection: 20
   m_MaxRayDegrees: 75
-  m_SphereCastRadius: 2
+  m_SphereCastRadius: 1.5
   m_RayLength: 35
   m_RayLayerMask:
     serializedVersion: 2
@@ -1646,5 +1648,5 @@ MonoBehaviour:
   m_UseBatchedRaycasts: 0
   rayHitColor: {r: 0, g: 0.11241293, b: 1, a: 1}
   rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
-  m_StartVerticalOffset: 0
-  m_EndVerticalOffset: 0
+  m_StartVerticalOffset: 0.5
+  m_EndVerticalOffset: 1.5

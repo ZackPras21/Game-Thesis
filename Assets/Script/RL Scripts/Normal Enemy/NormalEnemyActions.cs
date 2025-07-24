@@ -15,16 +15,8 @@ public enum EnemyHighLevelAction
 
 public sealed class NormalEnemyActions
 {
-    #region Fields
-    private float patrolIdleTimer;
-    private bool isIdlingAtSpawn;
-    #endregion
-
-    #region Constants
     private const float IDLE_DURATION_AT_SPAWN = 5.0f;
     private const float MOVEMENT_DESTINATION_OFFSET = 0.5f;
-    private const float WAYPOINT_ARRIVAL_TOLERANCE = 0.1f;
-    #endregion
 
     #region Movement Actions
     public void ApplyMovement(
@@ -71,93 +63,6 @@ public sealed class NormalEnemyActions
     }
     #endregion
 
-    #region Behavior Actions
-    public static void DoIdle(NavMeshAgent navAgent) => StopAgent(navAgent);
-
-    public static void DoChase(NavMeshAgent navAgent, Transform playerTransform) =>
-        SetAgentDestination(navAgent, playerTransform.position);
-
-    public static void DoAttack(NavMeshAgent navAgent) => StopAgent(navAgent);
-
-    public static void DoDead(Transform agentTransform, NavMeshAgent navAgent) => StopAgent(navAgent);
-
-    public void DoPatrol(
-        NavMeshAgent navAgent,
-        Transform[] patrolPoints,
-        ref int currentPatrolIndex,
-        ref int patrolLoopsCompleted,
-        Animator animator = null)
-    {
-        if (IsPatrolPointsEmpty(patrolPoints)) return;
-
-        if (isIdlingAtSpawn)
-            HandleSpawnIdling(navAgent, patrolPoints, ref currentPatrolIndex, animator);
-        else
-            ExecutePatrolMovement(navAgent, patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted, animator);
-    }
-
-    private static bool IsPatrolPointsEmpty(Transform[] patrolPoints) =>
-        patrolPoints == null || patrolPoints.Length == 0;
-
-    private void HandleSpawnIdling(NavMeshAgent navAgent, Transform[] patrolPoints, ref int currentPatrolIndex, Animator animator)
-    {
-        patrolIdleTimer -= Time.deltaTime;
-        StopAgent(navAgent);
-        SetAnimationState(animator, isWalking: false, isIdle: true);
-
-        if (patrolIdleTimer <= 0f)
-            CompleteSpawnIdling(patrolPoints, ref currentPatrolIndex);
-    }
-
-    private void CompleteSpawnIdling(Transform[] patrolPoints, ref int currentPatrolIndex)
-    {
-        isIdlingAtSpawn = false;
-        currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-    }
-
-    private void ExecutePatrolMovement(
-        NavMeshAgent navAgent,
-        Transform[] patrolPoints,
-        ref int currentPatrolIndex,
-        ref int patrolLoopsCompleted,
-        Animator animator)
-    {
-        SetAgentDestination(navAgent, patrolPoints[currentPatrolIndex].position);
-        SetAnimationState(animator, isWalking: true, isIdle: false);
-
-        if (HasReachedWaypoint(navAgent))
-            HandleWaypointReached(patrolPoints, ref currentPatrolIndex, ref patrolLoopsCompleted);
-    }
-
-    private static bool HasReachedWaypoint(NavMeshAgent navAgent) =>
-        !navAgent.pathPending &&
-        navAgent.remainingDistance <= navAgent.stoppingDistance + WAYPOINT_ARRIVAL_TOLERANCE;
-
-    private void HandleWaypointReached(Transform[] patrolPoints, ref int currentPatrolIndex, ref int patrolLoopsCompleted)
-    {
-        int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-
-        if (nextIndex == 0)
-            InitiateSpawnIdling(ref patrolLoopsCompleted);
-        else
-            currentPatrolIndex = nextIndex;
-    }
-
-    private void InitiateSpawnIdling(ref int patrolLoopsCompleted)
-    {
-        patrolLoopsCompleted++;
-        isIdlingAtSpawn = true;
-        patrolIdleTimer = IDLE_DURATION_AT_SPAWN;
-    }
-
-    private static void SetAnimationState(Animator animator, bool isWalking, bool isIdle)
-    {
-        if (animator == null) return;
-        animator.SetBool("isWalking", isWalking);
-        animator.SetBool("isIdle", isIdle);
-    }
-    #endregion
-
     #region Action Helper Class 
     public class PlayerDetection
     {
@@ -165,9 +70,11 @@ public sealed class NormalEnemyActions
         private readonly LayerMask obstacleMask;
         private Transform playerTransform;
         private bool isPlayerVisible;
+        private float lastPlayerDistance;
+        private Vector3 lastPlayerPosition;
 
         private float lastPlayerCheckTime;
-        private const float PLAYER_CHECK_INTERVAL = 2f; // How often to try and find the player if null
+        private const float PLAYER_CHECK_INTERVAL = 1f; // Reduced for better responsiveness
 
         public PlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
         {
@@ -179,9 +86,12 @@ public sealed class NormalEnemyActions
         public void Reset()
         {
             isPlayerVisible = false;
-            FindPlayerTransform(); // Re-find player on reset
+            lastPlayerDistance = float.MaxValue;
+            lastPlayerPosition = Vector3.zero;
+            FindPlayerTransform();
         }
 
+        // FIXED: Fully utilize RayPerceptionSensor3D instead of manual raycasting
         public void UpdatePlayerDetection(Vector3 agentPosition)
         {
             isPlayerVisible = false;
@@ -198,57 +108,78 @@ public sealed class NormalEnemyActions
 
             try
             {
-                float distanceToPlayer = GetDistanceToPlayer(agentPosition);
-
-                if (distanceToPlayer <= raySensor.RayLength)
+                // FIXED: Use RayPerceptionSensor3D for all detection
+                var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
+                
+                // Check all ray outputs for player detection
+                foreach (var rayOutput in rayOutputs.RayOutputs)
                 {
-                    CheckRayPerceptionVisibility();
-                    if (isPlayerVisible)
-                        VerifyLineOfSight(agentPosition, distanceToPlayer);
+                    if (rayOutput.HasHit && rayOutput.HitGameObject != null)
+                    {
+                        if (rayOutput.HitGameObject.CompareTag("Player"))
+                        {
+                            isPlayerVisible = true;
+                            lastPlayerDistance = rayOutput.HitFraction * raySensor.RayLength;
+                            lastPlayerPosition = playerTransform.position;
+                            break;
+                        }
+                    }
+                }
+
+                // FIXED: Additional validation using RayPerceptionSensor data
+                if (isPlayerVisible)
+                {
+                    float actualDistance = Vector3.Distance(agentPosition, playerTransform.position);
+                    // Ensure consistency between sensor data and actual distance
+                    if (actualDistance > raySensor.RayLength * 1.1f) // Small tolerance
+                    {
+                        isPlayerVisible = false;
+                    }
                 }
             }
-            catch (MissingReferenceException)
+            catch (System.Exception e)
             {
-                playerTransform = null; // Player object was destroyed
+                Debug.LogWarning($"Player detection error: {e.Message}");
+                playerTransform = null;
             }
         }
 
         private void FindPlayerTransform()
         {
-            // Prioritize finding the active player in the scene
-            playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-            if (playerTransform == null)
+            // Find active player - prefer RL_Player component
+            var rlPlayer = Object.FindFirstObjectByType<RL_Player>();
+            if (rlPlayer != null && rlPlayer.gameObject.activeInHierarchy)
             {
-                playerTransform = Object.FindFirstObjectByType<RL_Player>()?.transform;
+                playerTransform = rlPlayer.transform;
+                return;
+            }
+
+            // Fallback to tag-based search
+            var playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null && playerObj.activeInHierarchy)
+            {
+                playerTransform = playerObj.transform;
             }
         }
 
-        private void CheckRayPerceptionVisibility()
-        {
-            var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-            isPlayerVisible = rayOutputs.RayOutputs.Any(ray =>
-                ray.HasHit && ray.HitGameObject != null && ray.HitGameObject.CompareTag("Player"));
-        }
-
-        private void VerifyLineOfSight(Vector3 agentPosition, float distanceToPlayer)
-        {
-            Vector3 directionToPlayer = (playerTransform.position - agentPosition).normalized;
-            // Add a small offset to agentPosition to avoid self-intersection with raycast origin
-            Vector3 rayOrigin = agentPosition + directionToPlayer * 0.5f;
-
-            if (Physics.Raycast(rayOrigin, directionToPlayer, out RaycastHit hit, distanceToPlayer, obstacleMask))
-            {
-                if (hit.collider != null && !hit.collider.CompareTag("Player"))
-                    isPlayerVisible = false;
-            }
-        }
-
+        // FIXED: Properties using RayPerceptionSensor data when available
         public bool IsPlayerAvailable() => playerTransform != null && playerTransform.gameObject.activeInHierarchy;
         public bool IsPlayerVisible => isPlayerVisible;
         public Vector3 GetPlayerPosition() => playerTransform?.position ?? Vector3.zero;
         public Transform GetPlayerTransform() => playerTransform;
-        public float GetDistanceToPlayer(Vector3 agentPosition) =>
-            IsPlayerAvailable() ? Vector3.Distance(agentPosition, playerTransform.position) : float.MaxValue;
+        
+        public float GetDistanceToPlayer(Vector3 agentPosition)
+        {
+            if (!IsPlayerAvailable()) return float.MaxValue;
+            
+            // Use sensor distance if player is visible, otherwise calculate actual distance
+            if (isPlayerVisible && lastPlayerDistance > 0)
+            {
+                return lastPlayerDistance;
+            }
+            
+            return Vector3.Distance(agentPosition, playerTransform.position);
+        }
     }
 
     public class PatrolSystem
@@ -256,9 +187,11 @@ public sealed class NormalEnemyActions
         private Transform[] patrolPoints;
         private int currentPatrolIndex;
         private int patrolLoopsCompleted;
-
+        private bool isIdlingAtSpawn;
+        private float idleTimer;
+        
         private const float PATROL_WAYPOINT_TOLERANCE = 2f;
-        private const float NEAR_POINT_DISTANCE = 3f;
+        private const float IDLE_DURATION_AT_SPAWN = 2f;
 
         public PatrolSystem(Transform[] patrolPoints)
         {
@@ -270,57 +203,68 @@ public sealed class NormalEnemyActions
         {
             currentPatrolIndex = 0;
             patrolLoopsCompleted = 0;
+            isIdlingAtSpawn = false;
+            idleTimer = 0f;
         }
 
-        public void UpdatePatrol(Vector3 agentPosition, NormalEnemyRewards rewardConfig, NormalEnemyAgent agent)
+        public void ResetToFirstPoint()
         {
-            if (patrolPoints == null || patrolPoints.Length == 0) return;
+            currentPatrolIndex = 0;
+            isIdlingAtSpawn = false;
+            idleTimer = 0f;
+        }
 
-            Vector3 targetWaypoint = patrolPoints[currentPatrolIndex].position;
-            if (Vector3.Distance(agentPosition, targetWaypoint) < PATROL_WAYPOINT_TOLERANCE)
+        public Vector3 GetCurrentPatrolTarget()
+        {
+            if (!HasValidPatrolPoints()) return Vector3.zero;
+            return patrolPoints[currentPatrolIndex].position;
+        }
+
+        public string GetCurrentPatrolPointName()
+        {
+            if (!HasValidPatrolPoints()) return "None";
+            
+            string pointName = patrolPoints[currentPatrolIndex].gameObject.name;
+            return string.IsNullOrEmpty(pointName) ? $"Point {currentPatrolIndex + 1}" : pointName;
+        }
+
+        // Fixed: Handle waypoint advancement with proper sequencing
+        public bool AdvanceToNextWaypoint()
+        {
+            if (!HasValidPatrolPoints()) return false;
+
+            // Move to next waypoint
+            int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+            currentPatrolIndex = nextIndex;
+
+            // Check if completing a full loop (back to point A/index 0)
+            if (nextIndex == 0)
             {
-                AdvanceToNextWaypoint();
-                rewardConfig.AddPatrolReward(agent);
-            }
-        }
-
-        public string GetNearestPointName(Vector3 agentPosition)
-        {
-            if (patrolPoints == null || patrolPoints.Length == 0) return "None";
-
-            int nearestIndex = GetNearestPointIndex(agentPosition);
-            float minDistance = Vector3.Distance(agentPosition, patrolPoints[nearestIndex].position);
-
-            if (minDistance < NEAR_POINT_DISTANCE)
-            {
-                string pointName = patrolPoints[nearestIndex].gameObject.name;
-                return string.IsNullOrEmpty(pointName) ? $"Point {nearestIndex + 1}" : pointName;
-            }
-            return "None";
-        }
-
-        private int GetNearestPointIndex(Vector3 agentPosition)
-        {
-            float minDistance = float.MaxValue;
-            int nearestIndex = 0;
-
-            for (int i = 0; i < patrolPoints.Length; i++)
-            {
-                float distance = Vector3.Distance(agentPosition, patrolPoints[i].position);
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-                    nearestIndex = i;
-                }
-            }
-            return nearestIndex;
-        }
-
-        private void AdvanceToNextWaypoint()
-        {
-            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-            if (currentPatrolIndex == 0)
                 patrolLoopsCompleted++;
+                isIdlingAtSpawn = true;
+                idleTimer = 0f;
+                Debug.Log($"Patrol loop {patrolLoopsCompleted} completed. Starting idle period at {GetCurrentPatrolPointName()}");
+                return true; // Completed a loop
+            }
+
+            return false; // Normal waypoint advancement
+        }
+
+        // Fixed: Add method to update idle timer and return completion status
+        public bool UpdateIdleTimer()
+        {
+            if (!isIdlingAtSpawn) return false;
+            
+            idleTimer += Time.deltaTime;
+            
+            if (idleTimer >= IDLE_DURATION_AT_SPAWN)
+            {
+                isIdlingAtSpawn = false;
+                idleTimer = 0f;
+                return true; // Idle complete
+            }
+            
+            return false; // Still idling
         }
 
         public void SetPatrolPoints(Transform[] points)
@@ -329,8 +273,11 @@ public sealed class NormalEnemyActions
             Reset();
         }
 
+        public bool HasValidPatrolPoints() => patrolPoints != null && patrolPoints.Length > 0;
         public Transform[] GetPatrolPoints() => patrolPoints;
         public int PatrolLoopsCompleted => patrolLoopsCompleted;
+        public bool IsIdlingAtSpawn() => isIdlingAtSpawn;
+        public float GetIdleTimeRemaining() => isIdlingAtSpawn ? Mathf.Max(0f, IDLE_DURATION_AT_SPAWN - idleTimer) : 0f;
     }
 
     public class AgentMovement
@@ -352,10 +299,11 @@ public sealed class NormalEnemyActions
 
         public void Reset()
         {
-            if (navAgent != null)
+            if (navAgent != null && navAgent.enabled)
             {
                 navAgent.velocity = Vector3.zero;
                 navAgent.isStopped = false;
+                navAgent.ResetPath();
             }
         }
 
@@ -363,16 +311,50 @@ public sealed class NormalEnemyActions
         {
             if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
             {
-                // Apply movement using NavMeshAgent.Move
-                navAgent.Move(movement * moveSpeed * Time.deltaTime);
+                // Use NavMeshAgent's built-in obstacle avoidance
+                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
+                Vector3 targetPosition = agentTransform.position + worldMovement * 0.5f;
+                
+                // Set destination instead of direct movement for better pathfinding
+                navAgent.SetDestination(targetPosition);
+                navAgent.speed = moveSpeed;
             }
             else
             {
-                // Fallback for direct transform movement if NavMeshAgent is not active/on mesh
+                // Fallback for direct transform movement
                 agentTransform.position += movement * moveSpeed * Time.deltaTime;
             }
 
+            // Apply rotation
             agentTransform.Rotate(0, rotation * turnSpeed * Time.deltaTime, 0);
+        }
+
+        public void MoveToTarget(Vector3 targetPosition)
+        {
+            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
+            {
+                navAgent.isStopped = false;
+                navAgent.speed = moveSpeed;
+                navAgent.SetDestination(targetPosition);
+                
+                // Add some debug info for patrol movement
+                Debug.DrawLine(agentTransform.position, targetPosition, Color.blue, 0.1f);
+            }
+            else
+            {
+                // Fallback direct movement with basic obstacle avoidance
+                Vector3 direction = (targetPosition - agentTransform.position).normalized;
+                
+                // Simple raycast for obstacle avoidance
+                if (Physics.Raycast(agentTransform.position, direction, out RaycastHit hit, 2f))
+                {
+                    // Adjust direction slightly to avoid obstacle
+                    Vector3 avoidDirection = Vector3.Cross(direction, Vector3.up);
+                    direction = (direction + avoidDirection * 0.5f).normalized;
+                }
+                
+                agentTransform.position += direction * moveSpeed * Time.deltaTime;
+            }
         }
 
         public bool IsPlayerInAttackRange(Vector3 playerPosition) =>

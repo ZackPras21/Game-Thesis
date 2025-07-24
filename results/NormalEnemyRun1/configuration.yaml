@@ -16,7 +16,7 @@ behaviors:
       epsilon_schedule: linear
     checkpoint_interval: 500000
     network_settings:
-      normalize: false
+      normalize: true
       hidden_units: 128
       num_layers: 2
       vis_encode_type: simple
@@ -38,7 +38,7 @@ behaviors:
     init_path: null
     keep_checkpoints: 5
     even_checkpoints: false
-    max_steps: 50000000
+    max_steps: 500000
     time_horizon: 128
     summary_freq: 10000
     threaded: true
@@ -69,8 +69,8 @@ checkpoint_settings:
   run_id: NormalEnemyRun1
   initialize_from: null
   load_model: false
-  resume: true
-  force: false
+  resume: false
+  force: true
   train_model: false
   inference: false
   results_dir: results

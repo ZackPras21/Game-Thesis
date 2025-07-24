@@ -17,6 +17,7 @@ public class NormalEnemyRewards : MonoBehaviour
     public float ObstaclePunishment = -0.8f;
 
     [Header("Rewards/Punishments (+0.005 to +0.5 / -0.005 to -0.5)")]
+    public float ObstacleAvoidance = +0.150f;
     public float PatrolStepReward = +0.015f;
     public float ChaseStepReward = +0.010f;
     public float IdlePunishment = -0.010f;
@@ -77,6 +78,11 @@ public class NormalEnemyRewards : MonoBehaviour
     #endregion
 
     #region Rewards
+
+    public void AddObstacleAvoidanceReward(Agent agent, float deltaTime)
+    {
+        agent.AddReward(ObstacleAvoidance);
+    }
 
     public void AddPatrolStepReward(Agent agent, float deltaTime)
     {

@@ -5,6 +5,7 @@ using Unity.MLAgents.Actuators;
 using UnityEngine.AI;
 using System.Linq;
 using static NormalEnemyActions;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(NavMeshAgent), typeof(RayPerceptionSensorComponent3D), typeof(RL_EnemyController))]
 public class NormalEnemyAgent : Agent
@@ -176,9 +177,21 @@ public class NormalEnemyAgent : Agent
 
     private void InitializeSystems()
     {
-        patrolSystem = new PatrolSystem(FindPatrolPoints());
+        Transform[] patrolPoints = FindPatrolPoints();
+        patrolSystem = new PatrolSystem(patrolPoints);
         agentMovement = new AgentMovement(navAgent, transform, rl_EnemyController.moveSpeed, rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange);
         debugDisplay = new DebugDisplay();
+        
+        // Set patrol points on the agent for NavMesh movement
+        if (patrolPoints.Length > 0)
+        {
+            patrolSystem.SetPatrolPoints(patrolPoints);
+            Debug.Log($"{gameObject.name} initialized with {patrolPoints.Length} patrol points");
+        }
+        else
+        {
+            Debug.LogWarning($"{gameObject.name} has no patrol points assigned!");
+        }
     }
 
     private void ConfigureNavMeshAgent()
@@ -191,25 +204,48 @@ public class NormalEnemyAgent : Agent
 
     private Transform[] FindPatrolPoints()
     {
-        // This logic might need to be more robust for a real training environment
-        // e.g., getting points from a dedicated manager or a specific parent object.
-        var allPoints = Physics.OverlapSphere(transform.position, 50f, LayerMask.GetMask("PatrolPoint")) // Assuming a "PatrolPoint" layer
+        // Try to get patrol points from the spawner for this specific agent
+        var spawner = FindFirstObjectByType<RL_TrainingEnemySpawner>();
+        if (spawner != null)
+        {
+            Transform parentTransform = transform.parent;
+            if (parentTransform != null)
+            {
+                Transform[] arenaPatrolPoints = spawner.GetArenaPatrolPoints(parentTransform);
+                if (arenaPatrolPoints != null && arenaPatrolPoints.Length > 0)
+                {
+                    // Sort patrol points by name to ensure consistent order (A->B->C->D)
+                    System.Array.Sort(arenaPatrolPoints, (x, y) => string.Compare(x.name, y.name));
+                    return arenaPatrolPoints;
+                }
+            }
+        }
+
+        // Fallback: Find nearby patrol points and sort them
+        var nearbyPoints = Physics.OverlapSphere(transform.position, 30f, LayerMask.GetMask("Ground"))
             .Where(c => c.CompareTag("Patrol Point"))
             .Select(c => c.transform)
-            .ToList();
+            .OrderBy(p => p.name) 
+            .Take(4)
+            .ToArray();
 
-        // Filter out points too close to other enemies (if applicable)
-        var nearbyEnemies = Physics.OverlapSphere(transform.position, 10f, LayerMask.GetMask("Enemy"))
-            .Where(c => c.CompareTag("Enemy") && c.gameObject != gameObject)
-            .Select(c => c.transform.position);
+        return nearbyPoints.Length > 0 ? nearbyPoints : new Transform[0];
+    }
+    
+    private Transform[] GetPatrolPointsFromArena(Transform arenaParent)
+    {
+        // Look for patrol points as children of the arena parent
+        List<Transform> patrolPoints = new List<Transform>();
+        
+        foreach (Transform child in arenaParent)
+        {
+            if (child.CompareTag("Patrol Point") || child.name.Contains("Patrol Point"))
+            {
+                patrolPoints.Add(child);
+            }
+        }
 
-        var validPoints = allPoints
-            .Where(p => !nearbyEnemies.Any(e => Vector3.Distance(p.position, e) < 2f))
-            .ToList();
-
-        if (validPoints.Count == 0) validPoints = allPoints; // Fallback if no valid points after filtering
-
-        return validPoints.OrderBy(x => Random.value).ToArray();
+        return patrolPoints.OrderBy(p => p.name).ToArray();
     }
 
     private void ResetForNewEpisode()
@@ -218,16 +254,16 @@ public class NormalEnemyAgent : Agent
 
         rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
         rl_EnemyController.healthState.ResetHealthState();
-        rl_EnemyController.InitializeHealthBar(); 
+        rl_EnemyController.InitializeHealthBar();
 
         currentState = "Idle";
         currentAction = "Idle";
-        lastAttackTime = Time.fixedTime - dynamicAttackCooldown; 
+        lastAttackTime = Time.fixedTime - dynamicAttackCooldown;
 
         patrolSystem?.Reset();
 
-        gameObject.SetActive(true); 
-        GetComponent<Collider>().enabled = true; 
+        gameObject.SetActive(true);
+        GetComponent<Collider>().enabled = true;
         if (navAgent != null)
         {
             navAgent.enabled = true;
@@ -252,20 +288,34 @@ public class NormalEnemyAgent : Agent
     private void WarpToRandomPatrolPoint()
     {
         var patrolPoints = patrolSystem.GetPatrolPoints();
-        Vector3 targetPosition = patrolPoints.Length > 0
-            ? patrolPoints[Random.Range(0, patrolPoints.Length)].position
-            : initialPosition; // Fallback to initial position
-
-        if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
+        if (patrolPoints.Length == 0)
         {
-            navAgent.Warp(targetPosition);
+            Debug.LogWarning($"{gameObject.name} has no patrol points for warping!");
+            return;
+        }
+
+        // Always start from first patrol point (A) for consistency
+        Vector3 startPosition = patrolPoints[0].position;
+        
+        if (navAgent != null && navAgent.enabled)
+        {
+            navAgent.enabled = false; // Disable temporarily for warping
+            transform.position = startPosition;
+            navAgent.enabled = true;
+            
+            if (navAgent.isOnNavMesh)
+            {
+                navAgent.Warp(startPosition);
+            }
         }
         else
         {
-            transform.position = targetPosition; // Direct teleport if NavMeshAgent is not ready
+            transform.position = startPosition;
         }
+        
+        // Reset patrol system to start from first point
+        patrolSystem.ResetToFirstPoint();
     }
-
     private void ResetTrainingArena()
     {
         FindFirstObjectByType<RL_TrainingTargetSpawner>()?.ResetArena();
@@ -395,24 +445,43 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessRewards(float deltaTime)
     {
+        // Check if agent is too close to walls/obstacles
+        if (IsNearObstacle())
+        {
+            rewardConfig.AddObstaclePunishment(this);
+        }
+
         if (currentAction == "Chasing")
         {
-            rewardConfig.AddChaseStepReward(this, Time.deltaTime);
+            rewardConfig.AddChaseStepReward(this, deltaTime);
             ProcessChaseRewards(deltaTime);
         }
-        else if (currentAction.StartsWith("Patrol"))
+        else if (currentAction == "Patroling")
         {
-            rewardConfig.AddPatrolStepReward(this, Time.deltaTime);
-            if (navAgent.velocity.magnitude < 0.1f)
-                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime);
+            rewardConfig.AddPatrolStepReward(this, deltaTime);
+            
+            // Additional reward for maintaining good distance from walls during patrol
+            if (!IsNearObstacle())
+            {
+                AddReward(0.001f); // Small bonus for staying away from walls
+            }
         }
-        else if (currentAction == "Idle")
+        else if (currentAction == "Idling")
         {
-            rewardConfig.AddIdlePunishment(this, Time.deltaTime);
+            // Don't punish idling during patrol breaks
+            if (!patrolSystem.IsIdlingAtSpawn())
+            {
+                rewardConfig.AddIdlePunishment(this, deltaTime);
+            }
         }
 
         ProcessPlayerVisibilityRewards(deltaTime);
         ProcessDistanceRewards(deltaTime);
+    }
+
+    private bool IsNearObstacle()
+    {
+        return Physics.CheckSphere(transform.position, 1.2f, obstacleMask);
     }
 
     private void ProcessChaseRewards(float deltaTime)
@@ -454,28 +523,89 @@ public class NormalEnemyAgent : Agent
             UpdatePatrolBehavior();
         }
 
-        patrolSystem.UpdatePatrol(transform.position, rewardConfig, this);
+        //patrolSystem.patrol(transform.position, rewardConfig, this); fix this or implement it 
     }
 
     private void UpdatePatrolBehavior()
     {
-        string nearestPoint = patrolSystem.GetNearestPointName(transform.position);
-        bool isMoving = navAgent.velocity.magnitude > 0.1f;
-
-        currentAction = isMoving ? "Patroling" : "Idle";
-
-        if (isMoving)
+        if (!patrolSystem.HasValidPatrolPoints())
         {
-            currentState = navAgent.hasPath && navAgent.remainingDistance > navAgent.stoppingDistance
-                ? "Pathfinding to " + nearestPoint
-                : "Patroling near " + nearestPoint;
+            currentAction = "Idle";
+            currentState = "No Patrol Points";
+            rewardConfig.AddIdlePunishment(this, Time.deltaTime);
+            return;
+        }
+
+        // Handle idling state
+        if (patrolSystem.IsIdlingAtSpawn())
+        {
+            currentAction = "Idling";
+            currentState = $"Idling at {patrolSystem.GetCurrentPatrolPointName()} ({patrolSystem.GetIdleTimeRemaining():F1}s remaining)";
+            
+            // Stop movement during idle
+            if (navAgent != null && navAgent.enabled)
+            {
+                navAgent.isStopped = true;
+            }
+            
+            // Update idle timer and check if idle period is complete
+            bool idleComplete = patrolSystem.UpdateIdleTimer();
+            if (idleComplete)
+            {
+                currentAction = "Patroling";
+                if (navAgent != null && navAgent.enabled)
+                {
+                    navAgent.isStopped = false;
+                }
+            }
+            return;
+        }
+
+        // Get current patrol target and move towards it
+        Vector3 currentTarget = patrolSystem.GetCurrentPatrolTarget();
+        float distanceToTarget = Vector3.Distance(transform.position, currentTarget);
+        
+        // Check if we've reached the waypoint
+        if (distanceToTarget < 2f) // Patrol waypoint tolerance
+        {
+            bool completedLoop = patrolSystem.AdvanceToNextWaypoint();
+            
+            if (completedLoop)
+            {
+                rewardConfig.AddPatrolReward(this);
+                Debug.Log($"{gameObject.name} completed patrol loop {patrolSystem.PatrolLoopsCompleted}");
+                
+                // Check if we've completed required loops
+                if (patrolSystem.PatrolLoopsCompleted >= 2)
+                {
+                    rewardConfig.AddPatrolReward(this);
+                    Debug.Log($"{gameObject.name} completed 2 patrol loops. Ending episode.");
+                    EndEpisode();
+                    return;
+                }
+            }
+            
+            currentAction = patrolSystem.IsIdlingAtSpawn() ? "Idling" : "Patroling";
+            currentState = patrolSystem.IsIdlingAtSpawn() ? 
+                $"Starting idle at {patrolSystem.GetCurrentPatrolPointName()}" : 
+                $"Reached {patrolSystem.GetCurrentPatrolPointName()}, moving to next";
         }
         else
         {
-            currentState = "Position in Arena: " + nearestPoint;
+            // Move towards current patrol target
+            agentMovement.MoveToTarget(currentTarget);
+            currentAction = "Patroling";
+            currentState = $"Moving to {patrolSystem.GetCurrentPatrolPointName()} (dist: {distanceToTarget:F1}m)";
+            rewardConfig.AddPatrolStepReward(this, Time.deltaTime);
+            
+            // Add punishment if agent is not moving towards target
+            if (navAgent != null && navAgent.velocity.magnitude < 0.1f)
+            {
+                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime);
+            }
         }
     }
-
+    
     public void HandleEnemyDeath()
     {
         rewardConfig.AddDeathPunishment(this);

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class RL_TrainingEnemySpawner : MonoBehaviour
@@ -23,6 +24,8 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
         [Header("Patrol Points")]
         public Transform patrolPointA;
+        public Transform patrolPointB;
+        public Transform patrolPointC;
         public Transform patrolPointD;
     }
 
@@ -181,9 +184,9 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     {
         List<Vector3> positions = new List<Vector3>();
         
-        // Create a grid pattern around the patrol point
+        // Create a grid pattern around the patrol point with better spacing
         int gridSize = Mathf.CeilToInt(Mathf.Sqrt(maxEnemies));
-        float spacing = minSpawnDistance * 1.2f; // Add some extra spacing
+        float spacing = minSpawnDistance * 1.5f; // Increased spacing
         Vector3 startOffset = new Vector3(-(gridSize - 1) * spacing * 0.5f, 0, -(gridSize - 1) * spacing * 0.5f);
 
         for (int x = 0; x < gridSize && positions.Count < maxEnemies; x++)
@@ -193,21 +196,27 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
                 Vector3 gridOffset = new Vector3(x * spacing, 0, z * spacing) + startOffset;
                 Vector3 candidatePosition = patrolPoint + gridOffset;
                 
-                // Add small random variation to avoid perfect grid
+                // Add random variation but keep further from walls
                 candidatePosition += new Vector3(
-                    Random.Range(-0.3f, 0.3f),
+                    Random.Range(-0.2f, 0.2f),
                     0,
-                    Random.Range(-0.3f, 0.3f)
+                    Random.Range(-0.2f, 0.2f)
                 );
 
-                // Ensure position is within patrol point spawn radius
+                // Ensure position is within patrol point spawn radius but not too close to walls
                 Vector3 directionFromPatrol = (candidatePosition - patrolPoint);
-                if (directionFromPatrol.magnitude > patrolPointSpawnRadius)
+                float maxRadius = patrolPointSpawnRadius * 0.8f; // Keep inside radius with margin
+                
+                if (directionFromPatrol.magnitude > maxRadius)
                 {
-                    candidatePosition = patrolPoint + directionFromPatrol.normalized * patrolPointSpawnRadius;
+                    candidatePosition = patrolPoint + directionFromPatrol.normalized * maxRadius;
                 }
 
-                positions.Add(candidatePosition);
+                // Additional check: make sure we're not too close to obstacles
+                if (!Physics.CheckSphere(candidatePosition, 1.2f, obstacleLayerMask))
+                {
+                    positions.Add(candidatePosition);
+                }
             }
         }
 
@@ -253,6 +262,10 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         
         if (arena.patrolPointA != null)
             patrolPoints.Add(arena.patrolPointA.position);
+        if (arena.patrolPointB != null)
+            patrolPoints.Add(arena.patrolPointB.position);
+        if (arena.patrolPointC != null)
+            patrolPoints.Add(arena.patrolPointC.position);
         if (arena.patrolPointD != null)
             patrolPoints.Add(arena.patrolPointD.position);
         
@@ -264,6 +277,39 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         }
         
         return patrolPoints;
+    }
+    
+    public Transform[] GetArenaPatrolPoints(Transform enemyParent)
+    {
+        for (int i = 0; i < arenas.Length; i++)
+        {
+            if (arenas[i].spawnParent == enemyParent)
+            {
+                List<Transform> points = new List<Transform>();
+                
+                // Add patrol points in proper order (A->B->C->D)
+                if (arenas[i].patrolPointA != null) points.Add(arenas[i].patrolPointA);
+                if (arenas[i].patrolPointB != null) points.Add(arenas[i].patrolPointB);
+                if (arenas[i].patrolPointC != null) points.Add(arenas[i].patrolPointC);
+                if (arenas[i].patrolPointD != null) points.Add(arenas[i].patrolPointD);
+                
+                // Sort by name to ensure consistent A->B->C->D order
+                points.Sort((x, y) => string.Compare(x.name, y.name));
+                
+                if (points.Count > 0)
+                {
+                    Debug.Log($"Arena {i}: Assigned {points.Count} patrol points in order: {string.Join("->", points.Select(p => p.name))}");
+                    return points.ToArray();
+                }
+                else
+                {
+                    Debug.LogWarning($"Arena {i}: No patrol points found for enemy parent {enemyParent.name}");
+                }
+            }
+        }
+        
+        Debug.LogError($"No arena found for enemy parent: {enemyParent.name}");
+        return new Transform[0];
     }
 
     private Vector3 FindValidSpawnPositionNearPatrol(ArenaConfiguration arena, ArenaBounds bounds, int arenaIndex)
@@ -281,7 +327,7 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
                     patrolPos.y,
                     patrolPos.z + randomCircle.y
                 );
-                
+
                 if (IsPositionValidInArena(candidatePosition, bounds, arenaIndex))
                 {
                     return candidatePosition;
@@ -424,12 +470,28 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
                 Gizmos.color = new Color(0, 1, 0, 0.2f);
                 Gizmos.DrawSphere(arena.patrolPointA.position, patrolPointSpawnRadius);
             }
+
+            if (arena.patrolPointB != null)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(arena.patrolPointB.position, 1f);
+                Gizmos.color = new Color(1, 0, 0, 0.2f);
+                Gizmos.DrawSphere(arena.patrolPointB.position, patrolPointSpawnRadius);
+            }
+
+            if (arena.patrolPointC != null)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(arena.patrolPointC.position, 1f);
+                Gizmos.color = new Color(1, 0, 0, 0.2f);
+                Gizmos.DrawSphere(arena.patrolPointC.position, patrolPointSpawnRadius);
+            }
             
             if (arena.patrolPointD != null)
             {
-                Gizmos.color = Color.red;
+                Gizmos.color = Color.green;
                 Gizmos.DrawWireSphere(arena.patrolPointD.position, 1f);
-                Gizmos.color = new Color(1, 0, 0, 0.2f);
+                Gizmos.color = new Color(0, 1, 0, 0.2f);
                 Gizmos.DrawSphere(arena.patrolPointD.position, patrolPointSpawnRadius);
             }
         }

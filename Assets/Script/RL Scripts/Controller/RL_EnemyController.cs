@@ -456,7 +456,6 @@ public class RL_EnemyController : MonoBehaviour
     private IEnumerator ExecuteKnockbackMovement(Vector3 direction)
     {
         float elapsed = 0f;
-        Vector3 startPosition = transform.position;
         
         while (elapsed < KNOCKBACK_DURATION)
         {

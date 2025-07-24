@@ -613,6 +613,8 @@ MonoBehaviour:
     bullCount: 1
     spawnParent: {fileID: 0}
     patrolPointA: {fileID: 33810287}
+    patrolPointB: {fileID: 0}
+    patrolPointC: {fileID: 0}
     patrolPointD: {fileID: 33810284}
   spawnInterval: 0.2
   maxSpawnAttempts: 20
@@ -997,6 +999,8 @@ MonoBehaviour:
     bullCount: 1
     spawnParent: {fileID: 0}
     patrolPointA: {fileID: 2039351748}
+    patrolPointB: {fileID: 0}
+    patrolPointC: {fileID: 0}
     patrolPointD: {fileID: 47029513}
   spawnInterval: 0.2
   maxSpawnAttempts: 20
@@ -1807,6 +1811,8 @@ MonoBehaviour:
     bullCount: 1
     spawnParent: {fileID: 0}
     patrolPointA: {fileID: 158219678}
+    patrolPointB: {fileID: 158219677}
+    patrolPointC: {fileID: 158219676}
     patrolPointD: {fileID: 158219675}
   spawnInterval: 0.2
   maxSpawnAttempts: 20
@@ -7087,6 +7093,8 @@ MonoBehaviour:
     bullCount: 1
     spawnParent: {fileID: 0}
     patrolPointA: {fileID: 207635370}
+    patrolPointB: {fileID: 0}
+    patrolPointC: {fileID: 0}
     patrolPointD: {fileID: 207635367}
   spawnInterval: 0.2
   maxSpawnAttempts: 20

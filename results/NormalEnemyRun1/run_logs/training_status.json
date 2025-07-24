@@ -2,22 +2,31 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 0,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-0.onnx",
-                "reward": null,
-                "creation_time": 1753066946.5776565,
+                "steps": 499975,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-499975.onnx",
+                "reward": -199.91134707132974,
+                "creation_time": 1753344006.883265,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-0.pt"
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-499975.pt"
+                ]
+            },
+            {
+                "steps": 500103,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-500103.onnx",
+                "reward": -199.91134707132974,
+                "creation_time": 1753344007.0038977,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-500103.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 0,
+            "steps": 500103,
             "file_path": "results\\NormalEnemyRun1\\NormalEnemy.onnx",
-            "reward": null,
-            "creation_time": 1753066946.5776565,
+            "reward": -199.91134707132974,
+            "creation_time": 1753344007.0038977,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-0.pt"
+                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-500103.pt"
             ]
         }
     },
