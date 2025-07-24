@@ -340,7 +340,7 @@ public class NormalEnemyAgent : Agent
         if (IsPlayerInAttackRange())
         {
             agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
-            movement *= 0.3f; // Slow down when in attack range
+            movement *= 0.5f; 
         }
 
         agentMovement.ProcessMovement(movement, rotation);
