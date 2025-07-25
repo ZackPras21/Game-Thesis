@@ -214,6 +214,52 @@ public sealed class NormalEnemyActions
             idleTimer = 0f;
         }
 
+        public void UpdatePatrol(Vector3 agentPosition, NavMeshAgent navAgent, NormalEnemyRewards rewardConfig, NormalEnemyAgent agent, float deltaTime)
+        {
+            if (!HasValidPatrolPoints()) return;
+            if (IsIdlingAtSpawn())
+            {
+                if (navAgent != null && navAgent.enabled)
+                {
+                    navAgent.isStopped = true;
+                }
+                
+                UpdateIdleTimer();
+                return;
+            }
+
+            Vector3 currentTarget = GetCurrentPatrolTarget();
+            float distanceToTarget = Vector3.Distance(agentPosition, currentTarget);
+            
+            if (navAgent != null && navAgent.enabled)
+            {
+                navAgent.isStopped = false;
+                navAgent.SetDestination(currentTarget);
+                
+                if (navAgent.speed <= 0)
+                {
+                    navAgent.speed = 3.5f; 
+                }
+            }
+            
+            // Check if reached waypoint
+            if (distanceToTarget < PATROL_WAYPOINT_TOLERANCE)
+            {
+                bool completedLoop = AdvanceToNextWaypoint();
+                if (completedLoop)
+                {
+                    rewardConfig.AddPatrolReward(agent);
+                }
+            }
+            else
+            {
+                if (navAgent != null && navAgent.velocity.magnitude > 0.1f)
+                {
+                    rewardConfig.AddPatrolStepReward(agent, deltaTime);
+                }
+            }
+        }
+
         public Vector3 GetCurrentPatrolTarget()
         {
             if (!HasValidPatrolPoints()) return Vector3.zero;
@@ -311,13 +357,22 @@ public sealed class NormalEnemyActions
         {
             if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
             {
-                // Use NavMeshAgent's built-in obstacle avoidance
-                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
-                Vector3 targetPosition = agentTransform.position + worldMovement * 0.5f;
+                bool isPatrolling = navAgent.hasPath && navAgent.remainingDistance > 0.5f;
                 
-                // Set destination instead of direct movement for better pathfinding
-                navAgent.SetDestination(targetPosition);
-                navAgent.speed = moveSpeed;
+                if (!isPatrolling && movement.magnitude > 0.1f)
+                {
+                    Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
+                    Vector3 targetPosition = agentTransform.position + worldMovement * 0.5f;
+                    
+                    navAgent.isStopped = false;
+                    navAgent.SetDestination(targetPosition);
+                    navAgent.speed = moveSpeed;
+                }
+                else if (isPatrolling)
+                {
+                    // Don't interfere with patrol movement
+                    navAgent.speed = moveSpeed;
+                }
             }
             else
             {

@@ -47,6 +47,10 @@ public class NormalEnemyAgent : Agent
     private float previousDistanceToPlayer = float.MaxValue;
     private float lastAttackTime;
     private bool isInitialized = false;
+    private bool hasObstaclePunishmentThisFrame = false;
+    private bool IsAgentKnockedBack() => rl_EnemyController.IsKnockedBack();
+    private bool IsAgentFleeing() => rl_EnemyController.IsFleeing();
+    private bool ShouldAgentFlee() => rl_EnemyController.IsHealthLow() && playerDetection.IsPlayerAvailable();
     #endregion
 
     #region Agent Lifecycle
@@ -82,9 +86,9 @@ public class NormalEnemyAgent : Agent
 
         InitializeComponents();
         InitializeSystems();
-        initialPosition = transform.position; 
-        ResetAgentState(); 
-        rl_EnemyController.InitializeHealthBar(); 
+        initialPosition = transform.position;
+        ResetAgentState();
+        rl_EnemyController.InitializeHealthBar();
         isInitialized = true;
     }
 
@@ -121,14 +125,16 @@ public class NormalEnemyAgent : Agent
     public override void CollectObservations(VectorSensor sensor)
     {
         if (!isInitialized || rl_EnemyController == null) return;
-
-        sensor.AddObservation(CurrentHealth / MaxHealth); // Normalized health
+        // 7 Observation
+        sensor.AddObservation(CurrentHealth / MaxHealth);
         sensor.AddObservation(playerDetection.IsPlayerAvailable()
-            ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR: 0f); 
-
+            ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR: 0f);
         Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
         sensor.AddObservation(localVelocity.x / rl_EnemyController.moveSpeed);
         sensor.AddObservation(localVelocity.z / rl_EnemyController.moveSpeed);
+        sensor.AddObservation(IsAgentKnockedBack() ? 1f : 0f);
+        sensor.AddObservation(IsAgentFleeing() ? 1f : 0f);
+        sensor.AddObservation(ShouldAgentFlee() ? 1f : 0f);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -136,7 +142,17 @@ public class NormalEnemyAgent : Agent
         if (!isInitialized || rl_EnemyController == null || IsDead || !isActiveAndEnabled) return;
 
         debugDisplay.IncrementSteps();
-        ProcessActions(actions);
+        
+        // Only process actions if not in knockback or flee state
+        if (!IsAgentKnockedBack() && !IsAgentFleeing())
+        {
+            ProcessActions(actions);
+        }
+        else
+        {
+            HandleReactiveStates();
+        }
+        
         UpdateBehaviorAndRewards();
         CheckEpisodeEnd();
     }
@@ -401,14 +417,24 @@ public class NormalEnemyAgent : Agent
     {
         if (animator == null || IsDead || rl_EnemyController == null) return;
 
-        bool isMoving = navAgent.velocity.magnitude > 0.1f && !rl_EnemyController.combatState.IsAttacking;
-        bool shouldAttackAnim = playerInRange && canAttack; // Use a separate bool for animation trigger
+        bool isMoving = navAgent != null && navAgent.enabled && navAgent.velocity.magnitude > 0.1f && !rl_EnemyController.combatState.IsAttacking;
+        bool shouldAttackAnim = playerInRange && canAttack && rl_EnemyController.combatState.IsAttacking;
 
         animator.SetBool("isWalking", isMoving);
         animator.SetBool("isAttacking", shouldAttackAnim);
         animator.SetBool("isIdle", !isMoving && !shouldAttackAnim);
-        currentState = "Attacking";
-        currentAction = "Attacking";
+
+        // FIXED: Don't override state during patrol movement
+        if (isMoving && !playerInRange)
+        {
+            currentState = "Patrolling";
+            currentAction = "Patroling"; // Keep consistent with your spelling
+        }
+        else if (shouldAttackAnim)
+        {
+            currentState = "Attacking";
+            currentAction = "Attacking";
+        }
 
         // Sync animation speed with movement
         if (animator.GetBool("isWalking"))
@@ -424,6 +450,53 @@ public class NormalEnemyAgent : Agent
         if (shouldAttackAnim && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
         {
             animator.Play("Attack", 0, 0f);
+        }
+
+        if (IsAgentKnockedBack())
+        {
+            animator.SetBool("isWalking", false);
+            animator.SetBool("isAttacking", false);
+            animator.SetBool("isIdle", true);
+            return;
+        }
+        
+        if (IsAgentFleeing())
+        {
+            animator.SetBool("isWalking", true);
+            animator.SetBool("isAttacking", false);
+            animator.SetBool("isIdle", false);
+            animator.speed = 1.5f; 
+            return;
+        }
+    }
+
+    private void HandleReactiveStates()
+    {
+        if (IsAgentKnockedBack())
+        {
+            currentState = "Knocked Back";
+            currentAction = "Recovering";
+            
+            if (navAgent != null && navAgent.enabled)
+            {
+                navAgent.isStopped = true;
+            }
+        }
+        else if (IsAgentFleeing())
+        {
+            currentState = "Fleeing";
+            currentAction = "Fleeing";
+            
+            if (navAgent != null && navAgent.enabled)
+            {
+                navAgent.isStopped = true;
+            }
+            
+            if (playerDetection.IsPlayerAvailable())
+            {
+                Vector3 fleeDirection = (transform.position - playerDetection.GetPlayerPosition()).normalized;
+                agentMovement.FaceTarget(transform.position + fleeDirection);
+            }
         }
     }
 
@@ -445,10 +518,30 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessRewards(float deltaTime)
     {
-        // Check if agent is too close to walls/obstacles
+        if (IsAgentFleeing())
+        {
+            if (ShouldAgentFlee())
+            {
+                rewardConfig.AddFleeReward(this, deltaTime); 
+            }
+            else
+            {
+                rewardConfig.AddFleeingPunishment(this, deltaTime); 
+            }
+            return; 
+        }
+
         if (IsNearObstacle())
         {
-            rewardConfig.AddObstaclePunishment(this);
+            if (!hasObstaclePunishmentThisFrame)
+            {
+                rewardConfig.AddObstaclePunishment(this);
+                hasObstaclePunishmentThisFrame = true;
+            }
+        }
+        else
+        {
+            hasObstaclePunishmentThisFrame = false;
         }
 
         if (currentAction == "Chasing")
@@ -458,26 +551,34 @@ public class NormalEnemyAgent : Agent
         }
         else if (currentAction == "Patroling")
         {
+            // FIXED: Ensure patrol step reward is actually called
             rewardConfig.AddPatrolStepReward(this, deltaTime);
+            
+            // FIXED: Add positive reward for successful patrol movement
+            if (navAgent != null && navAgent.velocity.magnitude > 0.1f)
+            {
+                AddReward(0.002f * deltaTime); // Small positive reward for moving during patrol
+            }
             
             // Additional reward for maintaining good distance from walls during patrol
             if (!IsNearObstacle())
             {
-                AddReward(0.001f); // Small bonus for staying away from walls
+                AddReward(0.001f * deltaTime); // Small bonus for staying away from walls
             }
         }
         else if (currentAction == "Idling")
         {
-            // Don't punish idling during patrol breaks
-            if (!patrolSystem.IsIdlingAtSpawn())
+            // FIXED: Only punish excessive idling, not planned patrol idling
+            if (!patrolSystem.IsIdlingAtSpawn() && navAgent.velocity.magnitude < 0.1f)
             {
-                rewardConfig.AddIdlePunishment(this, deltaTime);
+                rewardConfig.AddIdlePunishment(this, deltaTime * 0.5f); // Reduced punishment
             }
         }
 
         ProcessPlayerVisibilityRewards(deltaTime);
         ProcessDistanceRewards(deltaTime);
     }
+
 
     private bool IsNearObstacle()
     {
@@ -516,14 +617,17 @@ public class NormalEnemyAgent : Agent
         {
             rewardConfig.AddDetectionReward(this, Time.deltaTime);
             currentState = "Detecting";
-            currentAction = "Detecting";
+            currentAction = "Chasing"; 
         }
         else
         {
             UpdatePatrolBehavior();
         }
 
-        //patrolSystem.patrol(transform.position, rewardConfig, this); fix this or implement it 
+        if (!playerDetection.IsPlayerVisible)
+        {
+            patrolSystem.UpdatePatrol(transform.position, navAgent, rewardConfig, this, Time.deltaTime);
+        }
     }
 
     private void UpdatePatrolBehavior()
@@ -532,7 +636,7 @@ public class NormalEnemyAgent : Agent
         {
             currentAction = "Idle";
             currentState = "No Patrol Points";
-            rewardConfig.AddIdlePunishment(this, Time.deltaTime);
+            rewardConfig.AddIdlePunishment(this, Time.deltaTime * 0.2f);
             return;
         }
 
@@ -565,6 +669,13 @@ public class NormalEnemyAgent : Agent
         Vector3 currentTarget = patrolSystem.GetCurrentPatrolTarget();
         float distanceToTarget = Vector3.Distance(transform.position, currentTarget);
         
+        // FIXED: Ensure NavMeshAgent is properly moving
+        if (navAgent != null && navAgent.enabled && !navAgent.isStopped)
+        {
+            navAgent.SetDestination(currentTarget);
+            navAgent.speed = rl_EnemyController.moveSpeed;
+        }
+        
         // Check if we've reached the waypoint
         if (distanceToTarget < 2f) // Patrol waypoint tolerance
         {
@@ -596,12 +707,10 @@ public class NormalEnemyAgent : Agent
             agentMovement.MoveToTarget(currentTarget);
             currentAction = "Patroling";
             currentState = $"Moving to {patrolSystem.GetCurrentPatrolPointName()} (dist: {distanceToTarget:F1}m)";
-            rewardConfig.AddPatrolStepReward(this, Time.deltaTime);
             
-            // Add punishment if agent is not moving towards target
-            if (navAgent != null && navAgent.velocity.magnitude < 0.1f)
+            if (navAgent != null && navAgent.velocity.magnitude < 0.1f && navAgent.pathPending == false)
             {
-                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime);
+                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime * 0.3f); // Reduced punishment
             }
         }
     }

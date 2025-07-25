@@ -10,27 +10,29 @@ public class NormalEnemyRewards : MonoBehaviour
 
     [Header("Major Rewards/Punishments (+0.5 to +1 / -0.5 to -1)")]
     public float DetectPlayerReward = +0.5f;
-    public float PatrolCompleteReward = +0.5f;
-    public float ChasePlayerReward = +0.9f;
-    public float AttackPlayerReward = +0.8f;
-    public float HitByPlayerPunishment = -0.7f;
-    public float ObstaclePunishment = -0.8f;
+    public float PatrolCompleteReward = +1f;
+    public float ChasePlayerReward = +0.5f;
+    public float AttackPlayerReward = +1f;
+    public float HitByPlayerPunishment = -0.5f;
+    public float ObstaclePunishment = -0.5f;
 
     [Header("Rewards/Punishments (+0.005 to +0.5 / -0.005 to -0.5)")]
     public float ObstacleAvoidance = +0.150f;
     public float PatrolStepReward = +0.015f;
     public float ChaseStepReward = +0.010f;
-    public float IdlePunishment = -0.010f;
+    public float IdlePunishment = -0.005f;
     public float NoMovementPunishment = -0.015f;
     public float ApproachPlayerReward = +0.01f;
     public float StayFarFromPlayerPunishment = -0.05f;
     public float DoesntChasePlayerPunishment = -0.05f;
     public float AttackIncentive = -0.01f;
     public float AttackMissedPunishment = -0.1f;
+    public float FleeReward = +0.05f;
+    public float FleePunishment = -0.03f;
     #endregion
 
     #region Massive Rewards
-    public void AddKillPlayerReward(Agent agent) 
+    public void AddKillPlayerReward(Agent agent)
     {
         agent.AddReward(KillPlayerReward);
         Debug.Log($"[REWARD] {agent.name} killed player: +{KillPlayerReward}");
@@ -127,6 +129,16 @@ public class NormalEnemyRewards : MonoBehaviour
     public void AddAttackMissedPunishment(Agent agent) //unimplemented
     {
         agent.AddReward(AttackMissedPunishment);
+    }
+
+    public void AddFleeReward(NormalEnemyAgent agent, float deltaTime)
+    {
+        agent.AddReward(FleeReward); 
+    }
+
+    public void AddFleeingPunishment(NormalEnemyAgent agent, float deltaTime)
+    {
+        agent.AddReward(FleePunishment); 
     }
 
     #endregion
