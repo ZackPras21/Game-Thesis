@@ -351,21 +351,32 @@ public class NormalEnemyAgent : Agent
 
     private void ProcessMovementActions(ActionBuffers actions)
     {
-        float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1]; // UP - DOWN
-        float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3]; // RIGHT - LEFT
-        float rotation = actions.ContinuousActions[4]; // ROTATE
+        float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1];
+        float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3];
+        float rotation = actions.ContinuousActions[4];
 
-        Vector3 movement = new Vector3(horizontal, 0, vertical);
-
-        if (IsPlayerInAttackRange())
+        Vector3 movement = new Vector3(horizontal, 0, vertical).normalized;
+        
+        // FIXED: Only apply manual movement when not patrolling and not chasing
+        bool isPlayerVisible = playerDetection.IsPlayerVisible;
+        bool isPatrolling = !isPlayerVisible && patrolSystem.HasValidPatrolPoints();
+        
+        if (!isPatrolling && !isPlayerVisible)
         {
-            agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
-            movement *= 0.5f; 
+            agentMovement.ProcessMovement(movement, rotation);
         }
-
-        agentMovement.ProcessMovement(movement, rotation);
+        else if (isPlayerVisible)
+        {
+            // Face the player when chasing
+            agentMovement.FaceTarget(playerDetection.GetPlayerPosition());
+            
+            // Allow slight movement adjustments during chase
+            if (movement.magnitude > 0.1f)
+            {
+                agentMovement.ProcessMovement(movement * 0.3f, 0f); // Reduced movement during chase
+            }
+        }
     }
-
     private void ProcessAttackAction(ActionBuffers actions)
     {
         bool shouldAttack = actions.DiscreteActions[0] == (int)EnemyHighLevelAction.Attack;
@@ -421,40 +432,12 @@ public class NormalEnemyAgent : Agent
     {
         if (animator == null || IsDead || rl_EnemyController == null) return;
 
-        bool isMoving = navAgent != null && navAgent.enabled && navAgent.velocity.magnitude > 0.1f && !rl_EnemyController.combatState.IsAttacking;
+        bool isMoving = navAgent != null && navAgent.enabled && navAgent.velocity.sqrMagnitude > 0.01f;
         bool shouldAttackAnim = playerInRange && canAttack && rl_EnemyController.combatState.IsAttacking;
 
         animator.SetBool("isWalking", isMoving);
         animator.SetBool("isAttacking", shouldAttackAnim);
         animator.SetBool("isIdle", !isMoving && !shouldAttackAnim);
-
-        // FIXED: Don't override state during patrol movement
-        if (isMoving && !playerInRange)
-        {
-            currentState = "Patrolling";
-            currentAction = "Patroling"; // Keep consistent with your spelling
-        }
-        else if (shouldAttackAnim)
-        {
-            currentState = "Attacking";
-            currentAction = "Attacking";
-        }
-
-        // Sync animation speed with movement
-        if (animator.GetBool("isWalking"))
-        {
-            animator.speed = Mathf.Clamp(navAgent.velocity.magnitude / rl_EnemyController.moveSpeed, 0.5f, 1.5f);
-        }
-        else
-        {
-            animator.speed = 1f;
-        }
-
-        // Force attack animation to play if shouldAttackAnim is true and not already playing
-        if (shouldAttackAnim && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
-        {
-            animator.Play("Attack", 0, 0f);
-        }
 
         if (IsAgentKnockedBack())
         {
@@ -471,6 +454,32 @@ public class NormalEnemyAgent : Agent
             animator.SetBool("isIdle", false);
             animator.speed = 1.5f; 
             return;
+        }
+
+        if (isMoving && !playerInRange)
+        {
+            currentState = "Patrolling";
+            currentAction = "Patroling"; // Keep consistent with your spelling
+        }
+        else if (shouldAttackAnim)
+        {
+            currentState = "Attacking";
+            currentAction = "Attacking";
+        }
+
+        if (isMoving)
+        {
+            float speedRatio = navAgent.velocity.magnitude / rl_EnemyController.moveSpeed;
+            animator.speed = Mathf.Clamp(speedRatio, 0.8f, 1.2f);
+        }
+        else
+        {
+            animator.speed = 1f;
+        }
+
+        if (shouldAttackAnim && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        {
+            animator.Play("Attack", 0, 0f);
         }
     }
 
@@ -693,7 +702,6 @@ public class NormalEnemyAgent : Agent
             currentAction = "Idling";
             currentState = $"Idling at {patrolSystem.GetCurrentPatrolPointName()} ({patrolSystem.GetIdleTimeRemaining():F1}s remaining)";
             
-            // Stop movement during idle
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.isStopped = true;
@@ -712,11 +720,9 @@ public class NormalEnemyAgent : Agent
             return;
         }
 
-        // Get current patrol target and move towards it
         Vector3 currentTarget = patrolSystem.GetCurrentPatrolTarget();
         float distanceToTarget = Vector3.Distance(transform.position, currentTarget);
         
-        // FIXED: Ensure NavMeshAgent is properly moving
         if (navAgent != null && navAgent.enabled && !navAgent.isStopped)
         {
             navAgent.SetDestination(currentTarget);

@@ -1554,7 +1554,7 @@ MonoBehaviour:
   - Patrol Point
   m_RaysPerDirection: 20
   m_MaxRayDegrees: 45
-  m_SphereCastRadius: 0.3
+  m_SphereCastRadius: 0.4
   m_RayLength: 9
   m_RayLayerMask:
     serializedVersion: 2
@@ -1565,7 +1565,7 @@ MonoBehaviour:
   rayHitColor: {r: 0, g: 0.11241293, b: 1, a: 1}
   rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
   m_StartVerticalOffset: 0.3
-  m_EndVerticalOffset: 0
+  m_EndVerticalOffset: 0.7
 --- !u!4 &6033344054375008523 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -3189595122676651536, guid: 102d1c754748ce348ab7360467b3a778, type: 3}

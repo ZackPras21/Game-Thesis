@@ -1641,7 +1641,7 @@ MonoBehaviour:
   m_RaysPerDirection: 20
   m_MaxRayDegrees: 75
   m_SphereCastRadius: 1.5
-  m_RayLength: 35
+  m_RayLength: 30
   m_RayLayerMask:
     serializedVersion: 2
     m_Bits: 4294967291
@@ -1651,4 +1651,4 @@ MonoBehaviour:
   rayHitColor: {r: 0, g: 0.11241293, b: 1, a: 1}
   rayMissColor: {r: 1, g: 0.6612629, b: 0, a: 1}
   m_StartVerticalOffset: 0.5
-  m_EndVerticalOffset: 1.5
+  m_EndVerticalOffset: 1.7
