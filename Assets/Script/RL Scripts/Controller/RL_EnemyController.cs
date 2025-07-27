@@ -42,7 +42,7 @@ public class RL_EnemyController : MonoBehaviour
     private WaypointNavigationState waypointNavigation;
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
-    private FleeState fleeState;
+    private NormalEnemyActions.FleeState fleeState;
     private KnockbackState knockbackState;
 
     private const float ATTACK_DURATION = 1f;
@@ -60,6 +60,7 @@ public class RL_EnemyController : MonoBehaviour
         if (!IsInitialized) return;
 
         knockbackState.UpdateKnockback();
+        fleeState.UpdateTimer(); // FIX: Update flee timer
         UpdatePlayerTracking();
         
         if (ShouldFlee())
@@ -119,8 +120,8 @@ public class RL_EnemyController : MonoBehaviour
         waypointNavigation = new WaypointNavigationState(waypoints, startWaitTime);
         combatState = new CombatState();
         healthState = new HealthState();
-        fleeState = new FleeState();
         knockbackState = new KnockbackState();
+        fleeState = new NormalEnemyActions.FleeState();
     }
 
     private void SetupEnemyData()
@@ -278,7 +279,7 @@ public class RL_EnemyController : MonoBehaviour
         if (!fleeState.IsFleeing)
             InitiateFlee();
         
-        ExecuteFlee();
+        ExecuteFleeWithTimeout();
         SetAnimationState(walking: true);
     }
 
@@ -300,8 +301,26 @@ public class RL_EnemyController : MonoBehaviour
         return fleeDirection.normalized;
     }
 
-    private void ExecuteFlee()
+    private void ExecuteFleeWithTimeout()
     {
+        if (playerTracking.IsPlayerAlive && playerTracking.PlayerTransform != null)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, playerTracking.PlayerPosition);
+            
+            if (distanceToPlayer >= fleeDistance || fleeState.FleeTimer > 5f) // 5 second timeout
+            {
+                fleeState.StopFleeing();
+                waypointNavigation.SetPatrolling(true); // Resume patrol
+                return;
+            }
+        }
+        else
+        {
+            fleeState.StopFleeing();
+            waypointNavigation.SetPatrolling(true);
+            return;
+        }
+        
         Vector3 fleeTarget = transform.position + fleeState.FleeDirection * fleeDistance;
         Vector3 movementDirection = (fleeTarget - transform.position).normalized;
         
@@ -311,10 +330,6 @@ public class RL_EnemyController : MonoBehaviour
         rigidBody.MovePosition(newPosition);
         
         RotateTowardsTarget(fleeTarget);
-        
-        // Stop fleeing if we've moved far enough
-        if (Vector3.Distance(transform.position, playerTracking.PlayerPosition) >= fleeDistance)
-            fleeState.StopFleeing();
     }
 
 

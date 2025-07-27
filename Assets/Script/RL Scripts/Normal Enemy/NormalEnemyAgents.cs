@@ -101,7 +101,8 @@ public class NormalEnemyAgent : Agent
         }
 
         ResetForNewEpisode();
-        WarpToRandomPatrolPoint();
+        RespawnAtRandomLocation();
+        
         ResetTrainingArena();
         rl_EnemyController.ShowHealthBar(); 
 
@@ -119,8 +120,11 @@ public class NormalEnemyAgent : Agent
         {
             navAgent.enabled = true;
             navAgent.isStopped = false;
+            navAgent.speed = rl_EnemyController.moveSpeed; 
         }
     }
+
+
 
     public override void CollectObservations(VectorSensor sensor)
     {
@@ -489,16 +493,59 @@ public class NormalEnemyAgent : Agent
             
             if (navAgent != null && navAgent.enabled)
             {
-                navAgent.isStopped = true;
-            }
-            
-            if (playerDetection.IsPlayerAvailable())
-            {
-                Vector3 fleeDirection = (transform.position - playerDetection.GetPlayerPosition()).normalized;
-                agentMovement.FaceTarget(transform.position + fleeDirection);
+                navAgent.isStopped = false; 
+                
+                if (playerDetection.IsPlayerAvailable())
+                {
+                    Vector3 fleeDirection = (transform.position - playerDetection.GetPlayerPosition()).normalized;
+                    Vector3 fleeTarget = transform.position + fleeDirection * 10f; 
+                    
+                    if (UnityEngine.AI.NavMesh.SamplePosition(fleeTarget, out UnityEngine.AI.NavMeshHit hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
+                    {
+                        navAgent.SetDestination(hit.position);
+                        navAgent.speed = rl_EnemyController.moveSpeed * 1.5f; 
+                    }
+                }
             }
         }
     }
+
+    private void RespawnAtRandomLocation()
+    {
+        var patrolPoints = patrolSystem.GetPatrolPoints();
+        if (patrolPoints.Length == 0)
+        {
+            Debug.LogWarning($"{gameObject.name} has no patrol points for respawning!");
+            return;
+        }
+
+        int randomIndex = Random.Range(0, patrolPoints.Length);
+        Vector3 respawnPosition = patrolPoints[randomIndex].position;
+        
+        Vector2 randomOffset = Random.insideUnitCircle * 2f;
+        respawnPosition += new Vector3(randomOffset.x, 0, randomOffset.y);
+        
+        if (navAgent != null && navAgent.enabled)
+        {
+            navAgent.enabled = false;
+            transform.position = respawnPosition;
+            navAgent.enabled = true;
+            
+            if (navAgent.isOnNavMesh)
+            {
+                navAgent.Warp(respawnPosition);
+            }
+        }
+        else
+        {
+            transform.position = respawnPosition;
+        }
+        
+        patrolSystem.ResetToSpecificPoint(randomIndex);
+        
+        Debug.Log($"{gameObject.name} respawned at {patrolPoints[randomIndex].name}");
+    }
+
 
     private void AdjustMovementSpeed(bool playerInRange)
     {
@@ -720,6 +767,14 @@ public class NormalEnemyAgent : Agent
         rewardConfig.AddDeathPunishment(this);
         currentState = "Dead";
         currentAction = "Dead";
+        
+        // FIX: Stop all movement when dead
+        if (navAgent != null && navAgent.enabled)
+        {
+            navAgent.isStopped = true;
+            navAgent.ResetPath();
+        }
+        
         Debug.Log($"{gameObject.name} died. Ending episode.");
         EndEpisode(); 
     }

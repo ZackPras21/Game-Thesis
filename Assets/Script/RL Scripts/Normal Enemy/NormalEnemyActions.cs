@@ -110,7 +110,7 @@ public sealed class NormalEnemyActions
             {
                 // FIXED: Use RayPerceptionSensor3D for all detection
                 var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-                
+
                 // Check all ray outputs for player detection
                 foreach (var rayOutput in rayOutputs.RayOutputs)
                 {
@@ -167,17 +167,17 @@ public sealed class NormalEnemyActions
         public bool IsPlayerVisible => isPlayerVisible;
         public Vector3 GetPlayerPosition() => playerTransform?.position ?? Vector3.zero;
         public Transform GetPlayerTransform() => playerTransform;
-        
+
         public float GetDistanceToPlayer(Vector3 agentPosition)
         {
             if (!IsPlayerAvailable()) return float.MaxValue;
-            
+
             // Use sensor distance if player is visible, otherwise calculate actual distance
             if (isPlayerVisible && lastPlayerDistance > 0)
             {
                 return lastPlayerDistance;
             }
-            
+
             return Vector3.Distance(agentPosition, playerTransform.position);
         }
     }
@@ -189,7 +189,7 @@ public sealed class NormalEnemyActions
         private int patrolLoopsCompleted;
         private bool isIdlingAtSpawn;
         private float idleTimer;
-        
+
         private const float PATROL_WAYPOINT_TOLERANCE = 2f;
         private const float IDLE_DURATION_AT_SPAWN = 2f;
 
@@ -223,25 +223,25 @@ public sealed class NormalEnemyActions
                 {
                     navAgent.isStopped = true;
                 }
-                
+
                 UpdateIdleTimer();
                 return;
             }
 
             Vector3 currentTarget = GetCurrentPatrolTarget();
             float distanceToTarget = Vector3.Distance(agentPosition, currentTarget);
-            
+
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.isStopped = false;
                 navAgent.SetDestination(currentTarget);
-                
+
                 if (navAgent.speed <= 0)
                 {
-                    navAgent.speed = 3.5f; 
+                    navAgent.speed = 3.5f;
                 }
             }
-            
+
             // Check if reached waypoint
             if (distanceToTarget < PATROL_WAYPOINT_TOLERANCE)
             {
@@ -269,7 +269,7 @@ public sealed class NormalEnemyActions
         public string GetCurrentPatrolPointName()
         {
             if (!HasValidPatrolPoints()) return "None";
-            
+
             string pointName = patrolPoints[currentPatrolIndex].gameObject.name;
             return string.IsNullOrEmpty(pointName) ? $"Point {currentPatrolIndex + 1}" : pointName;
         }
@@ -300,16 +300,16 @@ public sealed class NormalEnemyActions
         public bool UpdateIdleTimer()
         {
             if (!isIdlingAtSpawn) return false;
-            
+
             idleTimer += Time.deltaTime;
-            
+
             if (idleTimer >= IDLE_DURATION_AT_SPAWN)
             {
                 isIdlingAtSpawn = false;
                 idleTimer = 0f;
                 return true; // Idle complete
             }
-            
+
             return false; // Still idling
         }
 
@@ -317,6 +317,16 @@ public sealed class NormalEnemyActions
         {
             patrolPoints = points;
             Reset();
+        }
+
+        public void ResetToSpecificPoint(int pointIndex)
+        {
+            if (patrolPoints == null || patrolPoints.Length == 0) return;
+            
+            currentPatrolIndex = Mathf.Clamp(pointIndex, 0, patrolPoints.Length - 1);
+            patrolLoopsCompleted = 0;
+            isIdlingAtSpawn = false;
+            idleTimer = 0f;
         }
 
         public bool HasValidPatrolPoints() => patrolPoints != null && patrolPoints.Length > 0;
@@ -358,12 +368,12 @@ public sealed class NormalEnemyActions
             if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
             {
                 bool isPatrolling = navAgent.hasPath && navAgent.remainingDistance > 0.5f;
-                
+
                 if (!isPatrolling && movement.magnitude > 0.1f)
                 {
                     Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
                     Vector3 targetPosition = agentTransform.position + worldMovement * 0.5f;
-                    
+
                     navAgent.isStopped = false;
                     navAgent.SetDestination(targetPosition);
                     navAgent.speed = moveSpeed;
@@ -391,7 +401,7 @@ public sealed class NormalEnemyActions
                 navAgent.isStopped = false;
                 navAgent.speed = moveSpeed;
                 navAgent.SetDestination(targetPosition);
-                
+
                 // Add some debug info for patrol movement
                 Debug.DrawLine(agentTransform.position, targetPosition, Color.blue, 0.1f);
             }
@@ -399,7 +409,7 @@ public sealed class NormalEnemyActions
             {
                 // Fallback direct movement with basic obstacle avoidance
                 Vector3 direction = (targetPosition - agentTransform.position).normalized;
-                
+
                 // Simple raycast for obstacle avoidance
                 if (Physics.Raycast(agentTransform.position, direction, out RaycastHit hit, 2f))
                 {
@@ -407,7 +417,7 @@ public sealed class NormalEnemyActions
                     Vector3 avoidDirection = Vector3.Cross(direction, Vector3.up);
                     direction = (direction + avoidDirection * 0.5f).normalized;
                 }
-                
+
                 agentTransform.position += direction * moveSpeed * Time.deltaTime;
             }
         }
@@ -428,6 +438,33 @@ public sealed class NormalEnemyActions
                     lookRotation,
                     Time.deltaTime * turnSpeed
                 );
+            }
+        }
+    }
+    
+    public class FleeState
+    {
+        public bool IsFleeing { get; private set; }
+        public Vector3 FleeDirection { get; private set; }
+        public float FleeTimer { get; private set; } 
+        public void StartFleeing(Vector3 direction)
+        {
+            IsFleeing = true;
+            FleeDirection = direction;
+            FleeTimer = 0f; 
+        }
+        
+        public void StopFleeing()
+        {
+            IsFleeing = false;
+            FleeTimer = 0f;
+        }
+        
+        public void UpdateTimer()
+        {
+            if (IsFleeing)
+            {
+                FleeTimer += Time.deltaTime;
             }
         }
     }
