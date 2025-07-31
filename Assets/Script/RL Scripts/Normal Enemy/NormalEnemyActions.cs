@@ -416,21 +416,26 @@ public sealed class NormalEnemyActions
         // FIXED: Separate manual movement from patrol movement
         public void ProcessMovement(Vector3 movement, float rotation)
         {
-            // Only apply manual movement if not patrolling
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh && !isPatrolMovement)
+            // FIXED: Clear any existing NavMesh destination when RL takes control
+            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh && movement.magnitude > 0.1f)
             {
-                if (movement.magnitude > 0.1f)
+                navAgent.ResetPath(); // Clear NavMesh pathfinding
+                navAgent.isStopped = true; // Stop NavMesh movement
+                
+                // FIXED: Direct transform-based movement for RL control
+                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
+                Vector3 targetPosition = agentTransform.position + worldMovement * moveSpeed * Time.fixedDeltaTime;
+                
+                // FIXED: Validate movement target is on NavMesh
+                if (UnityEngine.AI.NavMesh.SamplePosition(targetPosition, out UnityEngine.AI.NavMeshHit hit, 1f, UnityEngine.AI.NavMesh.AllAreas))
                 {
-                    Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
-                    Vector3 targetPosition = agentTransform.position + worldMovement * 1f;
-                    
-                    navAgent.isStopped = false;
-                    navAgent.SetDestination(targetPosition);
-                    navAgent.speed = moveSpeed;
+                    agentTransform.position = Vector3.MoveTowards(agentTransform.position, hit.position, moveSpeed * Time.fixedDeltaTime);
                 }
+                
+                isPatrolMovement = false; // Mark as RL-controlled movement
             }
             
-            // Apply rotation smoothly
+            // FIXED: Smooth rotation for RL control
             if (Mathf.Abs(rotation) > 0.1f)
             {
                 agentTransform.Rotate(0, rotation * turnSpeed * Time.fixedDeltaTime, 0);
@@ -475,6 +480,7 @@ public sealed class NormalEnemyActions
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.isStopped = true;
+                navAgent.ResetPath();
             }
         }
     }
