@@ -613,8 +613,8 @@ MonoBehaviour:
     bullCount: 1
     spawnParent: {fileID: 0}
     patrolPointA: {fileID: 33810287}
-    patrolPointB: {fileID: 0}
-    patrolPointC: {fileID: 0}
+    patrolPointB: {fileID: 33810286}
+    patrolPointC: {fileID: 33810285}
     patrolPointD: {fileID: 33810284}
   spawnInterval: 0.2
   maxSpawnAttempts: 20

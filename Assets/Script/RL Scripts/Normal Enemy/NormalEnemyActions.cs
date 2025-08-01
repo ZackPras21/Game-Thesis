@@ -255,23 +255,19 @@ public sealed class NormalEnemyActions
             idleTimer = 0f;
         }
 
-        public void ResetToFirstPoint()
-        {
-            currentPatrolIndex = 0;
-            isIdlingAtSpawn = false;
-            idleTimer = 0f;
-        }
-
+        // FIXED: Remove NavMesh dependency, only provide direction for RL
         public void UpdatePatrol(Vector3 agentPosition, NavMeshAgent navAgent, NormalEnemyRewards rewardConfig, NormalEnemyAgent agent, float deltaTime)
         {
             if (!HasValidPatrolPoints()) return;
+            
             if (IsIdlingAtSpawn())
             {
+                // Stop any movement during idle
                 if (navAgent != null && navAgent.enabled)
                 {
                     navAgent.isStopped = true;
+                    navAgent.ResetPath();
                 }
-
                 UpdateIdleTimer();
                 return;
             }
@@ -279,16 +275,6 @@ public sealed class NormalEnemyActions
             Vector3 currentTarget = GetCurrentPatrolTarget();
             float distanceToTarget = Vector3.Distance(agentPosition, currentTarget);
 
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.isStopped = false;
-                navAgent.SetDestination(currentTarget);
-
-                if (navAgent.speed <= 0)
-                {
-                    navAgent.speed = 3.5f;
-                }
-            }
 
             // Check if reached waypoint
             if (distanceToTarget < PATROL_WAYPOINT_TOLERANCE)
@@ -301,11 +287,23 @@ public sealed class NormalEnemyActions
             }
             else
             {
-                if (navAgent != null && navAgent.velocity.magnitude > 0.1f)
+                // FIXED: Reward based on actual movement, not NavMesh velocity
+                Vector3 directionToTarget = GetDirectionToCurrentTarget(agentPosition);
+                if (directionToTarget.magnitude > 0.1f)
                 {
                     rewardConfig.AddPatrolStepReward(agent, deltaTime);
                 }
             }
+        }
+
+        // FIXED: New method to get direction for RL movement
+        public Vector3 GetDirectionToCurrentTarget(Vector3 agentPosition)
+        {
+            if (!HasValidPatrolPoints()) return Vector3.zero;
+            
+            Vector3 targetPosition = patrolPoints[currentPatrolIndex].position;
+            Vector3 direction = (targetPosition - agentPosition).normalized;
+            return direction;
         }
 
         public Vector3 GetCurrentPatrolTarget()
@@ -322,29 +320,25 @@ public sealed class NormalEnemyActions
             return string.IsNullOrEmpty(pointName) ? $"Point {currentPatrolIndex + 1}" : pointName;
         }
 
-        // Fixed: Handle waypoint advancement with proper sequencing
         public bool AdvanceToNextWaypoint()
         {
             if (!HasValidPatrolPoints()) return false;
 
-            // Move to next waypoint
             int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
             currentPatrolIndex = nextIndex;
 
-            // Check if completing a full loop (back to point A/index 0)
             if (nextIndex == 0)
             {
                 patrolLoopsCompleted++;
                 isIdlingAtSpawn = true;
                 idleTimer = 0f;
                 Debug.Log($"Patrol loop {patrolLoopsCompleted} completed. Starting idle period at {GetCurrentPatrolPointName()}");
-                return true; // Completed a loop
+                return true;
             }
 
-            return false; // Normal waypoint advancement
+            return false;
         }
 
-        // Fixed: Add method to update idle timer and return completion status
         public bool UpdateIdleTimer()
         {
             if (!isIdlingAtSpawn) return false;
@@ -355,10 +349,10 @@ public sealed class NormalEnemyActions
             {
                 isIdlingAtSpawn = false;
                 idleTimer = 0f;
-                return true; // Idle complete
+                return true;
             }
 
-            return false; // Still idling
+            return false;
         }
 
         public void SetPatrolPoints(Transform[] points)
@@ -391,7 +385,6 @@ public sealed class NormalEnemyActions
         private readonly float moveSpeed;
         private readonly float turnSpeed;
         private readonly float attackRange;
-        private bool isPatrolMovement = false;
 
         public AgentMovement(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, float turnSpeed, float attackRange)
         {
@@ -407,60 +400,48 @@ public sealed class NormalEnemyActions
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.velocity = Vector3.zero;
-                navAgent.isStopped = false;
+                navAgent.isStopped = true;
                 navAgent.ResetPath();
             }
-            isPatrolMovement = false;
         }
 
-        // FIXED: Separate manual movement from patrol movement
-        public void ProcessMovement(Vector3 movement, float rotation)
+        // FIXED: Pure RL movement without NavMesh interference
+        public void ProcessRLMovement(Vector3 movement, float rotation)
         {
-            // FIXED: Clear any existing NavMesh destination when RL takes control
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh && movement.magnitude > 0.1f)
+            if (navAgent != null && navAgent.enabled)
             {
-                navAgent.ResetPath(); // Clear NavMesh pathfinding
-                navAgent.isStopped = true; // Stop NavMesh movement
-                
-                // FIXED: Direct transform-based movement for RL control
+                // Ensure NavMesh doesn't interfere with RL movement
+                navAgent.isStopped = true;
+                navAgent.ResetPath();
+            }
+
+            if (movement.magnitude > 0.1f)
+            {
+                // Transform movement to world space
                 Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
                 Vector3 targetPosition = agentTransform.position + worldMovement * moveSpeed * Time.fixedDeltaTime;
                 
-                // FIXED: Validate movement target is on NavMesh
+                // Validate target position is on NavMesh (for boundary checking only)
                 if (UnityEngine.AI.NavMesh.SamplePosition(targetPosition, out UnityEngine.AI.NavMeshHit hit, 1f, UnityEngine.AI.NavMesh.AllAreas))
                 {
+                    // Move using Transform, not NavMesh
                     agentTransform.position = Vector3.MoveTowards(agentTransform.position, hit.position, moveSpeed * Time.fixedDeltaTime);
                 }
-                
-                isPatrolMovement = false; // Mark as RL-controlled movement
             }
             
-            // FIXED: Smooth rotation for RL control
+            // Handle rotation
             if (Mathf.Abs(rotation) > 0.1f)
             {
                 agentTransform.Rotate(0, rotation * turnSpeed * Time.fixedDeltaTime, 0);
             }
         }
 
-        // FIXED: Clean patrol movement
-        public void MoveToTarget(Vector3 targetPosition)
-        {
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
-            {
-                isPatrolMovement = true;
-                navAgent.isStopped = false;
-                navAgent.speed = moveSpeed;
-                navAgent.SetDestination(targetPosition);
-            }
-        }
-
-        // FIXED: Smooth rotation towards target
         public void FaceTarget(Vector3 targetPosition)
         {
             Vector3 direction = (targetPosition - agentTransform.position);
             direction.y = 0; // Keep rotation on Y-axis only
             
-            if (direction.sqrMagnitude > 0.01f) // Use sqrMagnitude for better performance
+            if (direction.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(direction);
                 agentTransform.rotation = Quaternion.Slerp(
@@ -476,11 +457,11 @@ public sealed class NormalEnemyActions
 
         public void StopMovement()
         {
-            isPatrolMovement = false;
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.isStopped = true;
                 navAgent.ResetPath();
+                navAgent.velocity = Vector3.zero;
             }
         }
     }

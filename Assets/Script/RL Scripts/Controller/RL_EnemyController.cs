@@ -503,6 +503,13 @@ public class RL_EnemyController : MonoBehaviour
     private void RotateTowardsTarget(Vector3 targetPosition)
     {
         var directionToTarget = (targetPosition - transform.position).normalized;
+        
+        if (Physics.Raycast(transform.position, directionToTarget, out RaycastHit hit,
+        Vector3.Distance(transform.position, targetPosition), obstacleMask))
+        {
+            return;
+        }
+        
         var targetRotation = Quaternion.LookRotation(directionToTarget);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
     }
@@ -548,11 +555,11 @@ public class RL_EnemyController : MonoBehaviour
         var agent = GetComponent<NormalEnemyAgent>();
         if (agent != null)
         {
-            agent.HandleEnemyDeath(); // Notify the ML-Agent that it died
+            agent.HandleEnemyDeath(); 
         }
         else
         {
-            Destroy(gameObject, DESTROY_DELAY); // Destroy if not an ML-Agent
+            Destroy(gameObject, DESTROY_DELAY); 
         }
     }
 
