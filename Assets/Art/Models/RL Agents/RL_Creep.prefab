@@ -1780,7 +1780,7 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 648
-  showDebugInfo: 1
+  showDebugInfo: 0
   debugTextOffset: {x: 10, y: 10}
   debugTextColor: {r: 0.79622644, g: 0, b: 0.740533, a: 1}
   debugFontSize: 15

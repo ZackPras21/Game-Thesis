@@ -237,6 +237,7 @@ public sealed class NormalEnemyActions
         private int patrolLoopsCompleted;
         private bool isIdlingAtSpawn;
         private float idleTimer;
+        private int waypointsVisitedInCurrentLoop; // NEW: Track waypoints in current loop
 
         private const float PATROL_WAYPOINT_TOLERANCE = 2f;
         private const float IDLE_DURATION_AT_SPAWN = 2f;
@@ -253,9 +254,9 @@ public sealed class NormalEnemyActions
             patrolLoopsCompleted = 0;
             isIdlingAtSpawn = false;
             idleTimer = 0f;
+            waypointsVisitedInCurrentLoop = 0; 
         }
 
-        // FIXED: Remove NavMesh dependency, only provide direction for RL
         public void UpdatePatrol(Vector3 agentPosition, NavMeshAgent navAgent, NormalEnemyRewards rewardConfig, NormalEnemyAgent agent, float deltaTime)
         {
             if (!HasValidPatrolPoints()) return;
@@ -324,15 +325,17 @@ public sealed class NormalEnemyActions
         {
             if (!HasValidPatrolPoints()) return false;
 
-            int nextIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-            currentPatrolIndex = nextIndex;
+            waypointsVisitedInCurrentLoop++; // FIXED: Increment visited counter
+            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
 
-            if (nextIndex == 0)
+            // FIXED: Only complete loop when we've visited ALL waypoints AND returned to start
+            if (currentPatrolIndex == 0 && waypointsVisitedInCurrentLoop >= patrolPoints.Length)
             {
                 patrolLoopsCompleted++;
+                waypointsVisitedInCurrentLoop = 0; // Reset for next loop
                 isIdlingAtSpawn = true;
                 idleTimer = 0f;
-                Debug.Log($"Patrol loop {patrolLoopsCompleted} completed. Starting idle period at {GetCurrentPatrolPointName()}");
+                Debug.Log($"Patrol loop {patrolLoopsCompleted} completed after visiting all {patrolPoints.Length} waypoints");
                 return true;
             }
 
@@ -369,6 +372,7 @@ public sealed class NormalEnemyActions
             patrolLoopsCompleted = 0;
             isIdlingAtSpawn = false;
             idleTimer = 0f;
+            waypointsVisitedInCurrentLoop = 0; // FIXED: Reset waypoint counter on respawn
         }
 
         public bool HasValidPatrolPoints() => patrolPoints != null && patrolPoints.Length > 0;
@@ -385,6 +389,8 @@ public sealed class NormalEnemyActions
         private readonly float moveSpeed;
         private readonly float turnSpeed;
         private readonly float attackRange;
+        private Vector3 smoothedVelocity; // NEW: For smooth movement
+        private const float VELOCITY_SMOOTHING = 0.1f;
 
         public AgentMovement(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, float turnSpeed, float attackRange)
         {
@@ -393,10 +399,12 @@ public sealed class NormalEnemyActions
             this.moveSpeed = moveSpeed;
             this.turnSpeed = turnSpeed;
             this.attackRange = attackRange;
+            this.smoothedVelocity = Vector3.zero;
         }
 
         public void Reset()
         {
+            smoothedVelocity = Vector3.zero; // FIXED: Reset smoothed velocity
             if (navAgent != null && navAgent.enabled)
             {
                 navAgent.velocity = Vector3.zero;
@@ -405,45 +413,146 @@ public sealed class NormalEnemyActions
             }
         }
 
-        // FIXED: Pure RL movement without NavMesh interference
+        // FIXED: Completely rewritten RL movement for smoothness
         public void ProcessRLMovement(Vector3 movement, float rotation)
         {
+            // FIXED: Completely disable NavMesh for RL control
             if (navAgent != null && navAgent.enabled)
             {
-                // Ensure NavMesh doesn't interfere with RL movement
                 navAgent.isStopped = true;
                 navAgent.ResetPath();
+                navAgent.velocity = Vector3.zero;
             }
 
+            // FIXED: Wall avoidance integrated into movement
+            Vector3 targetVelocity = Vector3.zero;
+            
             if (movement.magnitude > 0.1f)
             {
-                // Transform movement to world space
-                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
-                Vector3 targetPosition = agentTransform.position + worldMovement * moveSpeed * Time.fixedDeltaTime;
+                // Transform to world space
+                Vector3 worldMovement = agentTransform.TransformDirection(movement);
                 
-                // Validate target position is on NavMesh (for boundary checking only)
-                if (UnityEngine.AI.NavMesh.SamplePosition(targetPosition, out UnityEngine.AI.NavMeshHit hit, 1f, UnityEngine.AI.NavMesh.AllAreas))
+                // FIXED: Apply wall avoidance before setting velocity
+                Vector3 avoidedMovement = ApplyWallAvoidance(worldMovement);
+                targetVelocity = avoidedMovement.normalized * moveSpeed;
+            }
+
+            // FIXED: Smooth velocity interpolation
+            smoothedVelocity = Vector3.Lerp(smoothedVelocity, targetVelocity, Time.fixedDeltaTime * 10f);
+
+            // FIXED: Apply movement with obstacle checking
+            if (smoothedVelocity.magnitude > 0.01f)
+            {
+                Vector3 newPosition = agentTransform.position + smoothedVelocity * Time.fixedDeltaTime;
+                
+                // FIXED: Check for obstacles before moving
+                if (IsPositionValid(newPosition) && !WillHitObstacle(newPosition))
                 {
-                    // Move using Transform, not NavMesh
-                    agentTransform.position = Vector3.MoveTowards(agentTransform.position, hit.position, moveSpeed * Time.fixedDeltaTime);
+                    agentTransform.position = newPosition;
+                }
+                else
+                {
+                    // FIXED: Try alternative directions when blocked
+                    Vector3 alternativePosition = FindAlternativePosition();
+                    if (alternativePosition != Vector3.zero)
+                    {
+                        agentTransform.position = alternativePosition;
+                    }
                 }
             }
             
-            // Handle rotation
-            if (Mathf.Abs(rotation) > 0.1f)
+            // FIXED: Smooth rotation
+            if (Mathf.Abs(rotation) > 0.01f)
             {
-                agentTransform.Rotate(0, rotation * turnSpeed * Time.fixedDeltaTime, 0);
+                float rotationAmount = rotation * turnSpeed * Time.fixedDeltaTime;
+                agentTransform.Rotate(0, rotationAmount, 0, Space.Self);
             }
         }
 
+        private Vector3 ApplyWallAvoidance(Vector3 intendedMovement)
+        {
+            Vector3 avoidanceForce = Vector3.zero;
+            float avoidanceDistance = 2f;
+            
+            // Check multiple directions for obstacles
+            Vector3[] checkDirections = {
+                intendedMovement.normalized,
+                (intendedMovement + agentTransform.right * 0.5f).normalized,
+                (intendedMovement - agentTransform.right * 0.5f).normalized
+            };
+            
+            foreach (Vector3 direction in checkDirections)
+            {
+                if (Physics.Raycast(agentTransform.position + Vector3.up * 0.5f, direction, out RaycastHit hit, avoidanceDistance))
+                {
+                    if (((1 << hit.collider.gameObject.layer) & LayerMask.GetMask("Obstacle", "Wall")) != 0)
+                    {
+                        // Calculate avoidance force perpendicular to the wall
+                        Vector3 wallNormal = hit.normal;
+                        wallNormal.y = 0; // Keep horizontal
+                        avoidanceForce += wallNormal * (avoidanceDistance - hit.distance) / avoidanceDistance;
+                    }
+                }
+            }
+            
+            // Combine intended movement with avoidance
+            Vector3 finalMovement = intendedMovement + avoidanceForce * 2f;
+            return finalMovement.magnitude > 0.01f ? finalMovement : intendedMovement;
+        }
+
+        private bool WillHitObstacle(Vector3 newPosition)
+        {
+            Vector3 direction = (newPosition - agentTransform.position).normalized;
+            float distance = Vector3.Distance(agentTransform.position, newPosition);
+            
+            return Physics.SphereCast(
+                agentTransform.position + Vector3.up * 0.5f,
+                0.4f,
+                direction,
+                out RaycastHit hit,
+                distance + 0.2f,
+                LayerMask.GetMask("Obstacle", "Wall")
+            );
+        }
+
+        private Vector3 FindAlternativePosition()
+        {
+            // Try alternative directions when blocked
+            Vector3[] alternatives = {
+                agentTransform.position + agentTransform.right * 0.5f * Time.fixedDeltaTime,
+                agentTransform.position - agentTransform.right * 0.5f * Time.fixedDeltaTime,
+                agentTransform.position + agentTransform.forward * 0.3f * Time.fixedDeltaTime,
+                agentTransform.position - agentTransform.forward * 0.3f * Time.fixedDeltaTime
+            };
+            
+            foreach (Vector3 altPos in alternatives)
+            {
+                if (IsPositionValid(altPos) && !WillHitObstacle(altPos))
+                {
+                    return altPos;
+                }
+            }
+            
+            return Vector3.zero; // No valid alternative found
+        }
+
+        // FIXED: Simple boundary check without NavMesh dependency
+        private bool IsPositionValid(Vector3 position)
+        {
+            // Check if position is on NavMesh (for boundary only)
+            return UnityEngine.AI.NavMesh.SamplePosition(position, out UnityEngine.AI.NavMeshHit hit, 0.5f, UnityEngine.AI.NavMesh.AllAreas);
+        }
+
+        // FIXED: Smoother target facing
         public void FaceTarget(Vector3 targetPosition)
         {
             Vector3 direction = (targetPosition - agentTransform.position);
-            direction.y = 0; // Keep rotation on Y-axis only
+            direction.y = 0;
             
             if (direction.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(direction);
+                // FIXED: Use FixedDeltaTime for consistent rotation
                 agentTransform.rotation = Quaternion.Slerp(
                     agentTransform.rotation,
                     targetRotation,
