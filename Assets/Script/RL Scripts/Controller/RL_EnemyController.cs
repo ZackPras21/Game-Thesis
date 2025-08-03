@@ -307,10 +307,10 @@ public class RL_EnemyController : MonoBehaviour
         {
             float distanceToPlayer = Vector3.Distance(transform.position, playerTracking.PlayerPosition);
             
-            if (distanceToPlayer >= fleeDistance || fleeState.FleeTimer > 5f) // 5 second timeout
+            if (distanceToPlayer >= fleeDistance || fleeState.FleeTimer > 5f)
             {
                 fleeState.StopFleeing();
-                waypointNavigation.SetPatrolling(true); // Resume patrol
+                waypointNavigation.SetPatrolling(true);
                 return;
             }
         }
@@ -326,7 +326,9 @@ public class RL_EnemyController : MonoBehaviour
         
         movementDirection = ApplyObstacleAvoidance(movementDirection);
         
-        Vector3 newPosition = transform.position + movementDirection * fleeSpeed * Time.deltaTime;
+        // Use consistent flee speed (clamped to prevent sudden bursts)
+        float fleeSpeedThisFrame = Mathf.Min(fleeSpeed, moveSpeed * 1.5f);
+        Vector3 newPosition = transform.position + movementDirection * fleeSpeedThisFrame * Time.deltaTime;
         rigidBody.MovePosition(newPosition);
         
         RotateTowardsTarget(fleeTarget);
@@ -454,18 +456,45 @@ public class RL_EnemyController : MonoBehaviour
 
     private Vector3 ApplyObstacleAvoidance(Vector3 direction)
     {
-        if (Physics.SphereCast(transform.position, 0.7f, direction, out var hit, 2f, obstacleMask))
+        // Use multiple raycasts for better obstacle detection
+        float rayDistance = 2f;
+        float avoidanceRadius = 0.7f;
+        
+        // Check forward
+        if (Physics.SphereCast(transform.position, avoidanceRadius, direction, out var hitForward, rayDistance, obstacleMask))
         {
-            var avoidanceDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
-            return (direction + avoidanceDirection * 0.7f).normalized;
+            Vector3 avoidDirection = Vector3.Cross(hitForward.normal, Vector3.up).normalized;
+            return (direction + avoidDirection * 0.8f).normalized;
         }
+        
+        // Check left and right
+        Vector3 leftDirection = Quaternion.AngleAxis(-45f, Vector3.up) * direction;
+        Vector3 rightDirection = Quaternion.AngleAxis(45f, Vector3.up) * direction;
+        
+        bool leftBlocked = Physics.SphereCast(transform.position, avoidanceRadius * 0.5f, leftDirection, out _, rayDistance * 0.7f, obstacleMask);
+        bool rightBlocked = Physics.SphereCast(transform.position, avoidanceRadius * 0.5f, rightDirection, out _, rayDistance * 0.7f, obstacleMask);
+        
+        if (leftBlocked && !rightBlocked)
+        {
+            return Vector3.Slerp(direction, rightDirection, 0.6f).normalized;
+        }
+        else if (rightBlocked && !leftBlocked)
+        {
+            return Vector3.Slerp(direction, leftDirection, 0.6f).normalized;
+        }
+        
         return direction;
     }
-
     private void ExecuteMovement(Vector3 direction)
     {
+        // Use consistent speed from moveSpeed (enemy data)
         var newPosition = transform.position + direction * moveSpeed * Time.deltaTime;
-        rigidBody.MovePosition(newPosition);
+        
+        // Clamp movement to prevent sudden speed bursts
+        float maxMovementThisFrame = moveSpeed * Time.deltaTime;
+        Vector3 clampedMovement = Vector3.ClampMagnitude(newPosition - transform.position, maxMovementThisFrame);
+        
+        rigidBody.MovePosition(transform.position + clampedMovement);
     }
 
     private IEnumerator ExecuteKnockbackMovement(Vector3 direction)

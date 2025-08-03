@@ -20,20 +20,25 @@ public sealed class NormalEnemyActions
 
     #region Movement Actions
     public void ApplyMovement(
-        Transform agentTransform,
-        NavMeshAgent navAgent,
-        float moveX,
-        float moveZ,
-        float rotateY,
-        float moveSpeed,
-        float turnSpeed)
+    Transform agentTransform,
+    NavMeshAgent navAgent,
+    float moveX,
+    float moveZ,
+    float rotateY,
+    float moveSpeed,
+    float turnSpeed)
     {
+        // Apply rotation first, then movement
         RotateAgent(agentTransform, rotateY, turnSpeed);
         MoveAgent(agentTransform, navAgent, moveX, moveZ, moveSpeed);
     }
 
-    private static void RotateAgent(Transform agentTransform, float rotateY, float turnSpeed) =>
-        agentTransform.Rotate(0f, rotateY * turnSpeed * Time.deltaTime, 0f);
+    private static void RotateAgent(Transform agentTransform, float rotateY, float turnSpeed)
+    {
+        // Ensure smooth rotation with clamped speed
+        float clampedRotation = Mathf.Clamp(rotateY * turnSpeed * Time.deltaTime, -180f, 180f);
+        agentTransform.Rotate(0f, clampedRotation, 0f);
+    }
 
     private void MoveAgent(Transform agentTransform, NavMeshAgent navAgent, float moveX, float moveZ, float moveSpeed)
     {
@@ -51,9 +56,15 @@ public sealed class NormalEnemyActions
 
     private static void SetAgentDestination(NavMeshAgent navAgent, Vector3 destination, float speed = 0f)
     {
-        navAgent.isStopped = false;
-        if (speed > 0f) navAgent.speed = speed;
-        navAgent.SetDestination(destination);
+        if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
+        {
+            navAgent.isStopped = false;
+            if (speed > 0f) 
+            {
+                navAgent.speed = speed; // Use the provided speed consistently
+            }
+            navAgent.SetDestination(destination);
+        }
     }
 
     private static void StopAgent(NavMeshAgent navAgent)
@@ -66,97 +77,23 @@ public sealed class NormalEnemyActions
     #region Action Helper Class 
     public class PlayerDetection
     {
-        private readonly RayPerceptionSensorComponent3D raySensor;
-        private readonly LayerMask obstacleMask;
-        private Transform playerTransform;
-        private bool isPlayerVisible;
-        private float lastPlayerDistance;
-        private Vector3 lastPlayerPosition;
+        protected Transform playerTransform;
+        protected bool isPlayerVisible;
+        protected Vector3 lastPlayerPosition;
+        protected float lastPlayerCheckTime;
+        protected const float PLAYER_CHECK_INTERVAL = 1f;
 
-        private float lastPlayerCheckTime;
-        private const float PLAYER_CHECK_INTERVAL = 1f; // Reduced for better responsiveness
-
-        public PlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
-        {
-            this.raySensor = raySensor;
-            this.obstacleMask = obstacleMask;
-            FindPlayerTransform();
-        }
-
-        public void Reset()
+        public virtual void Reset()
         {
             isPlayerVisible = false;
-            lastPlayerDistance = float.MaxValue;
             lastPlayerPosition = Vector3.zero;
             FindPlayerTransform();
         }
 
-        // FIXED: Fully utilize RayPerceptionSensor3D instead of manual raycasting
-        public void UpdatePlayerDetection(Vector3 agentPosition)
+        protected void FindPlayerTransform()
         {
-            isPlayerVisible = false;
-
-            // FIXED: Check if player transform is null or destroyed before accessing it
-            if (!IsPlayerAvailable() || playerTransform == null || !playerTransform.gameObject.activeInHierarchy)
-            {
-                if (Time.time - lastPlayerCheckTime > PLAYER_CHECK_INTERVAL)
-                {
-                    FindPlayerTransform();
-                    lastPlayerCheckTime = Time.time;
-                }
-                if (!IsPlayerAvailable()) return;
-            }
-
-            try
-            {
-                // FIXED: Use RayPerceptionSensor3D for all detection
-                var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-
-                // Check all ray outputs for player detection
-                foreach (var rayOutput in rayOutputs.RayOutputs)
-                {
-                    if (rayOutput.HasHit && rayOutput.HitGameObject != null)
-                    {
-                        if (rayOutput.HitGameObject.CompareTag("Player"))
-                        {
-                            isPlayerVisible = true;
-                            lastPlayerDistance = rayOutput.HitFraction * raySensor.RayLength;
-                            
-                            // FIXED: Store last known position safely
-                            if (playerTransform != null)
-                            {
-                                lastPlayerPosition = playerTransform.position;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                // FIXED: Additional validation using RayPerceptionSensor data
-                if (isPlayerVisible && playerTransform != null)
-                {
-                    float actualDistance = Vector3.Distance(agentPosition, playerTransform.position);
-                    // Ensure consistency between sensor data and actual distance
-                    if (actualDistance > raySensor.RayLength * 1.1f) // Small tolerance
-                    {
-                        isPlayerVisible = false;
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"Player detection error: {e.Message}");
-                playerTransform = null;
-                isPlayerVisible = false;
-            }
-        }
-
-        private void FindPlayerTransform()
-        {
-            // Clear existing reference first
             playerTransform = null;
             
-            // Find active player - prefer RL_Player component
             var rlPlayer = Object.FindFirstObjectByType<RL_Player>();
             if (rlPlayer != null && rlPlayer.gameObject.activeInHierarchy)
             {
@@ -164,7 +101,6 @@ public sealed class NormalEnemyActions
                 return;
             }
 
-            // Fallback to tag-based search
             var playerObj = GameObject.FindGameObjectWithTag("Player");
             if (playerObj != null && playerObj.activeInHierarchy)
             {
@@ -172,7 +108,6 @@ public sealed class NormalEnemyActions
             }
         }
 
-        // FIXED: Enhanced null checking for all properties and methods
         public bool IsPlayerAvailable() 
         {
             return playerTransform != null && 
@@ -182,7 +117,6 @@ public sealed class NormalEnemyActions
         
         public bool IsPlayerVisible => isPlayerVisible && IsPlayerAvailable();
         
-        // FIXED: Safe position access with fallback to last known position
         public Vector3 GetPlayerPosition() 
         {
             if (IsPlayerAvailable())
@@ -190,43 +124,22 @@ public sealed class NormalEnemyActions
                 try
                 {
                     Vector3 currentPos = playerTransform.position;
-                    lastPlayerPosition = currentPos; // Update last known position
+                    lastPlayerPosition = currentPos;
                     return currentPos;
                 }
                 catch (System.Exception)
                 {
-                    // Player transform was destroyed between null check and access
                     playerTransform = null;
                 }
             }
             
-            // Return last known position if available, otherwise zero
             return lastPlayerPosition != Vector3.zero ? lastPlayerPosition : Vector3.zero;
         }
         
-        public Transform GetPlayerTransform() => IsPlayerAvailable() ? playerTransform : null;
-
-        public float GetDistanceToPlayer(Vector3 agentPosition)
+        public virtual float GetDistanceToPlayer(Vector3 agentPosition)
         {
             if (!IsPlayerAvailable()) return float.MaxValue;
-
-            try
-            {
-                Vector3 playerPos = GetPlayerPosition();
-                
-                // Use sensor distance if player is visible, otherwise calculate actual distance
-                if (isPlayerVisible && lastPlayerDistance > 0)
-                {
-                    return lastPlayerDistance;
-                }
-
-                return Vector3.Distance(agentPosition, playerPos);
-            }
-            catch (System.Exception)
-            {
-                // If we can't get distance, return max value
-                return float.MaxValue;
-            }
+            return Vector3.Distance(agentPosition, GetPlayerPosition());
         }
     }
 
@@ -384,107 +297,6 @@ public sealed class NormalEnemyActions
         public float GetIdleTimeRemaining() => isIdlingAtSpawn ? Mathf.Max(0f, IDLE_DURATION_AT_SPAWN - idleTimer) : 0f;
     }
 
-    public class AgentMovement
-    {
-        private readonly NavMeshAgent navAgent;
-        private readonly Transform agentTransform;
-        private readonly float moveSpeed;
-        private readonly float turnSpeed;
-        private readonly float attackRange;
-        private bool isPatrolMovement = false;
-
-        public AgentMovement(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, float turnSpeed, float attackRange)
-        {
-            this.navAgent = navAgent;
-            this.agentTransform = agentTransform;
-            this.moveSpeed = moveSpeed;
-            this.turnSpeed = turnSpeed;
-            this.attackRange = attackRange;
-        }
-
-        public void Reset()
-        {
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.velocity = Vector3.zero;
-                navAgent.isStopped = false;
-                navAgent.ResetPath();
-            }
-            isPatrolMovement = false;
-        }
-
-        // FIXED: Separate manual movement from patrol movement
-        public void ProcessMovement(Vector3 movement, float rotation)
-        {
-            // FIXED: Clear any existing NavMesh destination when RL takes control
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh && movement.magnitude > 0.1f)
-            {
-                navAgent.ResetPath(); // Clear NavMesh pathfinding
-                navAgent.isStopped = true; // Stop NavMesh movement
-                
-                // FIXED: Direct transform-based movement for RL control
-                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
-                Vector3 targetPosition = agentTransform.position + worldMovement * moveSpeed * Time.fixedDeltaTime;
-                
-                // FIXED: Validate movement target is on NavMesh
-                if (UnityEngine.AI.NavMesh.SamplePosition(targetPosition, out UnityEngine.AI.NavMeshHit hit, 1f, UnityEngine.AI.NavMesh.AllAreas))
-                {
-                    agentTransform.position = Vector3.MoveTowards(agentTransform.position, hit.position, moveSpeed * Time.fixedDeltaTime);
-                }
-                
-                isPatrolMovement = false; // Mark as RL-controlled movement
-            }
-            
-            // FIXED: Smooth rotation for RL control
-            if (Mathf.Abs(rotation) > 0.1f)
-            {
-                agentTransform.Rotate(0, rotation * turnSpeed * Time.fixedDeltaTime, 0);
-            }
-        }
-
-        // FIXED: Clean patrol movement
-        public void MoveToTarget(Vector3 targetPosition)
-        {
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
-            {
-                isPatrolMovement = true;
-                navAgent.isStopped = false;
-                navAgent.speed = moveSpeed;
-                navAgent.SetDestination(targetPosition);
-            }
-        }
-
-        // FIXED: Smooth rotation towards target
-        public void FaceTarget(Vector3 targetPosition)
-        {
-            Vector3 direction = (targetPosition - agentTransform.position);
-            direction.y = 0; // Keep rotation on Y-axis only
-            
-            if (direction.sqrMagnitude > 0.01f) // Use sqrMagnitude for better performance
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                agentTransform.rotation = Quaternion.Slerp(
-                    agentTransform.rotation,
-                    targetRotation,
-                    turnSpeed * Time.fixedDeltaTime
-                );
-            }
-        }
-
-        public bool IsPlayerInAttackRange(Vector3 playerPosition) =>
-            Vector3.SqrMagnitude(agentTransform.position - playerPosition) <= attackRange * attackRange;
-
-        public void StopMovement()
-        {
-            isPatrolMovement = false;
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.isStopped = true;
-                navAgent.ResetPath();
-            }
-        }
-    }
-    
     public class FleeState
     {
         public bool IsFleeing { get; private set; }

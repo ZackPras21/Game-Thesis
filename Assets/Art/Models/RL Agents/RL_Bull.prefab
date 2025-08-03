@@ -456,7 +456,6 @@ MonoBehaviour:
   AttackPlayerReward: 1
   HitByPlayerPunishment: -0.7
   ObstaclePunishment: -0.9
-  ObstacleAvoidance: 0.015
   PatrolStepReward: 0.005
   ChaseStepReward: 0.01
   IdlePunishment: -0.01
@@ -464,8 +463,6 @@ MonoBehaviour:
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
   DoesntChasePlayerPunishment: -0.05
-  AttackIncentive: 0.01
-  AttackMissedPunishment: -0.1
   FleeReward: 0.05
   FleePunishment: -0.03
 --- !u!1 &7987005776217593674
@@ -1558,7 +1555,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 7
+    VectorObservationSize: 10
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 5
@@ -1599,7 +1596,10 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 648
-  showDebugInfo: 1
+  useRLMovement: 1
+  obstacleAvoidanceWeight: 0.7
+  rotationSmoothness: 5
+  showDebugInfo: 0
   debugTextOffset: {x: 10, y: 230}
   debugTextColor: {r: 0.07984875, g: 0.050943315, b: 1, a: 1}
   debugFontSize: 15
@@ -1633,12 +1633,12 @@ MonoBehaviour:
   m_SensorName: RayPerceptionSensor
   m_DetectableTags:
   - Enemy
+  - Player
   - Wall
   - Box
   - Gate
-  - Player
   - Patrol Point
-  m_RaysPerDirection: 20
+  m_RaysPerDirection: 10
   m_MaxRayDegrees: 75
   m_SphereCastRadius: 1.5
   m_RayLength: 30
