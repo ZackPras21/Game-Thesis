@@ -178,11 +178,11 @@ MonoBehaviour:
   ChasePlayerReward: 0.9
   AttackPlayerReward: 1
   HitByPlayerPunishment: -0.7
-  ObstaclePunishment: -0.9
   PatrolStepReward: 0.005
   ChaseStepReward: 0.01
   IdlePunishment: -0.01
   NoMovementPunishment: -0.01
+  ObstaclePunishment: -0.9
   ApproachPlayerReward: 0.01
   StayFarFromPlayerPunishment: -0.005
   DoesntChasePlayerPunishment: -0.05
@@ -1814,12 +1814,12 @@ MonoBehaviour:
   m_SensorName: RayPerceptionSensor
   m_DetectableTags:
   - Enemy
+  - Player
   - Wall
   - Box
   - Gate
-  - Player
   - Patrol Point
-  m_RaysPerDirection: 20
+  m_RaysPerDirection: 10
   m_MaxRayDegrees: 90
   m_SphereCastRadius: 1.5
   m_RayLength: 25

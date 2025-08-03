@@ -823,8 +823,8 @@ MonoBehaviour:
   - Wall
   - Box
   - Gate
-  m_RaysPerDirection: 30
-  m_MaxRayDegrees: 90
+  m_RaysPerDirection: 10
+  m_MaxRayDegrees: 180
   m_SphereCastRadius: 2
   m_RayLength: 35
   m_RayLayerMask:

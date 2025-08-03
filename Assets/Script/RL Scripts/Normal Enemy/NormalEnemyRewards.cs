@@ -16,16 +16,16 @@ public class NormalEnemyRewards : MonoBehaviour
     public float HitByPlayerPunishment = -0.5f;
 
     [Header("Rewards/Punishments (+0.005 to +0.5 / -0.005 to -0.5)")]
-    public float PatrolStepReward = +0.010f;
-    public float ChaseStepReward = +0.005f;
-    public float IdlePunishment = -0.005f;
+    public float PatrolStepReward = +0.030f;
+    public float ChaseStepReward = +0.025f;
+    public float IdlePunishment = -0.015f;
     public float NoMovementPunishment = -0.015f;
-    public float ObstaclePunishment = -0.010f;
+    public float ObstaclePunishment = -0.050f;
     public float ApproachPlayerReward = +0.01f;
     public float StayFarFromPlayerPunishment = -0.05f;
     public float DoesntChasePlayerPunishment = -0.05f;
     public float FleeReward = +0.05f;
-    public float FleePunishment = -0.05f;
+    public float FleePunishment = -0.35f;
     #endregion
 
     #region Massive Rewards
