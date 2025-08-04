@@ -2,22 +2,22 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 30230,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-30230.onnx",
-                "reward": -52.77615666389465,
-                "creation_time": 1754248007.2737424,
+                "steps": 18988,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-18988.onnx",
+                "reward": -2162.960953485398,
+                "creation_time": 1754285476.2339573,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-30230.pt"
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-18988.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 30230,
+            "steps": 18988,
             "file_path": "results\\NormalEnemyRun1\\NormalEnemy.onnx",
-            "reward": -52.77615666389465,
-            "creation_time": 1754248007.2737424,
+            "reward": -2162.960953485398,
+            "creation_time": 1754285476.2339573,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-30230.pt"
+                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-18988.pt"
             ]
         }
     },

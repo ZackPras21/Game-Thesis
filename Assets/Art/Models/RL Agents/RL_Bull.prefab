@@ -232,7 +232,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.32, y: 5.24, z: -1.06}
-  m_LocalScale: {x: 10.58325, y: 9.483143, z: 12.305729}
+  m_LocalScale: {x: 8.989624, y: 7.792014, z: 12.305729}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4728132633843373585}
@@ -1452,7 +1452,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 0
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 4
   m_CollisionDetection: 2
@@ -1555,7 +1555,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 10
+    VectorObservationSize: 12
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 5
@@ -1597,8 +1597,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 648
   useRLMovement: 1
-  obstacleAvoidanceWeight: 0.7
-  rotationSmoothness: 5
+  rotationSmoothness: 8
   showDebugInfo: 0
   debugTextOffset: {x: 10, y: 230}
   debugTextColor: {r: 0.07984875, g: 0.050943315, b: 1, a: 1}

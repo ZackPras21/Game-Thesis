@@ -19,9 +19,8 @@ public class NormalEnemyAgent : Agent
     [SerializeField] private LayerMask obstacleMask;
 
     [Header("Movement Control")]
-    [SerializeField] private bool useRLMovement = true; // Toggle between RL and NavMesh control
-    [SerializeField] private float obstacleAvoidanceWeight = 0.7f;
-    [SerializeField] private float rotationSmoothness = 5f;
+    [SerializeField] private bool useRLMovement = true;
+    [SerializeField] private float rotationSmoothness = 8f;
 
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
@@ -30,7 +29,7 @@ public class NormalEnemyAgent : Agent
     [SerializeField] private int debugFontSize = 14;
     #endregion
 
-    #region Public Properties & Variables
+    #region Public Properties
     public static bool TrainingActive = true;
     public float CurrentHealth => rl_EnemyController.enemyHP;
     public float MaxHealth => rl_EnemyController.enemyData.enemyHealth;
@@ -38,33 +37,36 @@ public class NormalEnemyAgent : Agent
     #endregion
 
     #region Private Variables
-    private EnhancedPlayerDetection playerDetection;
     private PatrolSystem patrolSystem;
-    private UnifiedMovementSystem movementSystem;
     private DebugDisplay debugDisplay;
     private RayPerceptionSensorComponent3D rayPerceptionSensor;
+    private Rigidbody agentRigidbody;
     
     private AnimationClip attackAnimation;
     private float dynamicAttackCooldown = 0.5f;
     private const float HEALTH_NORMALIZATION_FACTOR = 100f;
     private const float ATTACK_COOLDOWN_FALLBACK = 0.5f;
-    private Vector3 initialPosition;
+    private const float STUCK_THRESHOLD = 0.1f;
+    private const float STUCK_TIME_LIMIT = 1.5f;
+    
     private string currentState = "Idle";
     private string currentAction = "Idle";
     private float previousDistanceToPlayer = float.MaxValue;
     private float lastAttackTime;
     private bool isInitialized = false;
-    private bool hasObstaclePunishmentThisFrame = false;
     
-    // Movement state tracking
+    // Movement tracking
     private Vector3 lastFramePosition;
     private float stuckTimer = 0f;
-    private const float STUCK_THRESHOLD = 0.1f;
-    private const float STUCK_TIME_LIMIT = 2f;
     
-    private bool IsAgentKnockedBack() => rl_EnemyController.IsKnockedBack();
-    private bool IsAgentFleeing() => rl_EnemyController.IsFleeing();
-    private bool ShouldAgentFlee() => rl_EnemyController.IsHealthLow() && playerDetection.IsPlayerAvailable();
+    // Behavior state tracking
+    private enum AgentBehaviorState { Idle, Patrolling, Chasing, Attacking, Fleeing, KnockedBack }
+    private AgentBehaviorState currentBehaviorState = AgentBehaviorState.Idle;
+    private AgentBehaviorState previousBehaviorState = AgentBehaviorState.Idle;
+    
+    // Reward timing control
+    private float lastRewardTime = 0f;
+    private const float REWARD_INTERVAL = 0.1f; // Only apply certain rewards every 0.1 seconds
     #endregion
 
     #region Agent Lifecycle
@@ -80,6 +82,7 @@ public class NormalEnemyAgent : Agent
 
         navAgent ??= GetComponent<NavMeshAgent>();
         rayPerceptionSensor ??= GetComponent<RayPerceptionSensorComponent3D>();
+        agentRigidbody ??= GetComponent<Rigidbody>();
         
         if (navAgent == null || rayPerceptionSensor == null)
         {
@@ -102,7 +105,6 @@ public class NormalEnemyAgent : Agent
 
         InitializeComponents();
         InitializeSystems();
-        initialPosition = transform.position;
         lastFramePosition = transform.position;
         ResetAgentState();
         rl_EnemyController.InitializeHealthBar();
@@ -132,32 +134,41 @@ public class NormalEnemyAgent : Agent
         }
 
         GetComponent<Collider>().enabled = true;
-        movementSystem.ResetMovement();
+        rl_EnemyController.movementSystem.ResetMovement();
+        
         lastFramePosition = transform.position;
         stuckTimer = 0f;
+        lastRewardTime = 0f;
+        currentBehaviorState = AgentBehaviorState.Idle;
+        previousBehaviorState = AgentBehaviorState.Idle;
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
         if (!isInitialized || rl_EnemyController == null) return;
         
-        // Enhanced observations (10 total)
+        // Health observation
         sensor.AddObservation(CurrentHealth / MaxHealth);
-        sensor.AddObservation(playerDetection.IsPlayerAvailable() 
-            ? playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR : 0f);
+        
+        // Player detection and distance
+        bool playerAvailable = rl_EnemyController.playerDetection.IsPlayerAvailable();
+        sensor.AddObservation(playerAvailable ? 1f : 0f);
+        sensor.AddObservation(playerAvailable 
+            ? rl_EnemyController.playerDetection.GetDistanceToPlayer(transform.position) / HEALTH_NORMALIZATION_FACTOR : 0f);
         
         // Velocity observations
-        Vector3 localVelocity = transform.InverseTransformDirection(navAgent.velocity);
+        Vector3 localVelocity = transform.InverseTransformDirection(agentRigidbody != null ? agentRigidbody.linearVelocity : navAgent.velocity);
         sensor.AddObservation(localVelocity.x / rl_EnemyController.moveSpeed);
         sensor.AddObservation(localVelocity.z / rl_EnemyController.moveSpeed);
+        sensor.AddObservation(localVelocity.magnitude / rl_EnemyController.moveSpeed);
         
         // State observations
         sensor.AddObservation(IsAgentKnockedBack() ? 1f : 0f);
         sensor.AddObservation(IsAgentFleeing() ? 1f : 0f);
         sensor.AddObservation(ShouldAgentFlee() ? 1f : 0f);
         
-        // Enhanced obstacle detection observations
-        var obstacleInfo = playerDetection.GetObstacleInfo();
+        // Obstacle detection observations
+        var obstacleInfo = rl_EnemyController.playerDetection.GetObstacleInfo();
         sensor.AddObservation(obstacleInfo.hasObstacleAhead ? 1f : 0f);
         sensor.AddObservation(obstacleInfo.hasObstacleLeft ? 1f : 0f);
         sensor.AddObservation(obstacleInfo.hasObstacleRight ? 1f : 0f);
@@ -168,9 +179,10 @@ public class NormalEnemyAgent : Agent
         if (!isInitialized || rl_EnemyController == null || IsDead || !isActiveAndEnabled) return;
 
         debugDisplay.IncrementSteps();
+        
+        UpdateBehaviorState();
         CheckIfStuck();
 
-        // Process actions based on current state
         if (!IsAgentKnockedBack() && !IsAgentFleeing())
         {
             ProcessActions(actions);
@@ -180,10 +192,12 @@ public class NormalEnemyAgent : Agent
             HandleReactiveStates();
         }
 
-        UpdateBehaviorAndRewards();
+        ProcessRewards();
         CheckEpisodeEnd();
         
         lastFramePosition = transform.position;
+        previousBehaviorState = currentBehaviorState;
+        debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -191,11 +205,11 @@ public class NormalEnemyAgent : Agent
         var continuousActions = actionsOut.ContinuousActions;
         var discreteActions = actionsOut.DiscreteActions;
 
-        continuousActions[0] = Input.GetKey(KeyCode.W) ? 1f : 0f; // UP
-        continuousActions[1] = Input.GetKey(KeyCode.S) ? 1f : 0f; // DOWN
-        continuousActions[2] = Input.GetKey(KeyCode.D) ? 1f : 0f; // RIGHT
-        continuousActions[3] = Input.GetKey(KeyCode.A) ? 1f : 0f; // LEFT
-        continuousActions[4] = GetRotationInputHeuristic(); // ROTATE
+        continuousActions[0] = Input.GetKey(KeyCode.W) ? 1f : 0f;
+        continuousActions[1] = Input.GetKey(KeyCode.S) ? 1f : 0f;
+        continuousActions[2] = Input.GetKey(KeyCode.D) ? 1f : 0f;
+        continuousActions[3] = Input.GetKey(KeyCode.A) ? 1f : 0f;
+        continuousActions[4] = GetRotationInputHeuristic();
 
         discreteActions[0] = Input.GetKey(KeyCode.Space) ?
             (int)EnemyHighLevelAction.Attack :
@@ -206,7 +220,6 @@ public class NormalEnemyAgent : Agent
     {
         if (StepCount >= MaxStep)
         {
-            Debug.Log($"{gameObject.name} Max steps reached. Ending episode.");
             EndEpisode();
         }
     }
@@ -215,39 +228,26 @@ public class NormalEnemyAgent : Agent
     #region Initialization & Reset Helpers
     private void InitializeComponents()
     {
-        ConfigureNavMeshAgent();
-        playerDetection = new EnhancedPlayerDetection(rayPerceptionSensor, obstacleMask);
+        navAgent.speed = rl_EnemyController.moveSpeed;
+        navAgent.angularSpeed = rl_EnemyController.rotationSpeed;
+        navAgent.acceleration = rl_EnemyController.moveSpeed;
+        navAgent.stoppingDistance = 0.3f;
+        navAgent.autoBraking = true;
+        navAgent.updateRotation = false;
+        navAgent.updateUpAxis = false;
+        navAgent.isStopped = false;
     }
 
     private void InitializeSystems()
     {
         Transform[] patrolPoints = FindPatrolPoints();
         patrolSystem = new PatrolSystem(patrolPoints);
-        movementSystem = new UnifiedMovementSystem(navAgent, transform, rl_EnemyController.moveSpeed, 
-            rl_EnemyController.rotationSpeed, rl_EnemyController.attackRange, playerDetection);
         debugDisplay = new DebugDisplay();
 
         if (patrolPoints.Length > 0)
         {
             patrolSystem.SetPatrolPoints(patrolPoints);
-            Debug.Log($"{gameObject.name} initialized with {patrolPoints.Length} patrol points");
         }
-        else
-        {
-            Debug.LogWarning($"{gameObject.name} has no patrol points assigned!");
-        }
-    }
-
-    private void ConfigureNavMeshAgent()
-    {
-        navAgent.speed = rl_EnemyController.moveSpeed;
-        navAgent.angularSpeed = rl_EnemyController.rotationSpeed * 100f; // Convert to degrees/second
-        navAgent.acceleration = rl_EnemyController.moveSpeed * 4f;
-        navAgent.stoppingDistance = 0.5f;
-        navAgent.autoBraking = true;
-        navAgent.updateRotation = false; // Let our system handle rotation
-        navAgent.updateUpAxis = false;
-        navAgent.isStopped = false;
     }
 
     private Transform[] FindPatrolPoints()
@@ -263,7 +263,6 @@ public class NormalEnemyAgent : Agent
                     Transform[] arenaPatrolPoints = spawner.GetArenaPatrolPoints(currentParent);
                     if (arenaPatrolPoints != null && arenaPatrolPoints.Length > 0)
                     {
-                        Debug.Log($"{gameObject.name} found {arenaPatrolPoints.Length} patrol points from spawner via parent {currentParent.name}");
                         return arenaPatrolPoints;
                     }
                 }
@@ -275,32 +274,18 @@ public class NormalEnemyAgent : Agent
                 Transform[] arenaPatrolPoints = spawner.GetArenaPatrolPoints(transform.parent);
                 if (arenaPatrolPoints != null && arenaPatrolPoints.Length > 0)
                 {
-                    Debug.Log($"{gameObject.name} found {arenaPatrolPoints.Length} patrol points from direct parent {transform.parent.name}");
                     return arenaPatrolPoints;
                 }
             }
         }
 
-        Transform[] fallbackPoints = FindPatrolPointsByProximityAndArena();
-        if (fallbackPoints.Length > 0)
-        {
-            Debug.Log($"{gameObject.name} found {fallbackPoints.Length} patrol points via fallback method");
-            return fallbackPoints;
-        }
-
-        Debug.LogError($"{gameObject.name} could not find any patrol points!");
-        return new Transform[0];
+        return FindPatrolPointsByProximityAndArena();
     }
 
     private Transform[] FindPatrolPointsByProximityAndArena()
     {
         GameObject[] allPatrolPoints = GameObject.FindGameObjectsWithTag("Patrol Point");
-
-        if (allPatrolPoints.Length == 0)
-        {
-            Debug.LogWarning($"{gameObject.name} no patrol points found in scene with 'Patrol Point' tag");
-            return new Transform[0];
-        }
+        if (allPatrolPoints.Length == 0) return new Transform[0];
 
         Dictionary<Transform, List<Transform>> arenaGroups = new Dictionary<Transform, List<Transform>>();
 
@@ -339,9 +324,7 @@ public class NormalEnemyAgent : Agent
 
         if (closestArena != null && arenaGroups[closestArena].Count > 0)
         {
-            var sortedPoints = arenaGroups[closestArena].OrderBy(p => p.name).ToArray();
-            Debug.Log($"{gameObject.name} assigned to arena {closestArena.name} with {sortedPoints.Length} patrol points");
-            return sortedPoints;
+            return arenaGroups[closestArena].OrderBy(p => p.name).ToArray();
         }
 
         return new Transform[0];
@@ -350,17 +333,18 @@ public class NormalEnemyAgent : Agent
     private void ResetForNewEpisode()
     {
         ResetAgentState();
-
         rl_EnemyController.enemyHP = rl_EnemyController.enemyData.enemyHealth;
         rl_EnemyController.healthState.ResetHealthState();
         rl_EnemyController.InitializeHealthBar();
 
         currentState = "Idle";
         currentAction = "Idle";
+        currentBehaviorState = AgentBehaviorState.Idle;
+        previousBehaviorState = AgentBehaviorState.Idle;
         lastAttackTime = Time.fixedTime - dynamicAttackCooldown;
 
         patrolSystem?.Reset();
-        movementSystem?.ResetMovement();
+        rl_EnemyController.movementSystem?.ResetMovement();
 
         gameObject.SetActive(true);
         GetComponent<Collider>().enabled = true;
@@ -369,178 +353,252 @@ public class NormalEnemyAgent : Agent
 
     private void ResetAgentState()
     {
-        playerDetection?.Reset();
+        rl_EnemyController.playerDetection?.Reset();
         patrolSystem?.Reset();
         debugDisplay?.Reset();
-        movementSystem?.ResetMovement();
+        rl_EnemyController.movementSystem?.ResetMovement();
+        
+        if (agentRigidbody != null)
+        {
+            agentRigidbody.linearVelocity = Vector3.zero;
+            agentRigidbody.angularVelocity = Vector3.zero;
+        }
     }
 
     private void ResetTrainingArena()
     {
         FindFirstObjectByType<RL_TrainingTargetSpawner>()?.ResetArena();
     }
+
+    private void RespawnAtRandomLocation()
+    {
+        var patrolPoints = patrolSystem.GetPatrolPoints();
+        if (patrolPoints.Length == 0) return;
+
+        int randomIndex = Random.Range(0, patrolPoints.Length);
+        Vector3 respawnPosition = patrolPoints[randomIndex].position;
+
+        Vector2 randomOffset = Random.insideUnitCircle * 0.5f;
+        respawnPosition += new Vector3(randomOffset.x, 0, randomOffset.y);
+
+        if (UnityEngine.AI.NavMesh.SamplePosition(respawnPosition, out UnityEngine.AI.NavMeshHit hit, 2f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            respawnPosition = hit.position;
+        }
+
+        Vector3 originalScale = transform.localScale;
+        rl_EnemyController.movementSystem.WarpToPosition(respawnPosition);
+        transform.localScale = originalScale;
+
+        patrolSystem.ResetToSpecificPoint(randomIndex);
+    }
+    #endregion
+
+    #region Behavior State Management
+    private void UpdateBehaviorState()
+    {
+        if (IsAgentKnockedBack())
+        {
+            currentBehaviorState = AgentBehaviorState.KnockedBack;
+        }
+        else if (IsAgentFleeing())
+        {
+            currentBehaviorState = AgentBehaviorState.Fleeing;
+        }
+        else if (rl_EnemyController.playerDetection.IsPlayerVisible)
+        {
+            float distanceToPlayer = rl_EnemyController.playerDetection.GetDistanceToPlayer(transform.position);
+            if (distanceToPlayer <= rl_EnemyController.attackRange)
+            {
+                currentBehaviorState = AgentBehaviorState.Attacking;
+            }
+            else
+            {
+                currentBehaviorState = AgentBehaviorState.Chasing;
+            }
+        }
+        else if (patrolSystem.HasValidPatrolPoints())
+        {
+            currentBehaviorState = AgentBehaviorState.Patrolling;
+        }
+        else
+        {
+            currentBehaviorState = AgentBehaviorState.Idle;
+        }
+    }
+
+    private bool IsAgentKnockedBack() => rl_EnemyController.IsKnockedBack();
+    private bool IsAgentFleeing() => rl_EnemyController.IsFleeing();
+    private bool ShouldAgentFlee() => rl_EnemyController.IsHealthLow() && rl_EnemyController.playerDetection.IsPlayerAvailable();
     #endregion
 
     #region Action Processing
     private void ProcessActions(ActionBuffers actions)
     {
-        ProcessMovementActions(actions);
-        ProcessAttackAction(actions);
+        switch (currentBehaviorState)
+        {
+            case AgentBehaviorState.Chasing:
+                ProcessChaseMovement(actions);
+                break;
+            case AgentBehaviorState.Attacking:
+                ProcessAttackBehavior(actions);
+                break;
+            case AgentBehaviorState.Patrolling:
+                ProcessPatrolMovement(actions);
+                break;
+            default:
+                ProcessIdleMovement(actions);
+                break;
+        }
     }
 
-    private void ProcessMovementActions(ActionBuffers actions)
+    private void ProcessChaseMovement(ActionBuffers actions)
     {
+        currentState = "Chasing Player";
+        currentAction = "Chasing";
+
+        Vector3 playerPosition = rl_EnemyController.playerDetection.GetPlayerPosition();
+        Vector3 directionToPlayer = (playerPosition - transform.position).normalized;
+        
         float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1];
         float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3];
         float rotation = actions.ContinuousActions[4];
 
         Vector3 rawMovement = new Vector3(horizontal, 0, vertical);
+        Vector3 blendedMovement = Vector3.Lerp(rawMovement, directionToPlayer, 0.6f);
+        Vector3 adjustedMovement = ApplyObstacleAvoidance(blendedMovement);
+
+        rl_EnemyController.movementSystem.ProcessRLMovement(adjustedMovement, rotation, playerPosition);
+        RotateTowardsTarget(playerPosition);
+        ProcessAttackAction(actions);
+    }
+
+    private void ProcessAttackBehavior(ActionBuffers actions)
+    {
+        currentState = "In Attack Range";
+        currentAction = "Preparing Attack";
         
-        // Apply obstacle avoidance using RayPerception data
-        Vector3 adjustedMovement = ApplyIntelligentObstacleAvoidance(rawMovement);
-
-        bool isPlayerVisible = playerDetection.IsPlayerVisible;
-        bool isPatrolling = !isPlayerVisible && patrolSystem.HasValidPatrolPoints();
-
-        if (isPlayerVisible)
-        {
-            currentState = "Chasing";
-            currentAction = "Chasing";
-            
-            if (useRLMovement)
-            {
-                movementSystem.ProcessRLMovement(adjustedMovement, rotation, playerDetection.GetPlayerPosition());
-            }
-            else
-            {
-                movementSystem.ProcessNavMeshMovement(playerDetection.GetPlayerPosition());
-                if (adjustedMovement.magnitude > 0.1f) // RL can still influence NavMesh movement
-                {
-                    movementSystem.ApplyMovementInfluence(adjustedMovement);
-                }
-            }
-        }
-        else if (isPatrolling)
-        {
-            if (adjustedMovement.magnitude > 0.1f && useRLMovement)
-            {
-                // RL takes control during patrol with manual input
-                movementSystem.ProcessRLMovement(adjustedMovement, rotation);
-                currentAction = "Manual Patrol";
-            }
-            else
-            {
-                // Let patrol system handle movement
-                UpdatePatrolMovement();
-            }
-        }
-        else
-        {
-            // Idle state - RL control only
-            if (adjustedMovement.magnitude > 0.1f)
-            {
-                movementSystem.ProcessRLMovement(adjustedMovement, rotation);
-                currentAction = "Manual Movement";
-            }
-            else
-            {
-                movementSystem.StopMovement();
-                currentAction = "Idle";
-            }
-        }
+        rl_EnemyController.movementSystem.StopMovement();
+        
+        Vector3 playerPosition = rl_EnemyController.playerDetection.GetPlayerPosition();
+        RotateTowardsTarget(playerPosition);
+        ProcessAttackAction(actions);
     }
 
-    private Vector3 ApplyIntelligentObstacleAvoidance(Vector3 desiredMovement)
+    private void ProcessPatrolMovement(ActionBuffers actions)
     {
-        if (desiredMovement.magnitude < 0.1f) return desiredMovement;
+        currentState = "Patrolling";
+        
+        float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1];
+        float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3];
+        float rotation = actions.ContinuousActions[4];
 
-        var obstacleInfo = playerDetection.GetObstacleInfo();
-        Vector3 avoidanceDirection = Vector3.zero;
-
-        // Calculate avoidance based on detected obstacles
-        if (obstacleInfo.hasObstacleAhead)
-        {
-            // Strong avoidance for front obstacles
-            avoidanceDirection += -transform.forward * 1.0f;
-        }
-
-        if (obstacleInfo.hasObstacleLeft)
-        {
-            // Avoid left, prefer right
-            avoidanceDirection += transform.right * 0.7f;
-        }
-
-        if (obstacleInfo.hasObstacleRight)
-        {
-            // Avoid right, prefer left
-            avoidanceDirection += -transform.right * 0.7f;
-        }
-
-        // If we detected obstacles, blend avoidance with desired movement
-        if (avoidanceDirection.magnitude > 0.1f)
-        {
-            avoidanceDirection.Normalize();
-            Vector3 blendedMovement = Vector3.Lerp(desiredMovement, avoidanceDirection, obstacleAvoidanceWeight);
-            return blendedMovement.normalized * desiredMovement.magnitude;
-        }
-
-        return desiredMovement;
-    }
-
-    private void UpdatePatrolMovement()
-    {
-        if (!patrolSystem.HasValidPatrolPoints()) return;
+        Vector3 rawMovement = new Vector3(horizontal, 0, vertical);
+        Vector3 adjustedMovement = ApplyObstacleAvoidance(rawMovement);
 
         if (patrolSystem.IsIdlingAtSpawn())
         {
-            movementSystem.StopMovement();
+            rl_EnemyController.movementSystem.StopMovement();
             currentAction = "Idling";
             currentState = $"Idling at {patrolSystem.GetCurrentPatrolPointName()} ({patrolSystem.GetIdleTimeRemaining():F1}s remaining)";
             
-            bool idleComplete = patrolSystem.UpdateIdleTimer();
-            if (idleComplete)
-            {
-                currentAction = "Patrolling";
-            }
+            patrolSystem.UpdateIdleTimer();
             return;
         }
 
         Vector3 currentTarget = patrolSystem.GetCurrentPatrolTarget();
         float distanceToTarget = Vector3.Distance(transform.position, currentTarget);
 
-        if (useRLMovement)
+        if (adjustedMovement.magnitude > 0.3f && useRLMovement)
         {
-            // RL-controlled patrol movement
             Vector3 directionToTarget = (currentTarget - transform.position).normalized;
-            movementSystem.ProcessRLMovement(directionToTarget, 0f, currentTarget);
+            Vector3 blendedMovement = Vector3.Lerp(adjustedMovement, directionToTarget, 0.4f);
+            rl_EnemyController.movementSystem.ProcessRLMovement(blendedMovement, rotation, currentTarget);
+            currentAction = "Manual Patrol";
         }
         else
         {
-            // NavMesh-controlled patrol movement
-            movementSystem.ProcessNavMeshMovement(currentTarget);
+            rl_EnemyController.movementSystem.ProcessNavMeshMovement(currentTarget);
+            currentAction = "Auto Patrol";
         }
 
-        // Check if we've reached the waypoint
         if (distanceToTarget < 2f)
         {
             bool completedLoop = patrolSystem.AdvanceToNextWaypoint();
             if (completedLoop)
             {
-                rewardConfig.AddPatrolReward(this);
-                Debug.Log($"{gameObject.name} completed patrol loop {patrolSystem.PatrolLoopsCompleted}");
-
                 if (patrolSystem.PatrolLoopsCompleted >= 2)
                 {
-                    rewardConfig.AddPatrolReward(this);
-                    Debug.Log($"{gameObject.name} completed 2 patrol loops. Ending episode.");
                     EndEpisode();
                     return;
                 }
             }
         }
 
-        currentAction = "Patrolling";
         currentState = $"Moving to {patrolSystem.GetCurrentPatrolPointName()} (dist: {distanceToTarget:F1}m)";
+    }
+
+    private void ProcessIdleMovement(ActionBuffers actions)
+    {
+        currentState = "Idle";
+        currentAction = "Idle";
+        
+        float vertical = actions.ContinuousActions[0] - actions.ContinuousActions[1];
+        float horizontal = actions.ContinuousActions[2] - actions.ContinuousActions[3];
+        float rotation = actions.ContinuousActions[4];
+
+        Vector3 rawMovement = new Vector3(horizontal, 0, vertical);
+        
+        if (rawMovement.magnitude > 0.1f)
+        {
+            Vector3 adjustedMovement = ApplyObstacleAvoidance(rawMovement);
+            rl_EnemyController.movementSystem.ProcessRLMovement(adjustedMovement, rotation);
+            currentAction = "Manual Movement";
+        }
+        else
+        {
+            rl_EnemyController.movementSystem.StopMovement();
+        }
+    }
+
+    private Vector3 ApplyObstacleAvoidance(Vector3 desiredMovement)
+    {
+        if (desiredMovement.magnitude < 0.1f) return desiredMovement;
+
+        var obstacleInfo = rl_EnemyController.playerDetection.GetObstacleInfo();
+        Vector3 avoidanceDirection = Vector3.zero;
+        float avoidanceStrength = 0f;
+
+        if (obstacleInfo.hasObstacleAhead)
+        {
+            avoidanceDirection += -transform.forward * 1.2f;
+            avoidanceStrength = 0.8f;
+        }
+
+        if (obstacleInfo.hasObstacleLeft && !obstacleInfo.hasObstacleRight)
+        {
+            avoidanceDirection += transform.right * 0.8f;
+            avoidanceStrength = Mathf.Max(avoidanceStrength, 0.6f);
+        }
+        else if (obstacleInfo.hasObstacleRight && !obstacleInfo.hasObstacleLeft)
+        {
+            avoidanceDirection += -transform.right * 0.8f;
+            avoidanceStrength = Mathf.Max(avoidanceStrength, 0.6f);
+        }
+        else if (obstacleInfo.hasObstacleLeft && obstacleInfo.hasObstacleRight)
+        {
+            avoidanceDirection += -transform.forward * 1.0f;
+            avoidanceStrength = 0.9f;
+        }
+
+        if (avoidanceDirection.magnitude > 0.1f)
+        {
+            avoidanceDirection.Normalize();
+            Vector3 blendedMovement = Vector3.Lerp(desiredMovement, avoidanceDirection, avoidanceStrength);
+            return blendedMovement.normalized * desiredMovement.magnitude;
+        }
+
+        return desiredMovement;
     }
 
     private void ProcessAttackAction(ActionBuffers actions)
@@ -552,11 +610,6 @@ public class NormalEnemyAgent : Agent
         if (playerInRange && shouldAttack && canAttack)
         {
             ExecuteAttack();
-        }
-        else if (playerInRange)
-        {
-            currentAction = "Chasing";
-            rewardConfig.AddApproachPlayerReward(this, Time.deltaTime);
         }
 
         UpdateAnimationStates(playerInRange, canAttack);
@@ -579,13 +632,6 @@ public class NormalEnemyAgent : Agent
         }
 
         lastAttackTime = Time.fixedTime;
-        rewardConfig.AddAttackReward(this);
-
-        if (currentAction == "Chasing")
-        {
-            rewardConfig.AddChasePlayerReward(this);
-        }
-
         rl_EnemyController.AgentAttack();
         currentState = "Attacking";
         currentAction = "Attacking";
@@ -595,7 +641,7 @@ public class NormalEnemyAgent : Agent
     {
         if (animator == null || IsDead || rl_EnemyController == null) return;
 
-        bool isMoving = movementSystem.IsMoving();
+        bool isMoving = rl_EnemyController.movementSystem.IsMoving();
         bool shouldAttackAnim = playerInRange && canAttack && rl_EnemyController.combatState.IsAttacking;
 
         animator.SetBool("isWalking", isMoving && !IsAgentKnockedBack() && !shouldAttackAnim);
@@ -619,8 +665,7 @@ public class NormalEnemyAgent : Agent
             return;
         }
 
-        // Adjust animation speed based on movement speed
-        float currentSpeed = movementSystem.GetCurrentSpeed();
+        float currentSpeed = rl_EnemyController.movementSystem.GetCurrentSpeed();
         if (currentSpeed > 0.1f)
         {
             float speedRatio = currentSpeed / rl_EnemyController.moveSpeed;
@@ -643,18 +688,18 @@ public class NormalEnemyAgent : Agent
         {
             currentState = "Knocked Back";
             currentAction = "Recovering";
-            movementSystem.HandleKnockback();
+            rl_EnemyController.movementSystem.HandleKnockback();
         }
         else if (IsAgentFleeing())
         {
             currentState = "Fleeing";
             currentAction = "Fleeing";
             
-            if (playerDetection.IsPlayerAvailable())
+            if (rl_EnemyController.playerDetection.IsPlayerAvailable())
             {
-                Vector3 fleeDirection = (transform.position - playerDetection.GetPlayerPosition()).normalized;
-                Vector3 fleeTarget = transform.position + fleeDirection * 10f;
-                movementSystem.ProcessFleeMovement(fleeTarget);
+                Vector3 fleeDirection = (transform.position - rl_EnemyController.playerDetection.GetPlayerPosition()).normalized;
+                Vector3 fleeTarget = transform.position + fleeDirection;
+                rl_EnemyController.movementSystem.ProcessFleeMovement(fleeTarget);
             }
         }
     }
@@ -663,14 +708,12 @@ public class NormalEnemyAgent : Agent
     {
         float distanceMoved = Vector3.Distance(transform.position, lastFramePosition);
         
-        if (distanceMoved < STUCK_THRESHOLD && movementSystem.IsMoving())
+        if (distanceMoved < STUCK_THRESHOLD && rl_EnemyController.movementSystem.IsMoving())
         {
             stuckTimer += Time.fixedDeltaTime;
             if (stuckTimer > STUCK_TIME_LIMIT)
             {
-                // Apply anti-stuck behavior
-                rewardConfig.AddObstaclePunishment(this);
-                movementSystem.ApplyAntiStuckBehavior();
+                rl_EnemyController.movementSystem.ApplyAntiStuckBehavior();
                 stuckTimer = 0f;
             }
         }
@@ -680,226 +723,176 @@ public class NormalEnemyAgent : Agent
         }
     }
 
-    private void RespawnAtRandomLocation()
+    private void RotateTowardsTarget(Vector3 targetPosition)
     {
-        var patrolPoints = patrolSystem.GetPatrolPoints();
-        if (patrolPoints.Length == 0)
+        Vector3 directionToTarget = (targetPosition - transform.position);
+        directionToTarget.y = 0;
+        
+        if (directionToTarget.sqrMagnitude > 0.01f)
         {
-            Debug.LogWarning($"{gameObject.name} has no patrol points for respawning!");
-            return;
+            Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSmoothness * Time.fixedDeltaTime);
         }
-
-        int randomIndex = Random.Range(0, patrolPoints.Length);
-        Vector3 respawnPosition = patrolPoints[randomIndex].position;
-
-        Vector2 randomOffset = Random.insideUnitCircle * 0.5f;
-        respawnPosition += new Vector3(randomOffset.x, 0, randomOffset.y);
-
-        if (UnityEngine.AI.NavMesh.SamplePosition(respawnPosition, out UnityEngine.AI.NavMeshHit hit, 2f, UnityEngine.AI.NavMesh.AllAreas))
-        {
-            respawnPosition = hit.position;
-        }
-
-        Vector3 originalScale = transform.localScale;
-        movementSystem.WarpToPosition(respawnPosition);
-        transform.localScale = originalScale;
-
-        patrolSystem.ResetToSpecificPoint(randomIndex);
-        Debug.Log($"{gameObject.name} respawned at {patrolPoints[randomIndex].name}");
     }
     #endregion
 
-    #region Reward & Behavior Updates
-    private void UpdateBehaviorAndRewards()
+    #region Reward Processing - FIXED REWARD SYSTEM
+    private void ProcessRewards()
     {
-        UpdateDetectionAndBehavior();
-        ProcessRewards(Time.deltaTime);
-        debugDisplay.UpdateCumulativeReward(GetCumulativeReward());
+        bool shouldApplyTimedRewards = Time.fixedTime - lastRewardTime >= REWARD_INTERVAL;
+        
+        // Update player detection first
+        rl_EnemyController.playerDetection.UpdatePlayerDetection(transform.position);
+        
+        // Process state-based rewards
+        switch (currentBehaviorState)
+        {
+            case AgentBehaviorState.Chasing:
+                ProcessChaseRewards(shouldApplyTimedRewards);
+                break;
+            case AgentBehaviorState.Attacking:
+                // Attack rewards are handled in ExecuteAttack() - no continuous rewards needed
+                break;
+            case AgentBehaviorState.Patrolling:
+                ProcessPatrolRewards(shouldApplyTimedRewards);
+                break;
+            case AgentBehaviorState.Fleeing:
+                ProcessFleeRewards(shouldApplyTimedRewards);
+                break;
+            case AgentBehaviorState.Idle:
+                ProcessIdleRewards(shouldApplyTimedRewards);
+                break;
+        }
+
+        // Apply obstacle punishment only when actually hitting obstacles (reduced frequency)
+        var obstacleInfo = rl_EnemyController.playerDetection.GetObstacleInfo();
+        if ((obstacleInfo.hasObstacleAhead || obstacleInfo.hasObstacleLeft || obstacleInfo.hasObstacleRight) && shouldApplyTimedRewards)
+        {
+            rewardConfig.AddObstaclePunishment(this);
+        }
+
+        // State transition rewards (one-time only)
+        if (previousBehaviorState != currentBehaviorState)
+        {
+            ProcessStateTransitionRewards();
+        }
+
+        // Update patrol system for patrolling behavior
+        if (currentBehaviorState == AgentBehaviorState.Patrolling)
+        {
+            patrolSystem.UpdatePatrol(transform.position, navAgent, rewardConfig, this, shouldApplyTimedRewards ? Time.deltaTime : 0f);
+        }
+
+        if (shouldApplyTimedRewards)
+        {
+            lastRewardTime = Time.fixedTime;
+        }
     }
 
-    private void ProcessRewards(float deltaTime)
+    private void ProcessChaseRewards(bool shouldApply)
     {
-        if (IsAgentFleeing())
-        {
-            if (ShouldAgentFlee())
-            {
-                rewardConfig.AddFleeReward(this, deltaTime);
-            }
-            else
-            {
-                rewardConfig.AddFleeingPunishment(this, deltaTime);
-            }
-            return;
-        }
+        if (!shouldApply) return;
 
-        var obstacleInfo = playerDetection.GetObstacleInfo();
-        if (obstacleInfo.hasObstacleAhead || obstacleInfo.hasObstacleLeft || obstacleInfo.hasObstacleRight)
+        // Small continuous reward for chasing
+        rewardConfig.AddChasePlayerReward(this);
+        
+        // Distance-based reward (only if getting closer)
+        if (rl_EnemyController.playerDetection.IsPlayerAvailable())
         {
-            if (!hasObstaclePunishmentThisFrame)
-            {
-                rewardConfig.AddObstaclePunishment(this);
-                hasObstaclePunishmentThisFrame = true;
-            }
-        }
-        else
-        {
-            hasObstaclePunishmentThisFrame = false;
-        }
-
-        if (currentAction == "Chasing")
-        {
-            rewardConfig.AddChaseStepReward(this, deltaTime);
-            ProcessChaseRewards(deltaTime);
-        }
-        else if (currentAction == "Patrolling")
-        {
-            rewardConfig.AddPatrolStepReward(this, deltaTime);
-            
-            if (movementSystem.IsMoving())
-            {
-                AddReward(0.002f * deltaTime);
-            }
-
-            if (!obstacleInfo.hasObstacleAhead)
-            {
-                AddReward(0.001f * deltaTime);
-            }
-        }
-        else if (currentAction == "Idle" || currentAction == "Idling")
-        {
-            if (!patrolSystem.IsIdlingAtSpawn() && !movementSystem.IsMoving())
-            {
-                rewardConfig.AddIdlePunishment(this, deltaTime * 0.5f);
-            }
-        }
-
-        ProcessPlayerVisibilityRewards(deltaTime);
-        ProcessDistanceRewards(deltaTime);
-    }
-
-    private void ProcessChaseRewards(float deltaTime)
-    {
-        if (playerDetection.IsPlayerAvailable())
-        {
-            float currentDistance = playerDetection.GetDistanceToPlayer(transform.position);
+            float currentDistance = rl_EnemyController.playerDetection.GetDistanceToPlayer(transform.position);
             if (currentDistance < previousDistanceToPlayer)
-                rewardConfig.AddApproachPlayerReward(this, Time.deltaTime);
+            {
+                rewardConfig.AddChaseStepReward(this, Time.deltaTime);
+            }
             previousDistanceToPlayer = currentDistance;
         }
     }
 
-    private void ProcessPlayerVisibilityRewards(float deltaTime)
+    private void ProcessPatrolRewards(bool shouldApply)
     {
-        if (playerDetection.IsPlayerVisible && !currentAction.Contains("Chasing"))
-            rewardConfig.AddDoesntChasePlayerPunishment(this, Time.deltaTime);
-    }
+        if (!shouldApply) return;
 
-    private void ProcessDistanceRewards(float deltaTime)
-    {
-        if (playerDetection.IsPlayerAvailable() &&
-            playerDetection.GetDistanceToPlayer(transform.position) > 5f)
-            rewardConfig.AddStayFarFromPlayerPunishment(this, Time.deltaTime);
-    }
-
-    private void UpdateDetectionAndBehavior()
-    {
-        playerDetection.UpdatePlayerDetection(transform.position);
-
-        if (playerDetection.IsPlayerVisible)
+        // Only reward movement during patrol
+        if (rl_EnemyController.movementSystem.IsMoving())
         {
-            rewardConfig.AddDetectionReward(this, Time.deltaTime);
-            currentState = "Detecting";
-            currentAction = "Chasing";
+            rewardConfig.AddPatrolStepReward(this, Time.deltaTime);
+        }
+    }
+
+    private void ProcessFleeRewards(bool shouldApply)
+    {
+        if (!shouldApply) return;
+
+        if (ShouldAgentFlee())
+        {
+            rewardConfig.AddFleeReward(this, Time.deltaTime);
         }
         else
         {
-            UpdatePatrolBehavior();
-        }
-
-        if (!playerDetection.IsPlayerVisible)
-        {
-            patrolSystem.UpdatePatrol(transform.position, navAgent, rewardConfig, this, Time.deltaTime);
+            // Small punishment for unnecessary fleeing
+            rewardConfig.AddFleeingPunishment(this, Time.deltaTime);
         }
     }
 
-    private void UpdatePatrolBehavior()
+    private void ProcessIdleRewards(bool shouldApply)
     {
-        if (!patrolSystem.HasValidPatrolPoints())
+        if (!shouldApply) return;
+
+        // Only punish idle if not supposed to be idling at patrol point
+        if (!patrolSystem.IsIdlingAtSpawn() && !rl_EnemyController.movementSystem.IsMoving())
         {
-            currentAction = "Idle";
-            currentState = "No Patrol Points";
-            rewardConfig.AddIdlePunishment(this, Time.deltaTime * 0.2f);
-            return;
-        }
-
-        if (patrolSystem.IsIdlingAtSpawn())
-        {
-            currentAction = "Idling";
-            currentState = $"Idling at {patrolSystem.GetCurrentPatrolPointName()} ({patrolSystem.GetIdleTimeRemaining():F1}s remaining)";
-            return;
-        }
-
-        Vector3 currentTarget = patrolSystem.GetCurrentPatrolTarget();
-        float distanceToTarget = Vector3.Distance(transform.position, currentTarget);
-
-        if (distanceToTarget < 2f)
-        {
-            bool completedLoop = patrolSystem.AdvanceToNextWaypoint();
-            if (completedLoop)
-            {
-                rewardConfig.AddPatrolReward(this);
-                Debug.Log($"{gameObject.name} completed patrol loop {patrolSystem.PatrolLoopsCompleted}");
-
-                if (patrolSystem.PatrolLoopsCompleted >= 2)
-                {
-                    rewardConfig.AddPatrolReward(this);
-                    Debug.Log($"{gameObject.name} completed 2 patrol loops. Ending episode.");
-                    EndEpisode();
-                    return;
-                }
-            }
-
-            currentAction = patrolSystem.IsIdlingAtSpawn() ? "Idling" : "Patrolling";
-            currentState = patrolSystem.IsIdlingAtSpawn() ?
-                $"Starting idle at {patrolSystem.GetCurrentPatrolPointName()}" :
-                $"Reached {patrolSystem.GetCurrentPatrolPointName()}, moving to next";
-        }
-        else
-        {
-            currentAction = "Patrolling";
-            currentState = $"Moving to {patrolSystem.GetCurrentPatrolPointName()} (dist: {distanceToTarget:F1}m)";
-
-            if (!movementSystem.IsMoving())
-            {
-                rewardConfig.AddNoMovementPunishment(this, Time.deltaTime * 0.3f);
-            }
+            rewardConfig.AddIdlePunishment(this, Time.deltaTime);
         }
     }
 
+    private void ProcessStateTransitionRewards()
+    {
+        // One-time rewards for good state transitions
+        if (previousBehaviorState == AgentBehaviorState.Patrolling && currentBehaviorState == AgentBehaviorState.Chasing)
+        {
+            rewardConfig.AddDetectionReward(this, 0f); 
+        }
+        else if (previousBehaviorState == AgentBehaviorState.Chasing && currentBehaviorState == AgentBehaviorState.Attacking)
+        {
+            rewardConfig.AddApproachPlayerReward(this, 0f); 
+        }
+    }
+
+    // Event-based reward methods (called from external systems)
     public void HandleEnemyDeath()
     {
         rewardConfig.AddDeathPunishment(this);
         currentState = "Dead";
         currentAction = "Dead";
-        movementSystem.StopMovement();
-        Debug.Log($"{gameObject.name} died. Ending episode.");
+        currentBehaviorState = AgentBehaviorState.Idle;
+        rl_EnemyController.movementSystem.StopMovement();
         EndEpisode();
     }
 
     public void HandleDamage()
     {
         rewardConfig.AddDamagePunishment(this);
-        currentState = "Attacking";
-        currentAction = "Attacking";
+        currentState = "Taking Damage";
+        currentAction = "Reacting";
     }
 
     public void HandleKillPlayer()
     {
         rewardConfig.AddKillPlayerReward(this);
     }
-    #endregion  
 
-    #region Utility & Debug
+    public void HandleAttackHit()
+    {
+        rewardConfig.AddAttackReward(this);
+    }
+
+    public void HandlePatrolLoopComplete()
+    {
+        rewardConfig.AddPatrolReward(this);
+    }
+    #endregion
+
+    #region Utility Methods
     private float GetRotationInputHeuristic()
     {
         if (Input.GetKey(KeyCode.Q)) return -1f;
@@ -911,11 +904,13 @@ public class NormalEnemyAgent : Agent
         ((1 << collision.gameObject.layer) & obstacleMask) != 0;
 
     private bool IsPlayerInAttackRange() =>
-        playerDetection.IsPlayerAvailable() &&
-        movementSystem.IsPlayerInAttackRange(playerDetection.GetPlayerPosition());
+        rl_EnemyController.playerDetection.IsPlayerAvailable() &&
+        rl_EnemyController.movementSystem.IsPlayerInAttackRange(rl_EnemyController.playerDetection.GetPlayerPosition());
 
     public void SetPatrolPoints(Transform[] points) => patrolSystem?.SetPatrolPoints(points);
+    #endregion
 
+    #region Debug and Events
     void OnGUI()
     {
         if (showDebugInfo)
@@ -929,7 +924,7 @@ public class NormalEnemyAgent : Agent
     }
     #endregion
     
-    #region Enhanced Helper Classes
+    #region Helper Classes
     public class DebugDisplay
     {
         private float cumulativeReward;
@@ -960,457 +955,8 @@ public class NormalEnemyAgent : Agent
                             $"Reward: {cumulativeReward:F3}\n" +
                             $"Patrol Loops: {patrolLoops}";
             
-            GUI.Label(new Rect(offset.x, offset.y, 300, 150), debugText, labelStyle);
+            GUI.Label(new Rect(offset.x, offset.y, 300, 180), debugText, labelStyle);
         }
-    }
-
-    // Enhanced Player Detection using RayPerception3D for obstacle avoidance
-    public class EnhancedPlayerDetection
-    {
-        private readonly RayPerceptionSensorComponent3D raySensor;
-        private readonly LayerMask obstacleMask;
-        private Transform playerTransform;
-        private bool isPlayerVisible;
-        private float lastPlayerDistance;
-        private Vector3 lastPlayerPosition;
-        private float lastPlayerCheckTime;
-        private const float PLAYER_CHECK_INTERVAL = 0.5f;
-
-        // Obstacle detection data
-        private ObstacleInfo currentObstacleInfo;
-
-        public struct ObstacleInfo
-        {
-            public bool hasObstacleAhead;
-            public bool hasObstacleLeft;
-            public bool hasObstacleRight;
-            public float distanceAhead;
-            public float distanceLeft;
-            public float distanceRight;
-        }
-
-        public EnhancedPlayerDetection(RayPerceptionSensorComponent3D raySensor, LayerMask obstacleMask)
-        {
-            this.raySensor = raySensor;
-            this.obstacleMask = obstacleMask;
-            FindPlayerTransform();
-            currentObstacleInfo = new ObstacleInfo();
-        }
-
-        public void Reset()
-        {
-            isPlayerVisible = false;
-            lastPlayerDistance = float.MaxValue;
-            lastPlayerPosition = Vector3.zero;
-            currentObstacleInfo = new ObstacleInfo();
-            FindPlayerTransform();
-        }
-
-        public void UpdatePlayerDetection(Vector3 agentPosition)
-        {
-            isPlayerVisible = false;
-            UpdateObstacleDetection();
-
-            if (!IsPlayerAvailable() || playerTransform == null || !playerTransform.gameObject.activeInHierarchy)
-            {
-                if (Time.time - lastPlayerCheckTime > PLAYER_CHECK_INTERVAL)
-                {
-                    FindPlayerTransform();
-                    lastPlayerCheckTime = Time.time;
-                }
-                if (!IsPlayerAvailable()) return;
-            }
-
-            try
-            {
-                var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-
-                foreach (var rayOutput in rayOutputs.RayOutputs)
-                {
-                    if (rayOutput.HasHit && rayOutput.HitGameObject != null)
-                    {
-                        if (rayOutput.HitGameObject.CompareTag("Player"))
-                        {
-                            isPlayerVisible = true;
-                            lastPlayerDistance = rayOutput.HitFraction * raySensor.RayLength;
-                            
-                            if (playerTransform != null)
-                            {
-                                lastPlayerPosition = playerTransform.position;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (isPlayerVisible && playerTransform != null)
-                {
-                    float actualDistance = Vector3.Distance(agentPosition, playerTransform.position);
-                    if (actualDistance > raySensor.RayLength * 1.1f)
-                    {
-                        isPlayerVisible = false;
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"Player detection error: {e.Message}");
-                playerTransform = null;
-                isPlayerVisible = false;
-            }
-        }
-
-        private void UpdateObstacleDetection()
-        {
-            var rayOutputs = RayPerceptionSensor.Perceive(raySensor.GetRayPerceptionInput(), false);
-            
-            // Reset obstacle info
-            currentObstacleInfo = new ObstacleInfo
-            {
-                distanceAhead = float.MaxValue,
-                distanceLeft = float.MaxValue,
-                distanceRight = float.MaxValue
-            };
-
-            // Analyze ray outputs for obstacles
-            int rayCount = rayOutputs.RayOutputs.Length;
-            if (rayCount == 0) return;
-
-            // Calculate ray indices for different directions
-            int centerRayIndex = rayCount / 2;
-            int leftRayIndex = centerRayIndex - rayCount / 4;
-            int rightRayIndex = centerRayIndex + rayCount / 4;
-
-            // Ensure indices are within bounds
-            leftRayIndex = Mathf.Clamp(leftRayIndex, 0, rayCount - 1);
-            rightRayIndex = Mathf.Clamp(rightRayIndex, 0, rayCount - 1);
-
-            // Check for obstacles in each direction
-            CheckObstacleInDirection(rayOutputs.RayOutputs, centerRayIndex, ref currentObstacleInfo.hasObstacleAhead, ref currentObstacleInfo.distanceAhead);
-            CheckObstacleInDirection(rayOutputs.RayOutputs, leftRayIndex, ref currentObstacleInfo.hasObstacleLeft, ref currentObstacleInfo.distanceLeft);
-            CheckObstacleInDirection(rayOutputs.RayOutputs, rightRayIndex, ref currentObstacleInfo.hasObstacleRight, ref currentObstacleInfo.distanceRight);
-        }
-
-        private void CheckObstacleInDirection(RayPerceptionOutput.RayOutput[] rayOutputs, int rayIndex, ref bool hasObstacle, ref float distance)
-        {
-            if (rayIndex >= 0 && rayIndex < rayOutputs.Length)
-            {
-                var rayOutput = rayOutputs[rayIndex];
-                if (rayOutput.HasHit && rayOutput.HitGameObject != null)
-                {
-                    // Check if hit object is an obstacle (not player)
-                    if (((1 << rayOutput.HitGameObject.layer) & obstacleMask) != 0)
-                    {
-                        hasObstacle = true;
-                        distance = rayOutput.HitFraction * raySensor.RayLength;
-                    }
-                }
-            }
-        }
-
-        private void FindPlayerTransform()
-        {
-            playerTransform = null;
-            
-            var rlPlayer = Object.FindFirstObjectByType<RL_Player>();
-            if (rlPlayer != null && rlPlayer.gameObject.activeInHierarchy)
-            {
-                playerTransform = rlPlayer.transform;
-                return;
-            }
-
-            var playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj != null && playerObj.activeInHierarchy)
-            {
-                playerTransform = playerObj.transform;
-            }
-        }
-
-        public bool IsPlayerAvailable() 
-        {
-            return playerTransform != null && 
-                playerTransform.gameObject != null && 
-                playerTransform.gameObject.activeInHierarchy;
-        }
-        
-        public bool IsPlayerVisible => isPlayerVisible && IsPlayerAvailable();
-        
-        public Vector3 GetPlayerPosition() 
-        {
-            if (IsPlayerAvailable())
-            {
-                try
-                {
-                    Vector3 currentPos = playerTransform.position;
-                    lastPlayerPosition = currentPos;
-                    return currentPos;
-                }
-                catch (System.Exception)
-                {
-                    playerTransform = null;
-                }
-            }
-            
-            return lastPlayerPosition != Vector3.zero ? lastPlayerPosition : Vector3.zero;
-        }
-        
-        public Transform GetPlayerTransform() => IsPlayerAvailable() ? playerTransform : null;
-
-        public float GetDistanceToPlayer(Vector3 agentPosition)
-        {
-            if (!IsPlayerAvailable()) return float.MaxValue;
-
-            try
-            {
-                Vector3 playerPos = GetPlayerPosition();
-                
-                if (isPlayerVisible && lastPlayerDistance > 0)
-                {
-                    return lastPlayerDistance;
-                }
-
-                return Vector3.Distance(agentPosition, playerPos);
-            }
-            catch (System.Exception)
-            {
-                return float.MaxValue;
-            }
-        }
-
-        public ObstacleInfo GetObstacleInfo() => currentObstacleInfo;
-    }
-
-    // Unified Movement System to eliminate conflicts
-    public class UnifiedMovementSystem
-    {
-        private readonly NavMeshAgent navAgent;
-        private readonly Transform agentTransform;
-        private readonly float moveSpeed;
-        private readonly float turnSpeed;
-        private readonly float attackRange;
-        private readonly EnhancedPlayerDetection playerDetection;
-
-        private bool isRLControlled = false;
-        private Vector3 lastMovementDirection = Vector3.zero;
-        private float currentMovementSpeed = 0f;
-
-        public UnifiedMovementSystem(NavMeshAgent navAgent, Transform agentTransform, float moveSpeed, 
-            float turnSpeed, float attackRange, EnhancedPlayerDetection playerDetection)
-        {
-            this.navAgent = navAgent;
-            this.agentTransform = agentTransform;
-            this.moveSpeed = moveSpeed;
-            this.turnSpeed = turnSpeed;
-            this.attackRange = attackRange;
-            this.playerDetection = playerDetection;
-        }
-
-        public void ResetMovement()
-        {
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.velocity = Vector3.zero;
-                navAgent.isStopped = false;
-                navAgent.ResetPath();
-                navAgent.updateRotation = false; // Always let our system handle rotation
-            }
-            isRLControlled = false;
-            lastMovementDirection = Vector3.zero;
-            currentMovementSpeed = 0f;
-        }
-
-        public void ProcessRLMovement(Vector3 movement, float rotation, Vector3 targetPosition = default)
-        {
-            isRLControlled = true;
-            
-            // Stop NavMesh pathfinding when RL takes control
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.ResetPath();
-                navAgent.isStopped = true;
-            }
-
-            // Apply movement
-            if (movement.magnitude > 0.1f)
-            {
-                Vector3 worldMovement = agentTransform.TransformDirection(movement).normalized;
-                Vector3 targetPos = agentTransform.position + worldMovement * moveSpeed * Time.fixedDeltaTime;
-                
-                // Validate movement target
-                if (UnityEngine.AI.NavMesh.SamplePosition(targetPos, out UnityEngine.AI.NavMeshHit hit, 1f, UnityEngine.AI.NavMesh.AllAreas))
-                {
-                    agentTransform.position = Vector3.MoveTowards(agentTransform.position, hit.position, moveSpeed * Time.fixedDeltaTime);
-                    currentMovementSpeed = moveSpeed;
-                }
-                
-                lastMovementDirection = worldMovement;
-            }
-            else
-            {
-                currentMovementSpeed = 0f;
-            }
-
-            // Apply rotation
-            if (targetPosition != default)
-            {
-                // Rotate towards target
-                Vector3 direction = (targetPosition - agentTransform.position);
-                direction.y = 0;
-                
-                if (direction.sqrMagnitude > 0.01f)
-                {
-                    Quaternion targetRotation = Quaternion.LookRotation(direction);
-                    agentTransform.rotation = Quaternion.Slerp(
-                        agentTransform.rotation,
-                        targetRotation,
-                        turnSpeed * Time.fixedDeltaTime
-                    );
-                }
-            }
-            else if (Mathf.Abs(rotation) > 0.1f)
-            {
-                // Manual rotation input
-                agentTransform.Rotate(0, rotation * turnSpeed * Time.fixedDeltaTime, 0);
-            }
-        }
-
-        public void ProcessNavMeshMovement(Vector3 targetPosition)
-        {
-            isRLControlled = false;
-            
-            if (navAgent != null && navAgent.enabled && navAgent.isOnNavMesh)
-            {
-                navAgent.isStopped = false;
-                navAgent.speed = moveSpeed;
-                navAgent.SetDestination(targetPosition);
-                
-                // Handle rotation manually even for NavMesh movement
-                Vector3 direction = (targetPosition - agentTransform.position);
-                direction.y = 0;
-                
-                if (direction.sqrMagnitude > 0.01f)
-                {
-                    Quaternion targetRotation = Quaternion.LookRotation(direction);
-                    agentTransform.rotation = Quaternion.Slerp(
-                        agentTransform.rotation,
-                        targetRotation,
-                        turnSpeed * Time.fixedDeltaTime
-                    );
-                }
-                
-                currentMovementSpeed = navAgent.velocity.magnitude;
-            }
-        }
-
-        public void ProcessFleeMovement(Vector3 fleeTarget)
-        {
-            if (UnityEngine.AI.NavMesh.SamplePosition(fleeTarget, out UnityEngine.AI.NavMeshHit hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
-            {
-                if (navAgent != null && navAgent.enabled)
-                {
-                    navAgent.isStopped = false;
-                    navAgent.SetDestination(hit.position);
-                    navAgent.speed = moveSpeed * 1.5f; // Faster flee speed
-                    
-                    // Face flee direction
-                    Vector3 fleeDirection = (hit.position - agentTransform.position);
-                    fleeDirection.y = 0;
-                    
-                    if (fleeDirection.sqrMagnitude > 0.01f)
-                    {
-                        Quaternion targetRotation = Quaternion.LookRotation(fleeDirection);
-                        agentTransform.rotation = Quaternion.Slerp(
-                            agentTransform.rotation,
-                            targetRotation,
-                            turnSpeed * 2f * Time.fixedDeltaTime // Faster rotation during flee
-                        );
-                    }
-                }
-            }
-            currentMovementSpeed = navAgent != null ? navAgent.velocity.magnitude : 0f;
-        }
-
-        public void HandleKnockback()
-        {
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.isStopped = true;
-                navAgent.ResetPath();
-            }
-            currentMovementSpeed = 0f;
-        }
-
-        public void StopMovement()
-        {
-            isRLControlled = false;
-            if (navAgent != null && navAgent.enabled)
-            {
-                navAgent.isStopped = true;
-                navAgent.ResetPath();
-                navAgent.velocity = Vector3.zero;
-            }
-            currentMovementSpeed = 0f;
-        }
-
-        public void ApplyMovementInfluence(Vector3 movement)
-        {
-            // Allow RL to influence NavMesh movement
-            if (navAgent != null && navAgent.enabled && movement.magnitude > 0.1f)
-            {
-                Vector3 currentDestination = navAgent.destination;
-                Vector3 influence = agentTransform.TransformDirection(movement) * 2f;
-                Vector3 newDestination = currentDestination + influence;
-                
-                if (UnityEngine.AI.NavMesh.SamplePosition(newDestination, out UnityEngine.AI.NavMeshHit hit, 3f, UnityEngine.AI.NavMesh.AllAreas))
-                {
-                    navAgent.SetDestination(hit.position);
-                }
-            }
-        }
-
-        public void ApplyAntiStuckBehavior()
-        {
-            // Apply random movement to get unstuck
-            Vector3 randomDirection = Random.insideUnitSphere;
-            randomDirection.y = 0;
-            randomDirection.Normalize();
-            
-            Vector3 unstuckTarget = agentTransform.position + randomDirection * 3f;
-            
-            if (UnityEngine.AI.NavMesh.SamplePosition(unstuckTarget, out UnityEngine.AI.NavMeshHit hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
-            {
-                if (navAgent != null && navAgent.enabled)
-                {
-                    navAgent.isStopped = false;
-                    navAgent.SetDestination(hit.position);
-                }
-            }
-        }
-
-        public void WarpToPosition(Vector3 position)
-        {
-            if (navAgent != null)
-            {
-                navAgent.enabled = false;
-                agentTransform.position = position;
-                navAgent.enabled = true;
-                
-                if (navAgent.isOnNavMesh)
-                {
-                    navAgent.Warp(position);
-                }
-            }
-            else
-            {
-                agentTransform.position = position;
-            }
-        }
-
-        public bool IsPlayerInAttackRange(Vector3 playerPosition) =>
-            Vector3.SqrMagnitude(agentTransform.position - playerPosition) <= attackRange * attackRange;
-
-        public bool IsMoving() => currentMovementSpeed > 0.1f;
-        public float GetCurrentSpeed() => currentMovementSpeed;
     }
     #endregion
 }

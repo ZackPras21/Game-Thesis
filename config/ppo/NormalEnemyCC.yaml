@@ -1,7 +1,7 @@
 behaviors:
   NormalEnemy:
     trainer_type: ppo
-    max_steps: 1000000         
+    max_steps: 15000000         
     time_horizon: 256           
     summary_freq: 10000
     threaded: true

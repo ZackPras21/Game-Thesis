@@ -811,8 +811,8 @@ Transform:
   m_GameObject: {fileID: 7463465916216528784}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.0165, y: -0, z: 0.0127}
-  m_LocalScale: {x: 2.1819098, y: 1.2298999, z: 1.3059562}
+  m_LocalPosition: {x: 0.053051, y: -0.0000000034418, z: 0.0127}
+  m_LocalScale: {x: 2.4963229, y: 1.2298999, z: 1.3059562}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 8906478605765353547}
@@ -1620,7 +1620,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 0
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 4
   m_CollisionDetection: 2
@@ -1739,7 +1739,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 10
+    VectorObservationSize: 12
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 5
@@ -1781,8 +1781,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 648
   useRLMovement: 1
-  obstacleAvoidanceWeight: 0.7
-  rotationSmoothness: 5
+  rotationSmoothness: 8
   showDebugInfo: 0
   debugTextOffset: {x: 10, y: 10}
   debugTextColor: {r: 0.79622644, g: 0, b: 0.740533, a: 1}
