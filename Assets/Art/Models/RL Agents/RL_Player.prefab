@@ -717,7 +717,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   isRL_TrainingTarget: 1
-  maxHealth: 30
+  maxHealth: 20
   attackInterval: 8
   attackDamage: 80
   attackRange: 1.5

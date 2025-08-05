@@ -452,7 +452,7 @@ public sealed class NormalEnemyActions
         // FIXED: Smooth rotation towards target
         public void FaceTarget(Vector3 targetPosition)
         {
-            Vector3 direction = (targetPosition - agentTransform.position);
+            Vector3 direction = targetPosition - agentTransform.position;
             direction.y = 0; // Keep rotation on Y-axis only
             
             if (direction.sqrMagnitude > 0.01f) // Use sqrMagnitude for better performance

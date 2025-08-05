@@ -122,32 +122,65 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         {
             Vector3 spawnPosition = spawnPositions[i];
 
-            // Double-check position validity
             if (IsPositionValidInArena(spawnPosition, bounds, arenaIndex))
             {
-                GameObject enemy = Instantiate(prefab, spawnPosition, Quaternion.identity, arena.spawnParent);
+                // FIXED: Store original transform data before instantiation
+                Vector3 originalScale = prefab.transform.localScale;
+                Quaternion originalRotation = prefab.transform.rotation;
+                
+                // FIXED: Instantiate without parent first to preserve scale
+                GameObject enemy = Instantiate(prefab, spawnPosition, originalRotation);
+                
+                // FIXED: Set parent after instantiation and force scale preservation
+                enemy.transform.SetParent(arena.spawnParent, true);
+                enemy.transform.localScale = originalScale;
+                enemy.transform.position = spawnPosition; // Ensure position is maintained
+                
+                // FIXED: Initialize NormalEnemyAgent with proper patrol points
+                NormalEnemyAgent enemyAgent = enemy.GetComponent<NormalEnemyAgent>();
+                if (enemyAgent != null)
+                {
+                    Transform[] arenaPatrolPoints = GetArenaPatrolPointsArray(arena);
+                    enemyAgent.SetPatrolPoints(arenaPatrolPoints);
+                    
+                    // FIXED: Force agent initialization after spawning
+                    if (!enemyAgent.enabled)
+                    {
+                        enemyAgent.enabled = true;
+                    }
+                }
+                
                 arenaEnemies[arenaIndex].Add(enemy);
                 successfulSpawns++;
 
                 if (debugSpawning)
                 {
-                    Debug.Log($"Spawned {prefab.name} #{successfulSpawns} in Arena {arenaIndex} at {spawnPosition}");
+                    Debug.Log($"Spawned {prefab.name} #{successfulSpawns} in Arena {arenaIndex} at {spawnPosition} with preserved scale {originalScale}");
                 }
 
                 yield return new WaitForSeconds(spawnInterval);
             }
-            else
-            {
-                
-            }
-
         }
 
-        // Fallback for any remaining enemies
         if (successfulSpawns < count)
         {
             yield return StartCoroutine(SpawnRemainingEnemiesRandomly(prefab, count - successfulSpawns, bounds, arena, arenaIndex));
         }
+    }
+    
+    private Transform[] GetArenaPatrolPointsArray(ArenaConfiguration arena)
+    {
+        List<Transform> points = new List<Transform>();
+        
+        if (arena.patrolPointA != null) points.Add(arena.patrolPointA);
+        if (arena.patrolPointB != null) points.Add(arena.patrolPointB);
+        if (arena.patrolPointC != null) points.Add(arena.patrolPointC);
+        if (arena.patrolPointD != null) points.Add(arena.patrolPointD);
+        
+        // Sort by name to ensure A->B->C->D order
+        points.Sort((x, y) => string.Compare(x.name, y.name));
+        
+        return points.ToArray();
     }
 
     private List<Vector3> GenerateGridSpawnPositions(ArenaConfiguration arena, int count, int arenaIndex)
@@ -162,12 +195,12 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         }
 
         int enemiesPerPatrol = Mathf.CeilToInt((float)count / patrolPoints.Count);
-        
+
         foreach (Vector3 patrolPoint in patrolPoints)
         {
             List<Vector3> patrolPositions = GeneratePositionsAroundPatrolPoint(patrolPoint, enemiesPerPatrol, arenaIndex);
             positions.AddRange(patrolPositions);
-            
+
             if (positions.Count >= count) break;
         }
 
@@ -184,9 +217,8 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
     {
         List<Vector3> positions = new List<Vector3>();
         
-        // Create a grid pattern around the patrol point with better spacing
         int gridSize = Mathf.CeilToInt(Mathf.Sqrt(maxEnemies));
-        float spacing = minSpawnDistance * 1.5f; // Increased spacing
+        float spacing = minSpawnDistance * 1.2f; // Reduced spacing for better density
         Vector3 startOffset = new Vector3(-(gridSize - 1) * spacing * 0.5f, 0, -(gridSize - 1) * spacing * 0.5f);
 
         for (int x = 0; x < gridSize && positions.Count < maxEnemies; x++)
@@ -196,26 +228,32 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
                 Vector3 gridOffset = new Vector3(x * spacing, 0, z * spacing) + startOffset;
                 Vector3 candidatePosition = patrolPoint + gridOffset;
                 
-                // Add random variation but keep further from walls
+                // FIXED: Minimal random variation to stay within bounds
                 candidatePosition += new Vector3(
-                    Random.Range(-0.2f, 0.2f),
+                    Random.Range(-0.05f, 0.05f),
                     0,
-                    Random.Range(-0.2f, 0.2f)
+                    Random.Range(-0.05f, 0.05f)
                 );
 
-                // Ensure position is within patrol point spawn radius but not too close to walls
+                // FIXED: Strict radius control for patrol point spawning
                 Vector3 directionFromPatrol = (candidatePosition - patrolPoint);
-                float maxRadius = patrolPointSpawnRadius * 0.8f; // Keep inside radius with margin
+                float maxRadius = patrolPointSpawnRadius * 0.6f; // Reduced to 60% for tighter control
                 
                 if (directionFromPatrol.magnitude > maxRadius)
                 {
                     candidatePosition = patrolPoint + directionFromPatrol.normalized * maxRadius;
                 }
 
-                // Additional check: make sure we're not too close to obstacles
-                if (!Physics.CheckSphere(candidatePosition, 1.2f, obstacleLayerMask))
+                // FIXED: Ensure position is on NavMesh and validate properly
+                if (UnityEngine.AI.NavMesh.SamplePosition(candidatePosition, out UnityEngine.AI.NavMeshHit hit, 2f, UnityEngine.AI.NavMesh.AllAreas))
                 {
-                    positions.Add(candidatePosition);
+                    // Use the NavMesh sampled position for accuracy
+                    Vector3 navMeshPosition = hit.position;
+                    
+                    if (!Physics.CheckSphere(navMeshPosition, 0.8f, obstacleLayerMask))
+                    {
+                        positions.Add(navMeshPosition);
+                    }
                 }
             }
         }
@@ -235,13 +273,37 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             
             if (spawnPosition != Vector3.positiveInfinity)
             {
-                GameObject enemy = Instantiate(prefab, spawnPosition, Quaternion.identity, arena.spawnParent);
+                // FIXED: Same scale preservation as main spawning method
+                Vector3 originalScale = prefab.transform.localScale;
+                Quaternion originalRotation = prefab.transform.rotation;
+                
+                // FIXED: Instantiate without parent first
+                GameObject enemy = Instantiate(prefab, spawnPosition, originalRotation);
+                
+                // FIXED: Set parent and preserve scale
+                enemy.transform.SetParent(arena.spawnParent, true);
+                enemy.transform.localScale = originalScale;
+                enemy.transform.position = spawnPosition;
+                
+                // FIXED: Initialize agent properly
+                NormalEnemyAgent enemyAgent = enemy.GetComponent<NormalEnemyAgent>();
+                if (enemyAgent != null)
+                {
+                    Transform[] arenaPatrolPoints = GetArenaPatrolPointsArray(arena);
+                    enemyAgent.SetPatrolPoints(arenaPatrolPoints);
+                    
+                    if (!enemyAgent.enabled)
+                    {
+                        enemyAgent.enabled = true;
+                    }
+                }
+                
                 arenaEnemies[arenaIndex].Add(enemy);
                 successfulSpawns++;
                 
                 if (debugSpawning)
                 {
-                    Debug.Log($"Spawned remaining {prefab.name} #{successfulSpawns} in Arena {arenaIndex} at {spawnPosition}");
+                    Debug.Log($"Spawned remaining {prefab.name} #{successfulSpawns} in Arena {arenaIndex} at {spawnPosition} with preserved scale {originalScale}");
                 }
                 
                 yield return new WaitForSeconds(spawnInterval);
@@ -355,21 +417,48 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
     private Vector3 GenerateRandomPosition(ArenaBounds bounds)
     {
-        float x = Random.Range(bounds.minX, bounds.maxX);
-        float z = Random.Range(bounds.minZ, bounds.maxZ);
-        return new Vector3(x, 1f, z);
+        float margin = 2f;
+        float x = Random.Range(bounds.minX + margin, bounds.maxX - margin);
+        float z = Random.Range(bounds.minZ + margin, bounds.maxZ - margin);
+        
+        // FIXED: Use proper Y coordinate from arena, not hardcoded 1f
+        float y = (bounds.minY + bounds.maxY) * 0.5f; // Use average Y from bounds
+        
+        Vector3 position = new Vector3(x, y, z);
+        
+        // FIXED: Ensure position is on NavMesh
+        if (UnityEngine.AI.NavMesh.SamplePosition(position, out UnityEngine.AI.NavMeshHit hit, 5f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            return hit.position;
+        }
+        
+        return position;
     }
 
     private bool IsPositionValidInArena(Vector3 position, ArenaBounds bounds, int arenaIndex)
     {
-        // Check bounds
-        if (position.x < bounds.minX || position.x > bounds.maxX || 
-            position.z < bounds.minZ || position.z > bounds.maxZ)
+        // FIXED: Calculate dynamic margin based on arena size
+        float arenaSizeX = bounds.maxX - bounds.minX;
+        float arenaSizeZ = bounds.maxZ - bounds.minZ;
+        float dynamicMargin = Mathf.Min(arenaSizeX, arenaSizeZ) * 0.1f; // 10% of smaller dimension
+        dynamicMargin = Mathf.Clamp(dynamicMargin, 1f, 3f); // Clamp between 1-3 units
+        
+        // Check bounds with dynamic margin
+        if (position.x < bounds.minX + dynamicMargin || position.x > bounds.maxX - dynamicMargin || 
+            position.z < bounds.minZ + dynamicMargin || position.z > bounds.maxZ - dynamicMargin)
+        {
+            if (debugSpawning)
+                Debug.Log($"Position {position} outside arena bounds with margin {dynamicMargin}");
             return false;
+        }
 
-        // Check for obstacles using a slightly larger radius
-        if (Physics.CheckSphere(position, 0.7f, obstacleLayerMask))
+        // FIXED: Reduced obstacle check radius to prevent over-conservative spawning
+        if (Physics.CheckSphere(position, 0.8f, obstacleLayerMask))
+        {
+            if (debugSpawning)
+                Debug.Log($"Position {position} has obstacle collision");
             return false;
+        }
 
         // Check distance from existing enemies in this arena
         if (arenaEnemies.ContainsKey(arenaIndex))
@@ -383,17 +472,29 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             }
         }
 
+        // FIXED: NavMesh validation with proper radius
+        if (!UnityEngine.AI.NavMesh.SamplePosition(position, out UnityEngine.AI.NavMeshHit hit, 1.5f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            if (debugSpawning)
+                Debug.Log($"Position {position} not on NavMesh");
+            return false;
+        }
+
         return true;
     }
 
     private ArenaBounds CalculateArenaBounds(ArenaConfiguration arena)
     {
+        Vector3[] corners = { arena.corner1.position, arena.corner2.position, arena.corner3.position, arena.corner4.position };
+        
         return new ArenaBounds
         {
-            minX = Mathf.Min(arena.corner1.position.x, arena.corner2.position.x, arena.corner3.position.x, arena.corner4.position.x),
-            maxX = Mathf.Max(arena.corner1.position.x, arena.corner2.position.x, arena.corner3.position.x, arena.corner4.position.x),
-            minZ = Mathf.Min(arena.corner1.position.z, arena.corner2.position.z, arena.corner3.position.z, arena.corner4.position.z),
-            maxZ = Mathf.Max(arena.corner1.position.z, arena.corner2.position.z, arena.corner3.position.z, arena.corner4.position.z)
+            minX = corners.Min(c => c.x),
+            maxX = corners.Max(c => c.x),
+            minY = corners.Min(c => c.y),
+            maxY = corners.Max(c => c.y),
+            minZ = corners.Min(c => c.z),
+            maxZ = corners.Max(c => c.z)
         };
     }
 
@@ -499,6 +600,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
 
     private struct ArenaBounds
     {
-        public float minX, maxX, minZ, maxZ;
+        public float minX, maxX, minY, maxY, minZ, maxZ;
     }
 }

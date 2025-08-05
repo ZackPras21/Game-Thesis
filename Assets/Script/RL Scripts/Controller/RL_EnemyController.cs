@@ -410,46 +410,8 @@ public class RL_EnemyController : MonoBehaviour
 
         if (fleeState.IsFleeing)
         {
-            // Fleeing movement is handled in HandleFleeingBehavior
             return;
         }
-
-        if (!playerTracking.IsInRange && HasValidWaypoints())
-            ExecuteWaypointMovement();
-        else if (!combatState.IsAttacking)
-            SetAnimationState(idle: true);
-    }
-
-    private void ExecuteWaypointMovement()
-    {
-        if (waypointNavigation.IsPatrolling)
-        {
-            MoveToCurrentWaypoint();
-        }
-        else if (waypointNavigation.WaitTime <= 0)
-        {
-            waypointNavigation.SetPatrolling(true);
-        }
-        else
-        {
-            waypointNavigation.DecrementWaitTime();
-        }
-    }
-
-    private void MoveToCurrentWaypoint()
-    {
-        var targetPosition = waypointNavigation.GetCurrentWaypointPosition();
-        var movementDirection = CalculateMovementDirection(targetPosition);
-
-        RotateTowardsTarget(targetPosition);
-        ExecuteMovement(movementDirection);
-        CheckWaypointReached(targetPosition);
-    }
-
-    private Vector3 CalculateMovementDirection(Vector3 targetPosition)
-    {
-        var direction = (targetPosition - transform.position).normalized;
-        return ApplyObstacleAvoidance(direction);
     }
 
     private Vector3 ApplyObstacleAvoidance(Vector3 direction)
@@ -460,12 +422,6 @@ public class RL_EnemyController : MonoBehaviour
             return (direction + avoidanceDirection * 0.7f).normalized;
         }
         return direction;
-    }
-
-    private void ExecuteMovement(Vector3 direction)
-    {
-        var newPosition = transform.position + direction * moveSpeed * Time.deltaTime;
-        rigidBody.MovePosition(newPosition);
     }
 
     private IEnumerator ExecuteKnockbackMovement(Vector3 direction)
@@ -492,12 +448,6 @@ public class RL_EnemyController : MonoBehaviour
             elapsed += Time.deltaTime;
             yield return null;
         }
-    }
-
-    private void CheckWaypointReached(Vector3 targetPosition)
-    {
-        if (Vector3.Distance(transform.position, targetPosition) < waypointThreshold)
-            waypointNavigation.MoveToNextWaypoint();
     }
 
     private void RotateTowardsTarget(Vector3 targetPosition)
