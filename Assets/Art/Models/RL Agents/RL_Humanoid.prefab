@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 2533707441511333959}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.43, y: 1.15, z: -0.2}
-  m_LocalScale: {x: 2, y: 1.1897036, z: 2.673359}
+  m_LocalPosition: {x: 0.43, y: 1.15, z: -0.1549}
+  m_LocalScale: {x: 2, y: 1.1897036, z: 1.5741539}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 543896707441329936}
@@ -122,8 +122,8 @@ Transform:
   m_GameObject: {fileID: 2780053255438254653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.0038, y: 0.00481, z: 0.0099}
-  m_LocalScale: {x: 1.9253, y: 1.0141286, z: 1.1963558}
+  m_LocalPosition: {x: 0.0038, y: 0.0017775, z: 0.0099}
+  m_LocalScale: {x: 1.9253, y: 1.0441172, z: 1.1963558}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -1305,18 +1305,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fleeHealthThreshold: 0.2
-  fleeSpeed: 5
-  fleeDistance: 8
+  fleeDistance: 4
   fleeDetectionRadius: 10
+  fleeDuration: 3
   healthBar: {fileID: 8359980924510194894}
   attackCollider: {fileID: 7083142781546743490}
-  rotationSpeed: 5
-  moveSpeed: 2
-  waypointThreshold: 0.5
   waypoints: []
-  obstacleMask:
-    serializedVersion: 2
-    m_Bits: 640
   startWaitTime: 4
   animator: {fileID: 2030732665317957927}
   lootManager: {fileID: 4215898573996737307}
@@ -1365,7 +1359,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 0
+  m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 4
@@ -1400,12 +1394,12 @@ NavMeshAgent:
   m_GameObject: {fileID: 920880024737537450}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
+  m_Radius: 1
+  m_Speed: 7
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 0.5
+  m_StoppingDistance: 0.4
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -1507,12 +1501,11 @@ MonoBehaviour:
   rewardConfig: {fileID: 7144006557691622317}
   animator: {fileID: 2030732665317957927}
   agentRigidbody: {fileID: 8622400069896116343}
-  moveSpeed: 3.5
+  moveSpeed: 7
   rotationSpeed: 120
-  maxVelocity: 10
   showDebugInfo: 0
   debugTextOffset: {x: 10, y: 120}
-  debugTextColor: {r: 1, g: 0.60103625, b: 0, a: 1}
+  debugTextColor: {r: 0.6830188, g: 0.3282428, b: 0.0502598, a: 1}
   debugFontSize: 14
 --- !u!114 &5817866243050837834
 MonoBehaviour:

@@ -1,0 +1,29 @@
+{
+    "NormalEnemy": {
+        "checkpoints": [
+            {
+                "steps": 42121,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.onnx",
+                "reward": null,
+                "creation_time": 1754543465.4989927,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 42121,
+            "file_path": "results\\NormalEnemyRunTest\\NormalEnemy.onnx",
+            "reward": null,
+            "creation_time": 1754543465.4989927,
+            "auxillary_file_paths": [
+                "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.7.0+cpu"
+    }
+}

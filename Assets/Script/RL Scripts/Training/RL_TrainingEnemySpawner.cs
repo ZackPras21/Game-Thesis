@@ -68,11 +68,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             yield return StartCoroutine(SpawnEnemiesInArena(arenas[i], i));
             yield return new WaitForSeconds(0.1f); // Small delay between arenas
         }
-        
-        if (debugSpawning)
-        {
-            LogSpawningResults();
-        }
     }
 
     public void RespawnAllArenas()
@@ -448,7 +443,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             position.z < bounds.minZ + dynamicMargin || position.z > bounds.maxZ - dynamicMargin)
         {
             if (debugSpawning)
-                Debug.Log($"Position {position} outside arena bounds with margin {dynamicMargin}");
             return false;
         }
 
@@ -456,7 +450,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         if (Physics.CheckSphere(position, 0.8f, obstacleLayerMask))
         {
             if (debugSpawning)
-                Debug.Log($"Position {position} has obstacle collision");
             return false;
         }
 
@@ -476,7 +469,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
         if (!UnityEngine.AI.NavMesh.SamplePosition(position, out UnityEngine.AI.NavMeshHit hit, 1.5f, UnityEngine.AI.NavMesh.AllAreas))
         {
             if (debugSpawning)
-                Debug.Log($"Position {position} not on NavMesh");
             return false;
         }
 
@@ -526,23 +518,6 @@ public class RL_TrainingEnemySpawner : MonoBehaviour
             if (obj != null) DestroyImmediate(obj);
         }
         objects.Clear();
-    }
-
-
-    private void LogSpawningResults()
-    {
-        for (int i = 0; i < arenas.Length; i++)
-        {
-            int enemyCount = arenaEnemies.ContainsKey(i) ? arenaEnemies[i].Count : 0;
-            int expectedCount = arenas[i].creepCount + arenas[i].humanoidCount + arenas[i].bullCount;
-            
-            Debug.Log($"Arena {i}: Spawned {enemyCount}/{expectedCount} enemies");
-            
-            if (enemyCount != expectedCount)
-            {
-                Debug.LogWarning($"Arena {i} spawn count mismatch! Expected: {expectedCount}, Actual: {enemyCount}");
-            }
-        }
     }
 
     // Debug visualization

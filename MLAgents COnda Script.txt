@@ -4,6 +4,7 @@ conda activate mlagents
 
 mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRun1
 
+mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRunTest
 tambah :
 
 mlagents-learn config/ppo/NormalEnemyCC.yaml --run-id=NormalEnemyRun1 --torch-device=cuda

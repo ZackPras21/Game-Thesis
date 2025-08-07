@@ -6,18 +6,14 @@ public class RL_EnemyController : MonoBehaviour
     #region Serialized Fields
     [Header("Combat Configuration")]
     [SerializeField] private float fleeHealthThreshold = 0.2f;
-    [SerializeField] private float fleeSpeed = 5f;
     [SerializeField] private float fleeDistance = 8f;
     [SerializeField] private float fleeDetectionRadius = 10f;
+    [SerializeField] private float fleeDuration = 3f;
     [SerializeField] private HealthBar healthBar;
     [SerializeField] private BoxCollider attackCollider;
 
     [Header("Movement Configuration")]
-    [SerializeField] public float rotationSpeed = 5f;
-    [SerializeField] public float moveSpeed = 3f;
-    [SerializeField] private float waypointThreshold = 0.5f;
     [SerializeField] public Transform[] waypoints; 
-    [SerializeField] private LayerMask obstacleMask;
     [SerializeField] private float startWaitTime = 4f;
 
     [Header("Component References")]
@@ -33,6 +29,7 @@ public class RL_EnemyController : MonoBehaviour
     public bool IsInitialized { get; private set; }
     public CombatState combatState; 
     public HealthState healthState;
+    public NormalEnemyActions.FleeState fleeState;
     public int enemyHP;
     public float attackRange = 3f; 
     #endregion
@@ -42,8 +39,8 @@ public class RL_EnemyController : MonoBehaviour
     private WaypointNavigationState waypointNavigation;
     private EnemyStatDisplay statDisplay;
     private Rigidbody rigidBody;
-    private NormalEnemyActions.FleeState fleeState;
     private KnockbackState knockbackState;
+    private NormalEnemyAgent agent;
 
     private const float ATTACK_DURATION = 1f;
     private const float ATTACK_COOLDOWN = 2f;
@@ -60,18 +57,25 @@ public class RL_EnemyController : MonoBehaviour
         if (!IsInitialized) return;
 
         knockbackState.UpdateKnockback();
-        fleeState.UpdateTimer(); // FIX: Update flee timer
+        fleeState.UpdateTimer();
         UpdatePlayerTracking();
-        
-        if (ShouldFlee())
+
+        // Handle fleeing with time limit
+        if (fleeState.IsFleeing)
+        {
             HandleFleeingBehavior();
+        }
+        else if (ShouldFlee())
+        {
+            InitiateFlee();
+        }
         else if (!knockbackState.IsKnockedBack)
         {
             HandleCombatBehavior();
-            HandleMovementBehavior();
         }
-        
+
         UpdateAnimationStates();
+        if (GetComponent<NormalEnemyAgent>()?.enabled == true) return;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -92,7 +96,7 @@ public class RL_EnemyController : MonoBehaviour
         }
     }
 
-    private void OnEnable() => RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
+    private void OnEnable()  => RL_Player.OnPlayerDestroyed += HandlePlayerDestroyed;
     private void OnDisable() => RL_Player.OnPlayerDestroyed -= HandlePlayerDestroyed;
     #endregion
 
@@ -144,7 +148,6 @@ public class RL_EnemyController : MonoBehaviour
 
     private EnemyData CreateDefaultEnemyData()
     {
-        Debug.LogError($"Failed to get enemy data for type: {enemyType}", gameObject);
         var defaultData = ScriptableObject.CreateInstance<EnemyData>();
         defaultData.enemyHealth = 100;
         defaultData.enemyAttack = 10;
@@ -203,10 +206,6 @@ public class RL_EnemyController : MonoBehaviour
 
             if (combatState.CanAttack && !ShouldFlee())
                 StartCoroutine(ExecuteAttackSequence());
-        }
-        else if (!combatState.IsAttacking)
-        {
-            SetAnimationState(idle: true);
         }
     }
 
@@ -276,11 +275,28 @@ public class RL_EnemyController : MonoBehaviour
 
     private void HandleFleeingBehavior()
     {
-        if (!fleeState.IsFleeing)
-            InitiateFlee();
+        if (!playerTracking.IsPlayerAlive || playerTracking.PlayerTransform == null)
+        {
+            StopFleeing();
+            return;
+        }
+
+        float distanceToPlayer = Vector3.Distance(transform.position, playerTracking.PlayerPosition);
         
-        ExecuteFleeWithTimeout();
-        SetAnimationState(walking: true);
+        // Stop fleeing if: reached safe distance, fled too long, or health recovered
+        if (distanceToPlayer >= fleeDistance || 
+            fleeState.FleeTimer >= fleeDuration || 
+            !IsHealthLow())
+        {
+            StopFleeing();
+        }
+    }
+
+    private void StopFleeing()
+    {
+        fleeState.StopFleeing();
+        waypointNavigation.SetPatrolling(true);
+        combatState.SetCanAttack(true);
     }
 
     private void InitiateFlee()
@@ -288,8 +304,8 @@ public class RL_EnemyController : MonoBehaviour
         Vector3 fleeDirection = CalculateFleeDirection();
         fleeState.StartFleeing(fleeDirection);
         waypointNavigation.SetPatrolling(false);
+        combatState.SetCanAttack(false); // Disable attacking while fleeing
     }
-
     private Vector3 CalculateFleeDirection()
     {
         Vector3 playerDirection = (transform.position - playerTracking.PlayerPosition).normalized;
@@ -300,38 +316,6 @@ public class RL_EnemyController : MonoBehaviour
         fleeDirection.y = 0;
         return fleeDirection.normalized;
     }
-
-    private void ExecuteFleeWithTimeout()
-    {
-        if (playerTracking.IsPlayerAlive && playerTracking.PlayerTransform != null)
-        {
-            float distanceToPlayer = Vector3.Distance(transform.position, playerTracking.PlayerPosition);
-            
-            if (distanceToPlayer >= fleeDistance || fleeState.FleeTimer > 5f) // 5 second timeout
-            {
-                fleeState.StopFleeing();
-                waypointNavigation.SetPatrolling(true); // Resume patrol
-                return;
-            }
-        }
-        else
-        {
-            fleeState.StopFleeing();
-            waypointNavigation.SetPatrolling(true);
-            return;
-        }
-        
-        Vector3 fleeTarget = transform.position + fleeState.FleeDirection * fleeDistance;
-        Vector3 movementDirection = (fleeTarget - transform.position).normalized;
-        
-        movementDirection = ApplyObstacleAvoidance(movementDirection);
-        
-        Vector3 newPosition = transform.position + movementDirection * fleeSpeed * Time.deltaTime;
-        rigidBody.MovePosition(newPosition);
-        
-        RotateTowardsTarget(fleeTarget);
-    }
-
 
     public void TakeDamage(int damageAmount, Vector3 attackerPosition = default)
     {
@@ -404,26 +388,6 @@ public class RL_EnemyController : MonoBehaviour
     #endregion
 
     #region Movement
-    private void HandleMovementBehavior()
-    {
-        if (healthState.IsDead || knockbackState.IsKnockedBack) return;
-
-        if (fleeState.IsFleeing)
-        {
-            return;
-        }
-    }
-
-    private Vector3 ApplyObstacleAvoidance(Vector3 direction)
-    {
-        if (Physics.SphereCast(transform.position, 0.7f, direction, out var hit, 2f, obstacleMask))
-        {
-            var avoidanceDirection = Vector3.Cross(hit.normal, Vector3.up).normalized;
-            return (direction + avoidanceDirection * 0.7f).normalized;
-        }
-        return direction;
-    }
-
     private IEnumerator ExecuteKnockbackMovement(Vector3 direction)
     {
         float elapsed = 0f;
@@ -432,19 +396,7 @@ public class RL_EnemyController : MonoBehaviour
         {
             if (!knockbackState.IsKnockedBack) break;
             
-            float progress = elapsed / KNOCKBACK_DURATION;
-            float force = Mathf.Lerp(KNOCKBACK_FORCE, 0f, progress);
-            
-            Vector3 knockbackMovement = direction * force * Time.deltaTime;
-            Vector3 newPosition = transform.position + knockbackMovement;
-            
-            // Ensure we don't move through obstacles
-            if (!Physics.SphereCast(transform.position, 0.5f, knockbackMovement.normalized, 
-                out RaycastHit hit, knockbackMovement.magnitude, obstacleMask))
-            {
-                rigidBody.MovePosition(newPosition);
-            }
-            
+            // FIXED: Let physics handle knockback properly
             elapsed += Time.deltaTime;
             yield return null;
         }
@@ -454,7 +406,7 @@ public class RL_EnemyController : MonoBehaviour
     {
         var directionToTarget = (targetPosition - transform.position).normalized;
         var targetRotation = Quaternion.LookRotation(directionToTarget);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, agent.rotationSpeed * Time.deltaTime);
     }
     #endregion
 
@@ -511,7 +463,7 @@ public class RL_EnemyController : MonoBehaviour
         if (lootManager != null)
             lootManager.SpawnGearLoot(transform);
         else
-            Debug.LogWarning("SpawnLoot: lootManager reference is null", this);
+            return;
     }
     #endregion
 

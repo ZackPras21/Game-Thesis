@@ -10,15 +10,15 @@ public class NormalEnemyRewards : MonoBehaviour
 
     [Header("Major Rewards/Punishments (+0.5 to +1 / -0.5 to -1)")]
     public float DetectPlayerReward = +0.5f;
-    public float PatrolCompleteReward = +1f;
-    public float ChasePlayerReward = +0.5f;
+    public float PatrolCompleteReward = +0.5f;
+    public float ChasePlayerReward = +1f;
     public float AttackPlayerReward = +1f;
     public float HitByPlayerPunishment = -0.5f;
     public float ObstaclePunishment = -0.5f;
 
     [Header("Rewards/Punishments (+0.005 to +0.5 / -0.005 to -0.5)")]
     public float PatrolStepReward = +0.015f;
-    public float ChaseStepReward = +0.010f;
+    public float ChaseStepReward = +0.020f;
     public float IdlePunishment = -0.005f;
     public float NoMovementPunishment = -0.015f;
     public float ApproachPlayerReward = +0.01f;

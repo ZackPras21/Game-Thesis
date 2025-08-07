@@ -2,22 +2,58 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 25356,
-                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-25356.onnx",
-                "reward": 6.323956676891872,
-                "creation_time": 1754319634.0863025,
+                "steps": 8499840,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-8499840.onnx",
+                "reward": -25.717864172799246,
+                "creation_time": 1754522045.687228,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-25356.pt"
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-8499840.pt"
+                ]
+            },
+            {
+                "steps": 8999864,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-8999864.onnx",
+                "reward": 20.707736682891845,
+                "creation_time": 1754522818.084836,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-8999864.pt"
+                ]
+            },
+            {
+                "steps": 9499960,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-9499960.onnx",
+                "reward": 26.995022344589234,
+                "creation_time": 1754523597.6880107,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-9499960.pt"
+                ]
+            },
+            {
+                "steps": 9999840,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-9999840.onnx",
+                "reward": -71.03469378607613,
+                "creation_time": 1754524378.6546872,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-9999840.pt"
+                ]
+            },
+            {
+                "steps": 10000096,
+                "file_path": "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-10000096.onnx",
+                "reward": -71.03469378607613,
+                "creation_time": 1754524378.8090281,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-10000096.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 25356,
+            "steps": 10000096,
             "file_path": "results\\NormalEnemyRun1\\NormalEnemy.onnx",
-            "reward": 6.323956676891872,
-            "creation_time": 1754319634.0863025,
+            "reward": -71.03469378607613,
+            "creation_time": 1754524378.8090281,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-25356.pt"
+                "results\\NormalEnemyRun1\\NormalEnemy\\NormalEnemy-10000096.pt"
             ]
         }
     },
