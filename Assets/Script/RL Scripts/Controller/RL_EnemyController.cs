@@ -55,6 +55,7 @@ public class RL_EnemyController : MonoBehaviour
     private void Update()
     {
         if (!IsInitialized) return;
+        if (GetComponent<NormalEnemyAgent>()?.enabled == true) return;
 
         knockbackState.UpdateKnockback();
         fleeState.UpdateTimer();
@@ -75,7 +76,6 @@ public class RL_EnemyController : MonoBehaviour
         }
 
         UpdateAnimationStates();
-        if (GetComponent<NormalEnemyAgent>()?.enabled == true) return;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -116,6 +116,7 @@ public class RL_EnemyController : MonoBehaviour
     {
         statDisplay = GetComponent<EnemyStatDisplay>();
         rigidBody = GetComponent<Rigidbody>();
+        agent = GetComponent<NormalEnemyAgent>();
     }
 
     private void InitializeStates()

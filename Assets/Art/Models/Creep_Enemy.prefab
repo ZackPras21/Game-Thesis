@@ -275,7 +275,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   slider: {fileID: 957302136853637217}
   fill: {fileID: 5305560314064108225}
-  smoothing: 5
+  smoothSpeed: 6
 --- !u!1 &3682030217555669676
 GameObject:
   m_ObjectHideFlags: 0
@@ -900,7 +900,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 1
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 0.046442226, y: 0.06309753, z: 0.028171446}
   m_Center: {x: -0.04181965, y: 0.001421332, z: -0.013434078}
@@ -1478,10 +1478,6 @@ MonoBehaviour:
   boxCollider: {fileID: 2364513733960898035}
   startWaitTime: 4
   timeToRotate: 2
-  m_PlayerInRange: 0
-  m_PlayerNear: 0
-  m_IsPatrol: 0
-  m_IsAttacking: 0
   nonBossEnemyState: 3
   animator: {fileID: 1525368558665590809}
   lootManager: {fileID: 6967424327214272843}
@@ -1507,6 +1503,7 @@ MonoBehaviour:
   lootDataPrefab: {fileID: 8562824243544606926, guid: bc869285f04b6a04e963e6eb7d0b9e79, type: 3}
   lootGearPrefab: {fileID: 8562824243544606926, guid: eadaf3935cd3f0244a150efd54099c65, type: 3}
   lootHealthPrefab: {fileID: 0}
+  spawnGearLoot: 1
   spawnInterval: 3
 --- !u!54 &3895491713408048707
 Rigidbody:
@@ -1565,7 +1562,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 4443409237942974354}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 1.98
+  m_Radius: 0.5
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
@@ -1574,7 +1571,7 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 6.18
+  m_Height: 2
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4

@@ -217,7 +217,7 @@ public class NormalEnemyAgent : Agent
     private void InitializeComponents()
     {
         var raySensor = GetComponent<RayPerceptionSensorComponent3D>();
-        playerDetection = new PlayerDetection(raySensor, LayerMask.GetMask("Wall", "Environment", "Gate", "Box", "Enemy"));
+        playerDetection = new PlayerDetection(raySensor, LayerMask.GetMask("Wall", "Environment", "Enemy"));
     }
 
     private void InitializeSystems()
@@ -400,7 +400,7 @@ public class NormalEnemyAgent : Agent
         foreach (Vector3 dir in directions)
         {
             if (Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, out _, 1.0f, 
-                LayerMask.GetMask("Wall", "Obstacle", "Enemy")))
+                LayerMask.GetMask("Wall", "Obstacle", "Enemy", "Environment")))
             {
                 return true;
             }
@@ -510,7 +510,7 @@ public class NormalEnemyAgent : Agent
         {
             // No patrol points - apply basic RL movement
             movementController.ProcessMovement(forward, right, rotation);
-            currentAction = "Wandering";
+            currentAction = "Pathfinding";
         }
     }
 
@@ -717,7 +717,7 @@ public class NormalEnemyAgent : Agent
 
     void OnCollisionEnter(Collision collision)
     {
-        if (((1 << collision.gameObject.layer) & LayerMask.GetMask("Wall", "Obstacle")) != 0)
+        if (((1 << collision.gameObject.layer) & LayerMask.GetMask("Wall", "Obstacle", "Environment")) != 0)
         {
             rewardConfig.AddObstaclePunishment(this);
         }

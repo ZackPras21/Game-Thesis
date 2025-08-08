@@ -2,22 +2,40 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 42121,
-                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.onnx",
-                "reward": null,
-                "creation_time": 1754543465.4989927,
+                "steps": 499855,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499855.onnx",
+                "reward": 36.68624556064606,
+                "creation_time": 1754629667.2520401,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.pt"
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499855.pt"
+                ]
+            },
+            {
+                "steps": 999984,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-999984.onnx",
+                "reward": 41.36768706028278,
+                "creation_time": 1754630333.897846,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-999984.pt"
+                ]
+            },
+            {
+                "steps": 1329538,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.onnx",
+                "reward": 43.61457780996958,
+                "creation_time": 1754630833.9480543,
+                "auxillary_file_paths": [
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 42121,
+            "steps": 1329538,
             "file_path": "results\\NormalEnemyRunTest\\NormalEnemy.onnx",
-            "reward": null,
-            "creation_time": 1754543465.4989927,
+            "reward": 43.61457780996958,
+            "creation_time": 1754630833.9480543,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-42121.pt"
+                "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.pt"
             ]
         }
     },

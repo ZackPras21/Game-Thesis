@@ -165,8 +165,6 @@ public sealed class NormalEnemyActions
         private int patrolLoopsCompleted;
         private bool isIdlingAtSpawn;
         private float idleTimer;
-
-        private const float PATROL_WAYPOINT_TOLERANCE = 2f;
         private const float IDLE_DURATION_AT_SPAWN = 2f;
 
         public PatrolSystem(Transform[] patrolPoints)
