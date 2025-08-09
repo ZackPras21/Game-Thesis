@@ -827,7 +827,7 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 2112
+    m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1742,7 +1742,7 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 777653a14c196da418668f57ddaeccdb, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
   m_BehaviorName: NormalEnemy
@@ -1773,9 +1773,9 @@ MonoBehaviour:
   agentRigidbody: {fileID: 3895491713408048707}
   moveSpeed: 9
   rotationSpeed: 180
-  showDebugInfo: 0
+  showDebugInfo: 1
   debugTextOffset: {x: 10, y: 10}
-  debugTextColor: {r: 0.44658655, g: 0.032887116, b: 0.5622641, a: 1}
+  debugTextColor: {r: 0.78518534, g: 0, b: 1, a: 1}
   debugFontSize: 14
 --- !u!114 &8894129208516749644
 MonoBehaviour:

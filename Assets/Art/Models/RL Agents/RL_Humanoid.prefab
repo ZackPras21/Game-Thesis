@@ -123,7 +123,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.0038, y: 0.0014, z: 0.0101}
-  m_LocalScale: {x: 1.9253, y: 1.8530428, z: 1.1963558}
+  m_LocalScale: {x: 1.9253, y: 1.4773009, z: 1.1963558}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6033344054375008523}
@@ -138,7 +138,7 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 2112
+    m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1472,7 +1472,7 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 1
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 777653a14c196da418668f57ddaeccdb, type: 3}
+  m_Model: {fileID: 0}
   m_InferenceDevice: 0
   m_BehaviorType: 0
   m_BehaviorName: NormalEnemy
@@ -1503,9 +1503,9 @@ MonoBehaviour:
   agentRigidbody: {fileID: 8622400069896116343}
   moveSpeed: 7
   rotationSpeed: 120
-  showDebugInfo: 0
+  showDebugInfo: 1
   debugTextOffset: {x: 10, y: 120}
-  debugTextColor: {r: 0.6830188, g: 0.3282428, b: 0.0502598, a: 1}
+  debugTextColor: {r: 1, g: 0.46947142, b: 0.050943315, a: 1}
   debugFontSize: 14
 --- !u!114 &5817866243050837834
 MonoBehaviour:

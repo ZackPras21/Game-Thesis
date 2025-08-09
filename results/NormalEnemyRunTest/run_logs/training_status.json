@@ -2,46 +2,37 @@
     "NormalEnemy": {
         "checkpoints": [
             {
-                "steps": 499855,
-                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499855.onnx",
-                "reward": 36.68624556064606,
-                "creation_time": 1754629667.2520401,
+                "steps": 499799,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499799.onnx",
+                "reward": 37.16499483585358,
+                "creation_time": 1754744054.1827755,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499855.pt"
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-499799.pt"
                 ]
             },
             {
-                "steps": 999984,
-                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-999984.onnx",
-                "reward": 41.36768706028278,
-                "creation_time": 1754630333.897846,
+                "steps": 701965,
+                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-701965.onnx",
+                "reward": 27.84999442100525,
+                "creation_time": 1754744682.335818,
                 "auxillary_file_paths": [
-                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-999984.pt"
-                ]
-            },
-            {
-                "steps": 1329538,
-                "file_path": "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.onnx",
-                "reward": 43.61457780996958,
-                "creation_time": 1754630833.9480543,
-                "auxillary_file_paths": [
-                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.pt"
+                    "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-701965.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 1329538,
+            "steps": 701965,
             "file_path": "results\\NormalEnemyRunTest\\NormalEnemy.onnx",
-            "reward": 43.61457780996958,
-            "creation_time": 1754630833.9480543,
+            "reward": 27.84999442100525,
+            "creation_time": 1754744682.335818,
             "auxillary_file_paths": [
-                "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-1329538.pt"
+                "results\\NormalEnemyRunTest\\NormalEnemy\\NormalEnemy-701965.pt"
             ]
         }
     },
     "metadata": {
         "stats_format_version": "0.3.0",
         "mlagents_version": "1.1.0",
-        "torch_version": "2.7.0+cpu"
+        "torch_version": "2.2.2+cpu"
     }
 }

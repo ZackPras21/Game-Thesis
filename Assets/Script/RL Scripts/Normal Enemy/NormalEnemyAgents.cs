@@ -43,7 +43,6 @@ public class NormalEnemyAgent : Agent
     private const float VELOCITY_NORMALIZATION_FACTOR = 10f;
     private const float STUCK_THRESHOLD = 0.1f;
     private const float STUCK_TIME_LIMIT = 2f;
-    private const float ATTACK_RANGE = 2.5f;
     
     private Vector3 initialPosition;
     private string currentState = "Idle";
@@ -233,14 +232,6 @@ public class NormalEnemyAgent : Agent
 
     private void DisableConflictingComponents()
     {
-        // Disable NavMeshAgent if present to prevent conflicts
-        var navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-        if (navAgent != null)
-        {
-            navAgent.enabled = false;
-        }
-        
-        // Disable other movement scripts that might conflict
         var otherMovement = GetComponent<MonoBehaviour>();
         if (otherMovement != null && otherMovement != this && otherMovement.GetType().Name.Contains("Movement"))
         {
@@ -413,30 +404,30 @@ public class NormalEnemyAgent : Agent
         currentState = "Chasing";
         currentAction = "Chasing";
 
+        // Face the player
         Vector3 playerPos = playerDetection.GetPlayerPosition();
-        float distanceToPlayer = Vector3.Distance(transform.position, playerPos);
-        bool playerInRange = distanceToPlayer <= ATTACK_RANGE;
+        movementController.FaceTarget(playerPos);
+
+        // Check if player is in attack range
+        bool playerInRange = IsPlayerInAttackRange();
         
-        if (playerInRange && CanAttack())
+        if (playerInRange)
         {
-            // Stop and attack
             movementController.FaceTarget(playerPos);
-            if (shouldAttack)
-            {
-                ExecuteAttack();
-            }
+            ProcessAttackAction(shouldAttack);
         }
         else
         {
-            // Move towards player with RL-guided movement
+            // Move towards player using RL actions
             Vector3 directionToPlayer = (playerPos - transform.position).normalized;
             Vector3 localDirection = transform.InverseTransformDirection(directionToPlayer);
             
-            // Smart blending: use RL actions but bias towards player
+            // Blend RL actions with chase behavior
             float chaseForward = Mathf.Max(forward, localDirection.z * 0.8f);
-            float chaseRight = right + localDirection.x * 0.5f;
+            float chaseRight = right + localDirection.x * 0.3f;
+            float rotationInput = playerInRange || rl_EnemyController.combatState.IsAttacking ? 0f : rotation;
             
-            movementController.ProcessMovement(chaseForward, chaseRight, rotation);
+            movementController.ProcessMovement(chaseForward, chaseRight, rotationInput);
             rewardConfig.AddApproachPlayerReward(this, Time.deltaTime);
         }
     }
@@ -486,11 +477,6 @@ public class NormalEnemyAgent : Agent
         }
     }
 
-    private bool CanAttack()
-    {
-        return Time.fixedTime - lastAttackTime >= 2f && !rl_EnemyController.combatState.IsAttacking;
-    }
-
     private void ExecuteAttack()
     {
         lastAttackTime = Time.fixedTime;
@@ -498,6 +484,21 @@ public class NormalEnemyAgent : Agent
         rl_EnemyController.AgentAttack();
         currentState = "Attacking";
         currentAction = "Attacking";
+    }
+
+    private void ProcessAttackAction(bool shouldAttack)
+    {
+        bool canAttack = Time.fixedTime - lastAttackTime >= 2f;
+        bool shouldAttackAnim = canAttack && rl_EnemyController.combatState.IsAttacking;
+
+        if (shouldAttack && canAttack)
+        {
+            ExecuteAttack();
+        }
+        else if (shouldAttackAnim && !animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
+        {
+            animator.Play("Attack", 0, 0f);
+        }
     }
 
     private void UpdateMovementAnimation()
@@ -532,6 +533,7 @@ public class NormalEnemyAgent : Agent
         
         lastPosition = transform.position;
     }
+    
     #endregion
 
     #region Reward & Behavior Updates
@@ -626,7 +628,9 @@ public class NormalEnemyAgent : Agent
     private bool IsAgentKnockedBack() => rl_EnemyController.IsKnockedBack();
     private bool IsAgentFleeing() => rl_EnemyController.IsFleeing();
     private bool ShouldAgentFlee() => rl_EnemyController.IsHealthLow() && playerDetection.IsPlayerAvailable();
-
+    private bool IsPlayerInAttackRange() =>
+        playerDetection.IsPlayerAvailable() &&
+        Vector3.Distance(transform.position, playerDetection.GetPlayerPosition()) <= rl_EnemyController.attackRange;
     public void SetPatrolPoints(Transform[] points) => patrolSystem?.SetPatrolPoints(points);
 
     void OnGUI()
@@ -656,11 +660,11 @@ public class RLMovementController
 
     public RLMovementController(Rigidbody rigidbody, Transform transform, float moveSpeed, float rotationSpeed)
     {
-        this.agentRigidbody = rigidbody;
-        this.agentTransform = transform;
+        agentRigidbody = rigidbody;
+        agentTransform = transform;
         this.moveSpeed = moveSpeed;
         this.rotationSpeed = rotationSpeed;
-        this.maxVelocity = moveSpeed * 1.5f;
+        maxVelocity = moveSpeed;
     }
 
     public void Reset()
@@ -709,7 +713,7 @@ public class RLMovementController
             agentTransform.rotation = Quaternion.Slerp(
                 agentTransform.rotation,
                 targetRotation,
-                rotationSpeed * Time.fixedDeltaTime * 0.02f
+                rotationSpeed * Time.fixedDeltaTime * 0.1f
             );
         }
     }
@@ -737,7 +741,7 @@ public class DebugDisplay
             normal = { textColor = textColor }
         };
 
-        string debugText = $"{agentName}:\nState: {currentState}\nAction: {currentAction}\nSteps: {episodeSteps}\nReward: {cumulativeReward:F3}\nLoops: {patrolLoops}";
+        string debugText = $"{agentName}:\nState: {currentState}\nAction: {currentAction}\nSteps: {episodeSteps}\nCumulative Reward: {cumulativeReward:F3}\nPatrol Loops: {patrolLoops}";
         GUI.Label(new Rect(offset.x, offset.y, 300, 150), debugText, labelStyle);
     }
 }
